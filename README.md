@@ -40,11 +40,13 @@ A interface foi estruturada para refletir diretamente as regras de negócio e en
 
 O Frontend funciona de forma desacoplada seguindo o modelo Cliente-Servidor:
 
+```
 ┌─────────────────────────┐               ┌───────────────────────────┐
 │     NEXT.JS CLIENT      │   HTTP REST   │      SPRING BOOT API      │
 │  (React + Tailwind)     │ ◄───────────► │  (Controllers -> Services)│
 │  Rotas na pasta /app    │     JSON      │  Base de Dados: MySQL     │
 └─────────────────────────┘               └───────────────────────────┘
+```
 
 ---
 
