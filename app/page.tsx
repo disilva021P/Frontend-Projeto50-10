@@ -18,7 +18,7 @@ export default function LoginPage() {
       const tokenStr = typeof token === 'object' ? token.token : token;
       localStorage.setItem('token', tokenStr);
       localStorage.setItem('user', JSON.stringify({ nome, tipoUtilizadorId: tipoId }));
-      router.push('/index');
+      router.push('/landingPage');
     } catch (error: any) {
       console.error('Erro detalhado:', error.response?.data || error.message);
       alert('Falha ao entrar. Verifique os dados.');
@@ -28,70 +28,124 @@ export default function LoginPage() {
   return (
     <main className="flex min-h-screen">
 
-      {/* ── Painel esquerdo ── */}
-      <div className="hidden md:flex md:w-[44%] lg:w-[40%] flex-col items-center justify-center relative overflow-hidden"
-        style={{ background: 'var(--panel-dark)' }}>
+      {/* ═══════════════════════════════════════
+          PAINEL ESQUERDO — Vídeo (60%)
+          ═══════════════════════════════════════ */}
+      <div className="hidden md:block md:w-[60%] relative overflow-hidden">
 
-        {/* Círculos decorativos */}
-        <div className="absolute -top-16 -left-16 w-64 h-64 rounded-full"
-          style={{ border: '1px solid rgba(212,178,136,0.12)' }} />
-        <div className="absolute -bottom-12 -right-12 w-48 h-48 rounded-full"
-          style={{ border: '1px solid rgba(212,178,136,0.08)' }} />
-        <div className="absolute top-1/3 -right-8 w-32 h-32 rounded-full"
-          style={{ border: '1px solid rgba(212,178,136,0.06)' }} />
+        {/* Vídeo de fundo */}
+        <video
+          autoPlay
+          muted
+          loop
+          playsInline
+          className="absolute inset-0 w-full h-full object-cover"
+        >
+          <source src="/videos/entartes-bg.mp4" type="video/mp4" />
+        </video>
 
-        <div className="relative z-10 flex flex-col items-center text-center px-10">
-          <span className="text-3xl tracking-[6px] mb-2"
-            style={{ fontFamily: 'var(--font-playfair)', color: 'var(--accent-gold)', fontWeight: 400 }}>
-            entartes
-          </span>
-          <span className="text-[10px] tracking-[4px] uppercase mb-10"
-            style={{ color: 'rgba(212,178,136,0.4)', fontWeight: 300 }}>
-            Escola de Dança
-          </span>
-          <div className="w-8 mb-10" style={{ height: '1px', background: 'rgba(212,178,136,0.2)' }} />
-          <p className="text-[15px] leading-relaxed max-w-[210px]"
-            style={{ fontFamily: 'var(--font-playfair)', fontStyle: 'italic', color: 'rgba(212,178,136,0.5)' }}>
-            "A dança é a linguagem oculta da alma."
-          </p>
-          <p className="mt-3 text-[11px] tracking-wider"
-            style={{ color: 'rgba(212,178,136,0.3)', fontWeight: 300 }}>
-            — Martha Graham
-          </p>
+        {/* Overlay escuro geral */}
+        <div
+          className="absolute inset-0"
+          style={{ background: 'rgba(15, 8, 2, 0.45)' }}
+        />
+
+        {/* ── Fade para o painel bege */}
+        <div
+  className="absolute inset-0"
+  style={{
+    background: 'linear-gradient(to left, #F2EDE4 0%, rgba(242,237,228,0.55) 18%, rgba(242,237,228,0.0) 42%)',
+  }}
+/>
+
+        {/* Conteúdo sobre o vídeo */}
+        <div className="relative z-10 flex flex-col justify-between h-full p-10">
+
+          {/* Logo — topo esquerdo */}
+          <div>
+            <span
+              className="block text-[22px] tracking-[5px]"
+              style={{ fontFamily: 'var(--font-playfair)', color: 'var(--accent-gold)', fontWeight: 400 }}
+            >
+              entartes
+            </span>
+            <span
+              className="block text-[9px] tracking-[4px] uppercase mt-1"
+              style={{ color: 'rgba(212,178,136,0.8)', fontWeight: 300 }}
+            >
+              Escola de Dança
+            </span>
+          </div>
+
+          {/* Lema — canto inferior esquerdo */}
+          <div className="max-w-[370px]">
+            <div
+              className="mb-3"
+              style={{ width: '24px', height: '1px', background: 'rgba(212,178,136,0.30)' }}
+            />
+            <p
+              className="text-[16px] leading-[1.75] mb-2"
+              style={{
+                fontFamily: 'var(--font-playfair)',
+                fontStyle: 'italic',
+                color: 'rgba(212,178,136,0.72)',
+              }}
+            >
+              "A arte começa onde o movimento encontra a emoção."
+            </p>
+          </div>
+
         </div>
       </div>
 
-      {/* ── Painel direito (formulário) ── */}
-      <div className="flex flex-1 flex-col items-center justify-center px-8 md:px-16 lg:px-24"
-        style={{ background: 'var(--background)' }}>
+      {/* ═══════════════════════════════════════
+          PAINEL DIREITO — Formulário (40%)
+          ═══════════════════════════════════════ */}
+      <div
+        className="flex flex-1 flex-col items-center justify-center px-8 md:px-10 lg:px-14"
+        style={{ background: 'var(--background)' }}
+      >
 
-        {/* Logo mobile only */}
+        {/* Logo visível só em mobile */}
         <div className="md:hidden mb-10 text-center">
-          <span className="text-2xl tracking-[5px]"
-            style={{ fontFamily: 'var(--font-playfair)', color: 'var(--panel-dark)', fontWeight: 400 }}>
+          <span
+            className="text-2xl tracking-[5px]"
+            style={{ fontFamily: 'var(--font-playfair)', color: 'var(--panel-dark)', fontWeight: 400 }}
+          >
             entartes
           </span>
-          <p className="text-[10px] tracking-[3px] uppercase mt-1"
-            style={{ color: 'var(--accent-muted)', fontWeight: 300 }}>
+          <p
+            className="text-[10px] tracking-[3px] uppercase mt-1"
+            style={{ color: 'var(--accent-muted)', fontWeight: 300 }}
+          >
             Escola de Dança
           </p>
         </div>
 
-        <div className="w-full max-w-[400px]">
-          <p className="text-[10px] tracking-[3.5px] uppercase mb-2"
-            style={{ color: 'var(--accent-muted)', fontWeight: 300 }}>
-            Bem-vindo de volta
+        <div className="w-full max-w-[360px]">
+
+          <p
+            className="text-[9px] tracking-[3.5px] uppercase mb-2"
+            style={{ color: 'var(--accent-muted)', fontWeight: 300 }}
+          >
+            Bem-vindo
           </p>
-          <h1 className="text-[30px] leading-tight mb-10"
-            style={{ fontFamily: 'var(--font-playfair)', color: 'var(--foreground)', fontWeight: 400 }}>
+          <h1
+            className="text-[28px] leading-tight mb-10"
+            style={{ fontFamily: 'var(--font-playfair)', color: 'var(--foreground)', fontWeight: 400 }}
+          >
             Entre na<br />sua conta
           </h1>
 
           <form onSubmit={handleLogin} className="space-y-6">
+
+            {/* Email */}
             <div>
-              <label htmlFor="email"
-                className="block text-[10px] tracking-[2.5px] uppercase mb-2"
-                style={{ color: 'var(--accent-muted)', fontWeight: 400 }}>
+              <label
+                htmlFor="email"
+                className="block text-[9px] tracking-[2.5px] uppercase mb-2"
+                style={{ color: 'var(--accent-muted)', fontWeight: 400 }}
+              >
                 Email
               </label>
               <input
@@ -102,16 +156,24 @@ export default function LoginPage() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 className="w-full bg-transparent border-0 border-b pb-2 text-sm outline-none transition-colors duration-200"
-                style={{ borderBottomColor: 'var(--border-warm)', color: 'var(--foreground)', fontFamily: 'var(--font-lato)', fontWeight: 300 }}
+                style={{
+                  borderBottomColor: 'var(--border-warm)',
+                  color: 'var(--foreground)',
+                  fontFamily: 'var(--font-lato)',
+                  fontWeight: 300,
+                }}
                 onFocus={e => (e.target.style.borderBottomColor = 'var(--foreground)')}
                 onBlur={e => (e.target.style.borderBottomColor = 'var(--border-warm)')}
               />
             </div>
 
+            {/* Senha */}
             <div>
-              <label htmlFor="password"
-                className="block text-[10px] tracking-[2.5px] uppercase mb-2"
-                style={{ color: 'var(--accent-muted)', fontWeight: 400 }}>
+              <label
+                htmlFor="password"
+                className="block text-[9px] tracking-[2.5px] uppercase mb-2"
+                style={{ color: 'var(--accent-muted)', fontWeight: 400 }}
+              >
                 Senha
               </label>
               <input
@@ -122,31 +184,50 @@ export default function LoginPage() {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 className="w-full bg-transparent border-0 border-b pb-2 text-sm outline-none transition-colors duration-200"
-                style={{ borderBottomColor: 'var(--border-warm)', color: 'var(--foreground)', fontFamily: 'var(--font-lato)', fontWeight: 300 }}
+                style={{
+                  borderBottomColor: 'var(--border-warm)',
+                  color: 'var(--foreground)',
+                  fontFamily: 'var(--font-lato)',
+                  fontWeight: 300,
+                }}
                 onFocus={e => (e.target.style.borderBottomColor = 'var(--foreground)')}
                 onBlur={e => (e.target.style.borderBottomColor = 'var(--border-warm)')}
               />
             </div>
 
+            {/* Esqueceu a senha */}
             <div className="text-right -mt-2">
-              <button type="button"
+              <button
+                type="button"
                 className="text-[11px] bg-transparent border-none cursor-pointer transition-colors duration-200"
                 style={{ color: 'var(--accent-muted)', fontWeight: 300 }}
                 onMouseEnter={e => ((e.target as HTMLElement).style.color = 'var(--foreground)')}
-                onMouseLeave={e => ((e.target as HTMLElement).style.color = 'var(--accent-muted)')}>
+                onMouseLeave={e => ((e.target as HTMLElement).style.color = 'var(--accent-muted)')}
+              >
                 Esqueceu a senha?
               </button>
             </div>
 
+            {/* Botão entrar */}
             <button
               type="submit"
-              className="w-full py-4 text-[11px] tracking-[3.5px] uppercase transition-colors duration-200 cursor-pointer"
-              style={{ background: 'var(--panel-dark)', color: 'var(--accent-gold)', border: 'none', borderRadius: '2px', fontFamily: 'var(--font-lato)', fontWeight: 400 }}
+              className="w-full py-4 text-[10px] tracking-[3.5px] uppercase transition-colors duration-200 cursor-pointer"
+              style={{
+                background: 'var(--panel-dark)',
+                color: 'var(--accent-gold)',
+                border: 'none',
+                borderRadius: '2px',
+                fontFamily: 'var(--font-lato)',
+                fontWeight: 400,
+              }}
               onMouseEnter={e => ((e.target as HTMLElement).style.background = '#3D2A1A')}
-              onMouseLeave={e => ((e.target as HTMLElement).style.background = 'var(--panel-dark)')}>
+              onMouseLeave={e => ((e.target as HTMLElement).style.background = 'var(--panel-dark)')}
+            >
               Entrar
             </button>
+
           </form>
+
         </div>
       </div>
     </main>
