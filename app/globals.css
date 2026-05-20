@@ -1,26 +1,34 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  color-scheme: light;
+
+  /* As tuas variáveis personalizadas */
+  --background: #F2EDE4;
+  --foreground: #2C1F14;
+  --accent-gold: #D4B288;
+  --accent-muted: #A08560;
+  --panel-dark: #2C1F14;
+  --border-warm: #C9B99A;
 }
 
-@theme inline {
+@theme {
+  /* Configuração correta de variáveis no Tailwind v4 */
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --color-panel-dark: var(--panel-dark);
+  --color-accent-gold: var(--accent-gold);
+  --color-accent-muted: var(--accent-muted);
+  --color-border-warm: var(--border-warm);
+
+  /* Mapeamento das fontes */
+  --font-sans: var(--font-lato), sans-serif;
+  --font-serif: var(--font-playfair), serif;
+  --font-mono: var(--font-geist-mono), monospace;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
-}
-
-body {
-  background: var(--background);
+/* Estilos Globais */
+html, body {
+  background-color: var(--background) !important;
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
 }
