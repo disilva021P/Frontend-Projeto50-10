@@ -290,13 +290,13 @@ export default function MarketplacePage() {
   const carregarArtigos = async (pagina: number) => {
     setLoading(true);
     try {
-      const params: any = {
-        page: pagina,
+      const params: any = { 
+        page: pagina, 
         size: 12,
-        sortBy: "criadoEm",
-        direction: "desc",
+        sortBy: 'criadoEm',
+        direction: 'desc'
       };
-
+      
       if (pesquisa) params.nome = pesquisa;
       if (filtroTipo !== null) params.tipoId = filtroTipo;
       if (filtroTamanho) params.tamanho = filtroTamanho;
@@ -305,32 +305,37 @@ export default function MarketplacePage() {
       if (precoMin) params.min = precoMin;
       if (precoMax) params.max = precoMax;
 
+      // SE O FILTRO "APENAS MEUS" ESTIVER ATIVO
       if (apenasMeus) {
-        let meuId = usuarioLogado?.id;
-        
-        if (!meuId) {
-            const rawUser = localStorage.getItem("user");
-            if (rawUser) {
-            const parsed = JSON.parse(rawUser);
-            meuId = parsed.id || parsed.sub;
-            }
+        // Vamos buscar o ID diretamente do Token guardado, sem falhas:
+        const token = localStorage.getItem("token");
+        let meuIdReal = usuarioLogado?.id;
+
+        if (!meuIdReal && token) {
+          try {
+            const base64Url = token.split('.')[1];
+            const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+            const payload = JSON.parse(window.atob(base64));
+            meuIdReal = payload.sub; 
+          } catch (e) {
+            console.error("Erro ao extrair ID para o filtro:", e);
+          }
         }
 
-        if (meuId) {
-            params.donoId = meuId; 
+        if (meuIdReal) {
+          params.donoId = meuIdReal;
         } else {
-            console.error("Não foi possível filtrar: ID do utilizador não encontrado.");
+          console.error("Não foi possível filtrar: ID do utilizador não encontrado no Token.");
         }
-        }
+      }
 
-      const response = await api.get<PaginaResponse>("/marketplace", {
-        params,
-      });
+      const response = await api.get<PaginaResponse>('/marketplace', { params });
+      
       setArtigos(response.data.content);
       setTotalPaginas(response.data.totalPages);
       setPaginaAtual(response.data.number);
     } catch (error) {
-      console.error("Erro ao carregar:", error);
+      console.error('Erro ao carregar:', error);
     } finally {
       setLoading(false);
     }
@@ -972,79 +977,77 @@ export default function MarketplacePage() {
         </aside>
 
         {/* ── CONTEÚDO DA PÁGINA (MARKETPLACE) ── */}
-        <main className="flex-1 overflow-y-auto p-[28px_28px_40px]">
-          <header className="mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-            <div>
-              <p className="text-[10px] tracking-[3px] uppercase text-accent-muted font-light mb-1">
-                Comunidade
-              </p>
-              <h1
-                style={{ fontFamily: "var(--font-playfair)" }}
-                className="text-2xl font-normal text-panel-dark"
-              >
-                Marketplace
-              </h1>
-            </div>
-
-            <div className="flex items-center gap-3 self-end sm:self-auto">
-              <button
-                onClick={() => setApenasMeus(!apenasMeus)}
-                className="px-4 py-2 border rounded-sm text-xs font-normal tracking-wide transition-all bg-[#FFFCF8]"
-                style={{
-                  borderColor: apenasMeus
-                    ? "var(--panel-dark)"
-                    : "var(--border-warm)",
-                  color: apenasMeus
-                    ? "var(--panel-dark)"
-                    : "var(--accent-muted)",
-                }}
-              >
-                {apenasMeus
-                  ? "• A ver os meus anúncios"
-                  : "Ver os meus anúncios"}
-              </button>
-
-              {apenasMeus && (
-                <button
-                  onClick={() => setMostrarAlugueres(!mostrarAlugueres)}
-                  className="px-4 py-2 border rounded-sm text-xs font-normal tracking-wide transition-all bg-[#FFFCF8]"
-                  style={{
-                    borderColor: mostrarAlugueres
-                      ? "var(--panel-dark)"
-                      : "var(--border-warm)",
-                    color: "var(--panel-dark)",
-                  }}
+          <main className="flex-1 overflow-y-auto p-[28px_28px_40px]">
+            <header className="mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+              <div>
+                <p className="text-[10px] tracking-[3px] uppercase text-accent-muted font-light mb-1">
+                  Comunidade
+                </p>
+                <h1
+                  style={{ fontFamily: "var(--font-playfair)" }}
+                  className="text-2xl font-normal text-panel-dark"
                 >
-                  <i className="ti ti-package mr-1" /> Recompras/Alugueres (
-                  {alugueresAtivos.length})
-                </button>
-              )}
+                  Marketplace
+                </h1>
+              </div>
 
-              <button
-                onClick={() => {
-                  setIdSendoEditado(null);
-                  setForm({
-                    nome: "",
-                    descricao: "",
-                    tamanho: "",
-                    cor: "",
-                    condicao: "Novo",
-                    isVenda: false,
-                    isAluguer: false,
-                    isDoacao: false,
-                    precoVenda: "",
-                    precoAluguer: "",
-                  });
-                  setImagens([]);
-                  setPreviews([]);
-                  setModalAberto(true);
-                }}
-                className="px-4 py-2 bg-panel-dark hover:bg-panel-dark/90 text-accent-gold rounded-sm text-xs tracking-wider uppercase font-normal transition-all"
-              >
-                + Criar anúncio
-              </button>
-            </div>
-          </header>
+              <div className="flex items-center gap-3 self-end sm:self-auto">
+                
+                {/* 1. Botão Recompras/Alugueres (Agora à Esquerda e com Cor Ativa Forte) */}
+                {apenasMeus && (
+                  <button
+                    onClick={() => setMostrarAlugueres(!mostrarAlugueres)}
+                    className={`px-4 py-2 border rounded-sm text-xs tracking-wide transition-all uppercase ${
+                      mostrarAlugueres
+                        ? "bg-panel-dark text-accent-gold border-panel-dark font-medium shadow-sm"
+                        : "bg-[#FFFCF8] text-panel-dark border-border-warm hover:border-accent-muted"
+                    }`}
+                  >
+                    <i className="ti ti-package mr-1" /> Recompras/Alugueres ({alugueresAtivos.length})
+                  </button>
+                )}
+
+                {/* 2. Botão Ver os meus anúncios (Agora à Direita e com Cor Ativa Forte) */}
+                <button
+                  onClick={() => {
+                    setApenasMeus(!apenasMeus);
+                    if (mostrarAlugueres) setMostrarAlugueres(false); // Desativa alugueres se desligar os meus anúncios
+                  }}
+                  className={`px-4 py-2 border rounded-sm text-xs tracking-wide transition-all uppercase ${
+                    apenasMeus && !mostrarAlugueres
+                      ? "bg-panel-dark text-accent-gold border-panel-dark font-medium shadow-sm"
+                      : "bg-[#FFFCF8] text-accent-muted border-border-warm hover:border-accent-muted"
+                  }`}
+                >
+                  {apenasMeus ? "• Ver todos os artigos" : "Ver os meus anúncios"}
+                </button>
+
+                {/* 3. Botão Criar Anúncio */}
+                <button
+                  onClick={() => {
+                    setIdSendoEditado(null);
+                    setForm({
+                      nome: "",
+                      descricao: "",
+                      tamanho: "",
+                      cor: "",
+                      condicao: "Novo",
+                      isVenda: false,
+                      isAluguer: false,
+                      isDoacao: false,
+                      precoVenda: "",
+                      precoAluguer: "",
+                    });
+                    setImagens([]);
+                    setPreviews([]);
+                    setModalAberto(true);
+                  }}
+                  className="px-4 py-2 bg-panel-dark hover:bg-panel-dark/90 text-accent-gold rounded-sm text-xs tracking-wider uppercase font-normal transition-all"
+                >
+                  + Criar anúncio
+                </button>
+              </div>
+            </header>
 
           {/* PESQUISA */}
           <div className="relative mb-5">
