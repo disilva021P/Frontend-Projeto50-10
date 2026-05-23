@@ -292,7 +292,7 @@ export default function MarketplacePage() {
     try {
       const params: any = { 
         page: pagina, 
-        size: 12,
+        size: 8,
         sortBy: 'criadoEm',
         direction: 'desc'
       };
@@ -1227,7 +1227,8 @@ export default function MarketplacePage() {
                   onClick={() => setArtigoSelecionado(artigo)}
                   className="bg-[#FFFCF8] rounded-sm border border-border-warm overflow-hidden flex flex-col hover:border-accent-muted hover:shadow-xs transition-all duration-200 group cursor-pointer"
                 >
-                  <div className="w-full h-80 bg-[#FBF7F2] overflow-hidden relative border-b border-border-warm/30">
+                  {/* Imagem — ratio vertical 3:4 */}
+                  <div className="w-full bg-[#FBF7F2] overflow-hidden relative" style={{ aspectRatio: "3/4" }}>
                     {artigo.imagemId ? (
                       <img
                         src={`http://localhost:8080/api/marketplace/imagem/${artigo.imagemId}`}
@@ -1239,72 +1240,39 @@ export default function MarketplacePage() {
                         <i className="ti ti-photo" /> Sem foto
                       </div>
                     )}
-                    <span className="absolute top-2 left-2 text-[9px] bg-[#FFFCF8]/90 backdrop-blur-xs px-2 py-0.5 rounded-xs font-normal border border-border-warm text-panel-dark tracking-wide uppercase">
-                      {artigo.condicao}
-                    </span>
                   </div>
 
-                  <div className="p-3.5 flex flex-col flex-1">
-                    <h3
-                      style={{ fontFamily: "var(--font-playfair)" }}
-                      className="text-sm text-panel-dark font-normal group-hover:text-accent-muted transition-colors truncate"
-                    >
-                      {artigo.nome}
-                    </h3>
-                    <p className="text-[10px] text-accent-muted mt-0.5 flex items-center gap-1 font-light">
-                      <span>{artigo.cor || "Cor N/D"}</span>
-                      <span>·</span>
-                      <span>Tam: {artigo.tamanho || "N/D"}</span>
-                    </p>
-
-                    <div className="mt-4 border-t border-border-warm/40 pt-3 space-y-1 mt-auto">
-                      {artigo.isVenda && (
-                        <div className="flex justify-between items-center text-xs">
-                          <span className="text-[9px] text-accent-muted uppercase font-light tracking-wider">
-                            Compra
-                          </span>
-                          <span className="text-panel-dark font-normal">
+                  {/* Informação essencial artigos*/}
+                  <div className="px-3 py-3 flex flex-col gap-1.5">
+                    <div className="flex items-baseline justify-between gap-2">
+                      <h3
+                        style={{ fontFamily: "var(--font-playfair)" }}
+                        className="text-base text-panel-dark font-normal leading-snug flex-1 min-w-0"
+                      >
+                        {artigo.nome.length > 27 ? artigo.nome.slice(0, 27) + "…" : artigo.nome}
+                      </h3>
+                      <span style={{ whiteSpace: "nowrap", flexShrink: 0, display: "flex", alignItems: "baseline", gap: "4px" }}>
+                        {artigo.isVenda && artigo.precoVenda !== null && (
+                          <span style={{ fontFamily: "var(--font-playfair)", fontSize: "16px", color: "var(--panel-dark)", fontWeight: 400 }}>
                             {artigo.precoVenda}€
                           </span>
-                        </div>
-                      )}
-                      {artigo.isAluguer && (
-                        <div className="flex justify-between items-center text-xs">
-                          <span className="text-[9px] text-accent-muted uppercase font-light tracking-wider">
-                            Aluguer
-                          </span>
-                          <span className="text-panel-dark font-normal">
-                            {artigo.precoAluguer}€
-                            <span className="text-[9px] font-light text-accent-muted">
-                              /dia
-                            </span>
-                          </span>
-                        </div>
-                      )}
-                      {artigo.isDoacao &&
-                        !artigo.isVenda &&
-                        !artigo.isAluguer && (
-                          <div className="flex justify-between items-center text-xs">
-                            <span className="text-[9px] text-accent-muted uppercase font-light tracking-wider">
-                              Solidário
-                            </span>
-                            <span className="text-[10px] text-accent-muted bg-[#FBF7F2] px-1.5 py-0.5 rounded-xs border border-border-warm/50 font-normal">
-                              Doação
-                            </span>
-                          </div>
                         )}
-
-                      <div className="flex justify-between items-center pt-2 text-[10px]">
-                        <span className="text-accent-muted truncate max-w-[120px] font-light">
-                          👤 {artigo.donoNome?.split(" ")[0]}
-                        </span>
-                        {artigo.estadoUnidadeNome && (
-                          <span className="text-[9px] text-accent-muted italic font-light">
-                            {artigo.estadoUnidadeNome}
+                        {artigo.isVenda && artigo.isAluguer && artigo.precoAluguer !== null && (
+                          <span style={{ fontSize: "12px", color: "var(--accent-muted)", fontWeight: 300 }}>/</span>
+                        )}
+                        {artigo.isAluguer && artigo.precoAluguer !== null && (
+                          <span style={{ fontFamily: "var(--font-playfair)", fontSize: "15px", color: "#7A5FA0", fontWeight: 400 }}>
+                            {artigo.precoAluguer}€<span style={{ fontSize: "11px", color: "var(--accent-muted)", fontWeight: 300 }}> dia</span>
                           </span>
                         )}
-                      </div>
+                        {!artigo.isVenda && !artigo.isAluguer && artigo.isDoacao && (
+                          <span style={{ fontSize: "14px", color: "#3A6A3A", fontWeight: 400 }}>Grátis</span>
+                        )}
+                      </span>
                     </div>
+                    <p className="text-xs text-accent-muted font-light">
+                      {[artigo.tamanho, artigo.condicao].filter(Boolean).join(" · ") || "—"}
+                    </p>
                   </div>
                 </div>
               ))}
@@ -1413,26 +1381,39 @@ export default function MarketplacePage() {
               </div>
 
               <div>
-                <label className="text-[9px] uppercase font-normal tracking-wider text-accent-muted block mb-0.5">
-                  Título do Anúncio
-                </label>
+                <div className="flex justify-between items-center mb-0.5">
+                  <label className="text-[9px] uppercase font-normal tracking-wider text-accent-muted">
+                    Título do Anúncio
+                  </label>
+                  <span className={`text-[9px] font-light ${form.nome.length >= 50 ? "text-red-400" : "text-accent-muted"}`}>
+                    {form.nome.length}/50
+                  </span>
+                </div>
                 <input
                   name="nome"
                   value={form.nome}
                   placeholder="Ex: Sapatilhas de Pontas"
                   onChange={handleChange}
+                  maxLength={50}
                   className="w-full bg-[#FFFCF8] border border-border-warm p-2 rounded-sm outline-none focus:border-panel-dark text-panel-dark text-xs transition-all"
                 />
               </div>
               <div>
-                <label className="text-[9px] uppercase font-normal tracking-wider text-accent-muted block mb-0.5">
-                  Descrição
-                </label>
+                <div className="flex justify-between items-center mb-0.5">
+                  <label className="text-[9px] uppercase font-normal tracking-wider text-accent-muted">
+                    Descrição
+                  </label>
+                  {/* Contador de caracteres até 100 */}
+                  <span className={`text-[9px] font-light ${(form.descricao?.length || 0) >= 100 ? "text-red-400" : "text-accent-muted"}`}>
+                    {form.descricao?.length || 0}/100
+                  </span>
+                </div>
                 <textarea
                   name="descricao"
                   value={form.descricao}
                   placeholder="Detalhes sobre o estado..."
                   onChange={handleChange}
+                  maxLength={100}
                   className="w-full bg-[#FFFCF8] border border-border-warm p-2 rounded-sm outline-none h-20 focus:border-panel-dark text-panel-dark text-xs transition-all resize-none"
                 />
               </div>
@@ -1599,7 +1580,7 @@ export default function MarketplacePage() {
                   style={{ fontFamily: "var(--font-playfair)" }}
                   className="text-xl font-normal text-panel-dark"
                 >
-                  {artigoSelecionado.nome}
+                  {artigoSelecionado.nome.length > 50 ? artigoSelecionado.nome.slice(0, 50) + "…" : artigoSelecionado.nome}
                 </h2>
                 <p className="text-[10px] text-accent-muted mt-0.5 tracking-wide">
                   ID: {artigoSelecionado.id}
@@ -1626,8 +1607,13 @@ export default function MarketplacePage() {
                     <h3 className="text-[9px] font-normal text-accent-muted uppercase tracking-wider mb-1">
                       Especificações
                     </h3>
-                    <p className="text-panel-dark text-xs leading-relaxed mb-3 whitespace-pre-line font-light">
-                      {artigoSelecionado.descricao || "Sem descrição."}
+                    {/* Removido o Regex. Usamos break-words para quebrar strings longas de forma limpa */}
+                    <p className="text-panel-dark text-xs leading-relaxed mb-3 font-light break-words whitespace-pre-line">
+                      {(() => {
+                        const desc = artigoSelecionado.descricao || "Sem descrição.";
+                        // Apenas limita o máximo global de 100 caracteres com reticências
+                        return desc.length > 100 ? desc.slice(0, 100) + "…" : desc;
+                      })()}
                     </p>
                     <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-xs border-t border-[#FBF7F2] pt-2 text-accent-muted font-light">
                       <div>
