@@ -292,7 +292,7 @@ export default function MarketplacePage() {
     try {
       const params: any = { 
         page: pagina, 
-        size: 8,
+        size: 12,
         sortBy: 'criadoEm',
         direction: 'desc'
       };
@@ -1655,7 +1655,7 @@ export default function MarketplacePage() {
                         </span>
                       </p>
                     )}
-                    {artigoSelecionado.isAluguer && (
+                    {artigoSelecionado.isAluguer && usuarioLogado?.id !== artigoSelecionado?.donoId && (
                       <div className="bg-[#FBF7F2]/60 p-2 rounded-sm border border-border-warm/30 space-y-2">
                         <p className="text-sm text-panel-dark font-light flex justify-between items-center">
                           <span>Taxa de Aluguer:</span>{" "}
@@ -1680,7 +1680,7 @@ export default function MarketplacePage() {
                         </div>
                       </div>
                     )}
-                    {artigoSelecionado.isDoacao && (
+                    {artigoSelecionado.isDoacao && usuarioLogado?.id !== artigoSelecionado?.donoId && (
                       <p className="text-xs text-panel-dark bg-[#FBF7F2] p-2 rounded-sm border border-border-warm/40 text-center font-light">
                         ✨ Disponível para Doação Gratuita
                       </p>
