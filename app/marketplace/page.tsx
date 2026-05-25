@@ -630,7 +630,7 @@ export default function MarketplacePage() {
 
   return (
     <div className="flex flex-col min-h-screen bg-background font-sans text-panel-dark">
-      {/* ── NAVBAR (TOPBAR) INTEGRADA COM ESTADOS LOCAIS ── */}
+      {/* ── NAVBAR ── */}
       <nav
         className="flex items-center justify-between px-5 flex-shrink-0 sticky top-0 z-40"
         style={{
