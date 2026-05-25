@@ -31,7 +31,6 @@ interface AulaDto {
   diaSemana?: string;
 }
 
-// Interface criada para suportar o novo painel de notificações
 interface Notificacao {
   id: string;
   titulo: string;
@@ -41,7 +40,6 @@ interface Notificacao {
 
 const BASE_URL = "http://localhost:8080";
 
-// Seg → Sáb (6 dias)
 const DIAS_ABREV = ["Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
 
 function diaParaIdx(dia: string | undefined): number {
@@ -95,7 +93,7 @@ function getIntervaloSemana(): string {
   return `${diaSeg} a ${diaSab} de ${mesSab}`;
 }
 
-// ─── Itens da sidebar ──────────────────────────────────────────────────────────
+// ─── Itens da sidebar (CORRIGIDO: Utilizadores Adicionados) ───────────────────
 const NAV_SECTIONS: {
   title: string;
   items: { icon: string; label: string; href: string; sub: string }[];
@@ -147,8 +145,14 @@ const NAV_SECTIONS: {
     ],
   },
   {
-    title: "Gestão ",
+    title: "Gestão",
     items: [
+      {
+        icon: "ti-users",
+        label: "Utilizadores",
+        href: "/utilizadores",
+        sub: "Controlo e perfis do sistema",
+      },
       {
         icon: "ti-chart-bar",
         label: "Gestão de Faltas",
@@ -445,7 +449,7 @@ function HorarioResumo({ role }: { role: Role }) {
   );
 }
 
-// ─── Tema dos cards ───────────────────────────────────────────────────────────
+// ─── Tema dos cards (CORRIGIDO: Adicionado Tema de Utilizadores) ──────────────
 const CARD_THEMES: Record<
   string,
   {
@@ -495,6 +499,14 @@ const CARD_THEMES: Record<
     tint: "#775937",
     accent: "#F2D09E",
     pill: "rgba(242,208,158,0.15)",
+  },
+  "/utilizadores": {
+    imageQuery: "team professional workspace group network",
+    overlay:
+      "linear-gradient(160deg, rgba(125,92,58,0.43) 0%, rgba(125,92,58,0.51) 100%)",
+    tint: "#7D5C3A",
+    accent: "#E4C594",
+    pill: "rgba(228,197,148,0.15)",
   },
   "/faltas": {
     imageQuery: "notebook attendance list pen paper",
@@ -761,10 +773,8 @@ export default function LandingPage() {
       }
     };
 
-    // Executa imediatamente ao montar a página
     carregarDadosLocais();
 
-    // Escuta quando o utilizador volta atrás ou muda o foco para reidratar a página sem precisar de F5
     window.addEventListener('pageshow', carregarDadosLocais);
     window.addEventListener('focus', carregarDadosLocais);
 
@@ -782,7 +792,6 @@ export default function LandingPage() {
     return () => document.removeEventListener("keydown", handleKey);
   }, []);
 
-  // ── NOVO: Função para limpar as notificações não lidas ao abrir o painel ──
   const marcarTodasComoLidas = () => {
     setNotificacoes((prev) => prev.map((n) => ({ ...n, lida: true })));
     setUnreadCount(0);
@@ -833,7 +842,7 @@ export default function LandingPage() {
           fontFamily: "var(--font-lato)",
         }}
       >
-        {/* ── NAVBAR (Atualizada e com Dropdowns interativos) ── */}
+        {/* ── NAVBAR (Com Dropdowns interativos) ── */}
         <nav
           className="flex items-center justify-between px-5 flex-shrink-0 sticky top-0 z-40"
           style={{
@@ -975,7 +984,7 @@ export default function LandingPage() {
               )}
             </div>
 
-            {/* BOLINHA DO PERFIL IDÊNTICA (Com Menu Dropdown) */}
+            {/* BOLINHA DO PERFIL (Com Menu Dropdown) */}
             <div className="relative">
               <div
                 onClick={() => {
@@ -1011,13 +1020,12 @@ export default function LandingPage() {
                   </div>
                   <button
                     onClick={() => {
-                      router.push("/perfil");
+                      router.push("/utilizadores/verPerfil");
                       setShowProfileMenu(false);
                     }}
                     className="w-full text-left px-3 py-2 text-xs text-panel-dark hover:bg-panel-dark/5 transition-colors flex items-center gap-2"
                   >
-                    <i className="ti ti-user-cog text-accent-muted" /> O meu
-                    perfil
+                    <i className="ti ti-user-cog text-accent-muted" /> O meu perfil
                   </button>
                   <div className="border-t border-border-warm/30 my-1"></div>
                   <button
@@ -1032,7 +1040,7 @@ export default function LandingPage() {
           </div>
         </nav>
 
-        {/* ── BODY ── */}
+        {/* ── CORPO PRINCIPAL COM DRAWER LATERAL INTEGRADO ── */}
         <div className="flex flex-1 relative overflow-hidden">
           {/* Overlay */}
           {drawerOpen && (
@@ -1043,393 +1051,125 @@ export default function LandingPage() {
             />
           )}
 
-          {/* ── DRAWER (Mantendo o tom #775937 / terra médio pedido anteriormente) ── */}
+          {/* BARRA LATERAL (Drawer) */}
           <aside
             ref={drawerRef}
-            className="absolute top-0 bottom-0 left-0 z-20 flex flex-col"
+            className="absolute top-0 bottom-0 left-0 z-20 flex flex-col flex-shrink-0"
             style={{
-              width: "240px",
-              background: "#503c25",
-              boxShadow: "4px 0 24px rgba(44,28,10,0.30)",
+              width: "220px",
+              background: "#402F1D",
+              borderRight: "1px solid rgba(245,217,168,0.08)",
               transform: drawerOpen ? "translateX(0)" : "translateX(-100%)",
               transition: "transform .28s cubic-bezier(.4,0,.2,1)",
-              borderRight: "1px solid rgba(245,217,168,0.12)",
+              maxHeight: "100vh",
             }}
           >
-            {/* Topo do Drawer */}
-            <div
-              className="px-5 py-5"
-              style={{ borderBottom: "1px solid rgba(245,217,168,0.12)" }}
-            >
-              <span
-                style={{
-                  fontFamily: "var(--font-playfair)",
-                  fontSize: "14px",
-                  letterSpacing: "3px",
-                  color: "#FFF8EE",
-                  fontWeight: 500,
-                  display: "block",
-                }}
-              >
-                entartes
-              </span>
-              <span
-                style={{
-                  fontSize: "10px",
-                  letterSpacing: "2px",
-                  textTransform: "uppercase",
-                  color: "rgba(245,217,168,0.65)",
-                  fontWeight: 400,
-                  marginTop: "4px",
-                  display: "block",
-                }}
-              >
-                escola de dança
-              </span>
-            </div>
-
-            {/* Hint de afixar */}
-            <div
-              style={{
-                margin: "12px 16px 4px",
-                padding: "10px 12px",
-                background: "rgba(255,255,255,0.06)",
-                borderRadius: "6px",
-                border: "1px solid rgba(245,217,168,0.12)",
-              }}
-            >
-              <div
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "6px",
-                  marginBottom: "4px",
-                }}
-              >
-                <i
-                  className="ti ti-pin"
-                  style={{ fontSize: "12px", color: "var(--accent-gold)" }}
-                />
-                <span
-                  style={{
-                    fontSize: "10px",
-                    letterSpacing: "1px",
-                    textTransform: "uppercase",
-                    color: "#FFF8EE",
-                    fontWeight: 500,
-                  }}
-                >
-                  Atalhos rápidos
-                </span>
+            <div className="p-4 flex items-center justify-between" style={{ borderBottom: "1px solid rgba(245,217,168,0.08)" }}>
+              <div>
+                <span style={{ fontFamily: "var(--font-playfair)", fontSize: "14px", letterSpacing: "3px", color: "#FFF8EE", fontWeight: 400, display: "block" }}>entartes</span>
+                <span style={{ fontSize: "10px", letterSpacing: "2px", textTransform: "uppercase", color: "rgba(245,217,168,0.55)", fontWeight: 300, marginTop: "2px", display: "block" }}>escola de dança</span>
               </div>
-              <p
-                style={{
-                  fontSize: "11px",
-                  color: "rgba(245,217,168,0.70)",
-                  fontWeight: 300,
-                  lineHeight: 1.5,
-                  margin: 0,
-                }}
-              >
-                Clica no{" "}
-                <i className="ti ti-pin" style={{ fontSize: "11px" }} /> para
-                afixar secções no painel de início.
-              </p>
+              <button onClick={() => setDrawerOpen(false)} className="flex items-center justify-center" style={{ background: "none", border: "none", color: "rgba(255,248,238,0.4)", cursor: "pointer", padding: "4px" }}>
+                <i className="ti ti-x" style={{ fontSize: "16px" }} />
+              </button>
             </div>
 
-            {/* Conteúdo / Itens de Navegação */}
             <div className="flex-1 overflow-y-auto py-2">
-              {NAV_SECTIONS.map((section) => {
-                const cleanTitle = section.title.replace(/─/g, "").trim();
-
-                return (
-                  <div key={section.title} style={{ marginBottom: "14px" }}>
-                    <div
-                      style={{
-                        display: "flex",
-                        alignItems: "center",
-                        gap: "10px",
-                        padding: "14px 20px 8px",
-                      }}
-                    >
-                      <span
-                        style={{
-                          fontSize: "11px",
-                          letterSpacing: "2px",
-                          textTransform: "uppercase",
-                          color: "rgba(245,217,168,0.75)",
-                          fontWeight: 500,
-                          whiteSpace: "nowrap",
-                        }}
-                      >
-                        {cleanTitle}
-                      </span>
-                      <div
-                        style={{
-                          flex: 1,
-                          borderBottom: "1px solid rgba(245,217,168,0.18)",
-                          marginTop: "2px",
-                        }}
-                      />
-                    </div>
-
-                    {section.items.map((item) => {
-                      const isPinned = pinnedHrefs.includes(item.href);
-                      const canPin = item.href !== "/landingPage";
-                      const theme = CARD_THEMES[item.href] ?? DEFAULT_THEME;
-
-                      return (
-                        <div
-                          key={item.href}
-                          className="nav-item"
-                          style={{
-                            display: "flex",
-                            alignItems: "center",
-                            gap: "2px",
-                          }}
-                        >
-                          <button
-                            onClick={() => {
-                              router.push(item.href);
-                              setDrawerOpen(false);
-                            }}
-                            className="flex items-center gap-2"
-                            style={{
-                              flex: 1,
-                              padding: "10px 20px",
-                              color: "rgba(255,248,238,0.75)",
-                              fontSize: "13px",
-                              letterSpacing: ".4px",
-                              fontWeight: 300,
-                              background: "transparent",
-                              border: "none",
-                              cursor: "pointer",
-                              textAlign: "left",
-                              transition: "background .2s, color .2s",
-                            }}
-                            onMouseEnter={(e) => {
-                              (
-                                e.currentTarget as HTMLElement
-                              ).style.background = "rgba(255,255,255,0.08)";
-                              (e.currentTarget as HTMLElement).style.color =
-                                "var(--accent-gold)";
-                            }}
-                            onMouseLeave={(e) => {
-                              (
-                                e.currentTarget as HTMLElement
-                              ).style.background = "transparent";
-                              (e.currentTarget as HTMLElement).style.color =
-                                "rgba(255,248,238,0.75)";
-                            }}
-                          >
-                            <i
-                              className={`ti ${item.icon}`}
-                              style={{ fontSize: "15px", opacity: 0.85 }}
-                              aria-hidden="true"
-                            />
-                            {item.label}
-                          </button>
-
-                          {canPin && (
-                            <button
-                              onClick={() => togglePin(item.href)}
-                              title={
-                                isPinned ? "Desafixar" : "Afixar no painel"
-                              }
-                              className={`pin-btn${isPinned ? " is-pinned" : ""}`}
-                              style={{
-                                padding: "10px 20px 10px 0",
-                                background: "none",
-                                backdropFilter: "none",
-                                border: "none",
-                                cursor: "pointer",
-                                color: isPinned
-                                  ? theme.accent
-                                  : "rgba(245,217,168,0.30)",
-                                transition: "opacity .2s, color .2s",
-                                display: "flex",
-                                alignItems: "center",
-                                justifyContent: "center",
-                                opacity: isPinned ? 0.75 : undefined,
-                              }}
-                              onMouseEnter={(e) => {
-                                const el = e.currentTarget as HTMLElement;
-                                if (isPinned) {
-                                  el.style.opacity = "1";
-                                } else {
-                                  el.style.color = "var(--accent-gold)";
-                                }
-                              }}
-                              onMouseLeave={(e) => {
-                                const el = e.currentTarget as HTMLElement;
-                                if (isPinned) {
-                                  el.style.opacity = "0.75";
-                                } else {
-                                  el.style.color = "rgba(245,217,168,0.30)";
-                                }
-                              }}
-                            >
-                              {isPinned ? (
-                                <div
-                                  style={{
-                                    position: "relative",
-                                    width: "16px",
-                                    height: "16px",
-                                    display: "flex",
-                                    alignItems: "center",
-                                  }}
-                                >
-                                  <i
-                                    className="ti ti-pin"
-                                    style={{
-                                      fontSize: "14px",
-                                      fontWeight: "bold",
-                                      display: "block",
-                                      transformOrigin: "center",
-                                    }}
-                                  />
-                                  <div
-                                    style={{
-                                      position: "absolute",
-                                      top: "45%",
-                                      left: "1px",
-                                      right: "1px",
-                                      height: "2px",
-                                      background: theme.accent,
-                                      transform:
-                                        "translateY(-50%) rotate(45deg)",
-                                      transformOrigin: "center",
-                                      boxShadow: "0 0 2px rgba(0,0,0,0.4)",
-                                      borderRadius: "2px",
-                                      pointerEvents: "none",
-                                    }}
-                                  />
-                                </div>
-                              ) : (
-                                <i
-                                  className="ti ti-pin"
-                                  style={{ fontSize: "13px" }}
-                                />
-                              )}
-                            </button>
-                          )}
-                        </div>
-                      );
-                    })}
+              {NAV_SECTIONS.map((section) => (
+                <div key={section.title} className="mb-4">
+                  <div className="flex items-center gap-2 px-4 py-2">
+                    <span style={{ fontSize: "10px", letterSpacing: "2px", textTransform: "uppercase", color: "rgba(245,217,168,0.65)", fontWeight: 400 }}>{section.title}</span>
+                    <div className="flex-1" style={{ borderBottom: "1px solid rgba(245,217,168,0.12)", marginTop: "2px" }} />
                   </div>
-                );
-              })}
+                  {section.items.map((item) => {
+                    const isPinned = pinnedHrefs.includes(item.href);
+                    return (
+                      <div key={item.href} className="nav-item flex items-center justify-between w-full px-4 py-1.5 hover:bg-white/5 transition-colors group">
+                        <button
+                          onClick={() => { router.push(item.href); setDrawerOpen(false); }}
+                          className="flex items-center gap-3 flex-1 text-left"
+                          style={{ background: "none", border: "none", cursor: "pointer", color: "rgba(255,248,238,0.85)", fontSize: "13px", fontWeight: 300 }}
+                        >
+                          <i className={`ti ${item.icon}`} style={{ fontSize: "15px", color: "rgba(245,217,168,0.75)" }} />
+                          {item.label}
+                        </button>
+                        {item.href !== "/landingPage" && (
+                          <button
+                            onClick={() => togglePin(item.href)}
+                            className={`pin-btn ${isPinned ? "is-pinned text-accent-gold" : "text-white/30 hover:text-white/80"}`}
+                            style={{ background: "none", border: "none", cursor: "pointer", padding: "4px" }}
+                          >
+                            <i className="ti ti-pin" style={{ fontSize: "13px" }} />
+                          </button>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              ))}
             </div>
 
-            {/* Botão Sair / Rodapé */}
-            <div
-              style={{
-                padding: "16px 20px",
-                borderTop: "1px solid rgba(245,217,168,0.12)",
-              }}
-            >
-              <button
-                onClick={handleLogout}
-                className="flex items-center gap-2"
-                style={{
-                  color: "rgba(245,217,168,0.45)",
-                  fontSize: "13px",
-                  fontWeight: 300,
-                  background: "transparent",
-                  border: "none",
-                  cursor: "pointer",
-                }}
-                onMouseEnter={(e) =>
-                  ((e.currentTarget as HTMLElement).style.color = "#F3AEAE")
-                }
-                onMouseLeave={(e) =>
-                  ((e.currentTarget as HTMLElement).style.color =
-                    "rgba(245,217,168,0.45)")
-                }
-              >
-                <i
-                  className="ti ti-logout"
-                  style={{ fontSize: "15px" }}
-                  aria-hidden="true"
-                />
-                Sair
+            <div className="p-4" style={{ borderTop: "1px solid rgba(245,217,168,0.08)" }}>
+              <button onClick={handleLogout} className="flex items-center gap-2" style={{ background: "none", border: "none", cursor: "pointer", color: "rgba(245,217,168,0.45)", fontSize: "12px", fontWeight: 300 }}>
+                <i className="ti ti-logout" style={{ fontSize: "14px" }} /> Terminar sessão
               </button>
             </div>
           </aside>
 
-          {/* ── CONTEÚDO PRINCIPAL ── */}
-          <main
-            className="flex-1 overflow-y-auto"
-            style={{ padding: "28px 28px 40px" }}
-          >
-            {/* Cabeçalho */}
-            <div style={{ marginBottom: "24px" }}>
-              <p
-                style={{
-                  fontSize: "10px",
-                  letterSpacing: "3px",
-                  textTransform: "uppercase",
-                  color: "var(--accent-muted)",
-                  fontWeight: 300,
-                  marginBottom: "4px",
-                }}
-              >
-                Painel geral
-              </p>
-              <h1
-                style={{
-                  fontFamily: "var(--font-playfair)",
-                  fontSize: "24px",
-                  color: "var(--panel-dark)",
-                  fontWeight: 400,
-                }}
-              >
-                Olá{userName ? `, ${userName.split(" ")[0]}` : ""}
-              </h1>
-            </div>
+          {/* CONTEÚDO PRINCIPAL (DENTRO DA LANDING PAGE) */}
+          <main className="flex-1 overflow-y-auto px-4 py-5 sm:px-6 sm:py-6 lg:px-8">
+            <div className="max-w-5xl mx-auto">
+              
+              {/* Resumo do Horário Semanal baseado na Role */}
+              {role && <HorarioResumo role={role} />}
 
-            {/* ── HORÁRIO DA SEMANA ── */}
-            {role && <HorarioResumo role={role} />}
+              {/* Título da Secção de Atalhos */}
+              <div className="flex items-center gap-2 mb-4 mt-6">
+                <i className="ti ti-pin text-accent-muted" style={{ fontSize: "14px", transform: "rotate(45deg)" }} />
+                <h3 style={{ fontFamily: "var(--font-playfair)", fontSize: "14px", color: "var(--panel-dark)", fontWeight: 400 }}>
+                  Atalhos Rápidos
+                </h3>
+                <span style={{ fontSize: "10px", color: "var(--accent-muted)", fontWeight: 300 }}>
+                  Clica no <i className="ti ti-pin" style={{ fontSize: "10px" }} /> para afixar secções no painel de início.
+                </span>
+              </div>
 
-            {/* ── ATALHOS AFIXADOS ── */}
-            {itensPinned.length > 0 ? (
-              <div>
+              {/* Grid dos Atalhos Afixados */}
+              {itensPinned.length === 0 ? (
                 <div
                   style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: "6px",
-                    marginBottom: "12px",
+                    border: "1px dashed var(--border-warm)",
+                    borderRadius: "12px",
+                    padding: "40px 20px",
+                    textAlign: "center",
+                    background: "rgba(251,247,242,0.4)",
                   }}
                 >
-                  <i
-                    className="ti ti-pin"
+                  <i className="ti ti-pin text-border-warm mb-2 block" style={{ fontSize: "24px", opacity: 0.6 }} />
+                  <p style={{ fontSize: "13px", color: "var(--panel-dark)", fontWeight: 400, marginBottom: "2px" }}>
+                    O teu espaço, à tua medida
+                  </p>
+                  <p style={{ fontSize: "11px", color: "var(--accent-muted)", fontWeight: 300, marginBottom: "14px" }}>
+                    Abre o menu lateral e clica no <i className="ti ti-pin" /> ao lado de qualquer secção para a afixar aqui como atalho rápido.
+                  </p>
+                  <button
+                    onClick={() => setDrawerOpen(true)}
                     style={{
-                      fontSize: "12px",
-                      color: "var(--accent-muted)",
-                      display: "inline-block",
-                      transform: "rotate(45deg)",
-                    }}
-                  />
-                  <p
-                    style={{
-                      fontSize: "10px",
-                      letterSpacing: "3px",
-                      textTransform: "uppercase",
-                      color: "var(--accent-muted)",
-                      fontWeight: 300,
+                      background: "#FFFCF8",
+                      border: "1px solid var(--border-warm)",
+                      borderRadius: "4px",
+                      padding: "6px 16px",
+                      fontSize: "11px",
+                      color: "var(--panel-dark)",
+                      cursor: "pointer",
+                      boxShadow: "0 1px 3px rgba(0,0,0,0.02)",
                     }}
                   >
-                    Os teus atalhos
-                  </p>
+                    Abrir menu
+                  </button>
                 </div>
-                <div
-                  style={{
-                    display: "grid",
-                    gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))",
-                    gap: "14px",
-                  }}
-                >
+              ) : (
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                   {itensPinned.map((item) => (
                     <AtalhoAfixado
                       key={item.href}
@@ -1438,124 +1178,11 @@ export default function LandingPage() {
                     />
                   ))}
                 </div>
-              </div>
-            ) : (
-              <div
-                style={{
-                  display: "flex",
-                  flexDirection: "column",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  padding: "36px 24px",
-                  textAlign: "center",
-                  border: "1px dashed var(--border-warm)",
-                  borderRadius: "8px",
-                  background: "rgba(160,133,96,0.03)",
-                }}
-              >
-                <div
-                  style={{
-                    width: "40px",
-                    height: "40px",
-                    borderRadius: "50%",
-                    background: "rgba(160,133,96,0.08)",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    marginBottom: "14px",
-                  }}
-                >
-                  <i
-                    className="ti ti-pin"
-                    style={{ fontSize: "20px", color: "var(--accent-muted)" }}
-                  />
-                </div>
-                <p
-                  style={{
-                    fontSize: "14px",
-                    color: "var(--panel-dark)",
-                    fontWeight: 400,
-                    fontFamily: "var(--font-playfair)",
-                    marginBottom: "8px",
-                  }}
-                >
-                  O teu espaço, à tua medida
-                </p>
-                <p
-                  style={{
-                    fontSize: "12px",
-                    color: "var(--accent-muted)",
-                    fontWeight: 300,
-                    lineHeight: 1.7,
-                    maxWidth: "320px",
-                  }}
-                >
-                  Abre o menu lateral e clica no{" "}
-                  <i className="ti ti-pin" style={{ fontSize: "12px" }} /> ao
-                  lado de qualquer secção para a afixar aqui como atalho rápido.
-                </p>
-                <button
-                  onClick={() => setDrawerOpen(true)}
-                  style={{
-                    marginTop: "18px",
-                    padding: "8px 18px",
-                    background: "transparent",
-                    border: "1px solid var(--border-warm)",
-                    borderRadius: "6px",
-                    cursor: "pointer",
-                    fontSize: "11px",
-                    color: "var(--panel-dark)",
-                    letterSpacing: ".5px",
-                    fontWeight: 300,
-                    transition: "border-color .15s, color .15s",
-                  }}
-                  onMouseEnter={(e) => {
-                    const el = e.currentTarget as HTMLElement;
-                    el.style.borderColor = "var(--accent-muted)";
-                    el.style.color = "var(--accent-muted)";
-                  }}
-                  onMouseLeave={(e) => {
-                    const el = e.currentTarget as HTMLElement;
-                    el.style.borderColor = "var(--border-warm)";
-                    el.style.color = "var(--panel-dark)";
-                  }}
-                >
-                  Abrir menu
-                </button>
-              </div>
-            )}
+              )}
+
+            </div>
           </main>
         </div>
-
-        {/* ── FOOTER ── */}
-        <footer
-          className="flex items-center justify-between flex-shrink-0"
-          style={{
-            padding: "12px 24px",
-            borderTop: "1px solid var(--border-warm)",
-          }}
-        >
-          <span
-            style={{
-              fontFamily: "var(--font-playfair)",
-              fontSize: "12px",
-              letterSpacing: "3px",
-              color: "var(--accent-muted)",
-              fontWeight: 400,
-            }}
-          >
-            entartes
-          </span>
-          <span
-            style={{
-              fontSize: "10px",
-              color: "var(--accent-muted)",
-              fontWeight: 300,
-            }}
-          >
-            © 2026 Entartes — Escola de Dança
-          </span>
-        </footer>
       </div>
     </>
   );
