@@ -16,6 +16,9 @@ interface UtilizadorResponseDto {
   ativo: boolean;
   dataNascimento: string;
   criadoEm: string;
+  // Campos adicionados para suportar a lógica de professor na listagem/edição
+  valorHora?: number;
+  professorExterno?: boolean;
 }
 
 interface PageResponse {
@@ -68,7 +71,7 @@ const TIPO_CORES: Record<string, { bg: string; text: string; border: string }> =
   ROLE_ALUNO:       { bg: "rgba(78,114,169,0.10)", text: "#2D4E7A", border: "rgba(78,114,169,0.25)" },
   ROLE_PROFESSOR:   { bg: "rgba(160,133,96,0.12)", text: "#7A5020", border: "rgba(160,133,96,0.30)" },
   ROLE_ENCARREGADO: { bg: "rgba(74,143,89,0.10)",  text: "#2D6A3F", border: "rgba(74,143,89,0.25)"  },
-  ROLE_COORDENACAO: { bg: "rgba(44,28,10,0.08)",   text: "#402F1D", border: "rgba(44,28,10,0.20)"   },
+  ROLE_COORDENACAO: { bg: "rgba(44,28,10,0.08)",    text: "#402F1D", border: "rgba(44,28,10,0.20)"   },
 };
 
 const TIPOS_CRIAR = ["ALUNO", "PROFESSOR", "ENCARREGADO"];
@@ -109,8 +112,10 @@ export default function UtilizadoresPage() {
   const [filtroTipo, setFiltroTipo] = useState("");
   const [search, setSearch] = useState("");
 
-  // Modal detalhe
+  // Modal detalhe e edição
   const [detalhe, setDetalhe] = useState<UtilizadorResponseDto | null>(null);
+  const [isEditing, setIsEditing] = useState(false);
+  const [editForm, setEditForm] = useState<Partial<UtilizadorResponseDto>>({});
 
   // Modal repor password
   const [reporTarget, setReporTarget] = useState<UtilizadorResponseDto | null>(null);
@@ -118,7 +123,7 @@ export default function UtilizadoresPage() {
   const [confirmarPass, setConfirmarPass] = useState("");
   const [loadingRepor, setLoadingRepor] = useState(false);
 
-  // ── ESTADOS ADICIONADOS (IGUAL AO MARKETPLACE) ──
+  // Estados do Modal Criar
   const [modalAberto, setModalAberto] = useState(false);
   const [loadingInserir, setLoadingInserir] = useState(false);
   const [loadingHashes, setLoadingHashes] = useState(true);
@@ -134,6 +139,8 @@ export default function UtilizadoresPage() {
     nif: "",
     dataNascimento: "",
     id_tipoUtilizador: "",
+    valorHora: "36", // Padrão inicial para interno
+    professorExterno: false,
   });
 
   // Feedback
@@ -153,7 +160,7 @@ export default function UtilizadoresPage() {
     return () => document.removeEventListener("keydown", handleKey);
   }, [router]);
 
-  // ── Carregar as hashes de funções para o formulário (igual à lógica do Java) ──
+  // ── Carregar as hashes de funções para o formulário ──
   const carregarHashesOficiais = async () => {
     try {
       setLoadingHashes(true);
@@ -161,7 +168,6 @@ export default function UtilizadoresPage() {
       if (res.ok) {
         const data = await res.json();
         setHashesDiscobertas(data);
-        // Deixa a opção "Aluno" selecionada por defeito
         if (data.ALUNO) {
           setForm(prev => ({ ...prev, id_tipoUtilizador: data.ALUNO }));
         }
@@ -213,7 +219,18 @@ export default function UtilizadoresPage() {
     setForm(prev => ({ ...prev, [name]: value }));
   };
 
-  // ── Guardar Utilizador (Submissão do formulário pop-up) ──
+  // Controla a mudança do checkbox e aplica a regra do valorHora padrão (36) se for interno
+  const handleCheckboxChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, checked } = e.target;
+    setForm(prev => ({ 
+      ...prev, 
+      [name]: checked,
+      // Se desmarcar o externo (passando a interno), força o valor padrão de 36
+      valorHora: checked ? prev.valorHora : "36"
+    }));
+  };
+
+  // ── Guardar Utilizador Criado ──
   const handleSalvarUtilizador = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMsg(null);
@@ -225,10 +242,21 @@ export default function UtilizadoresPage() {
 
     setLoadingInserir(true);
     try {
+      const payload = {
+        nome: form.nome,
+        email: form.email,
+        telefone: form.telefone,
+        nif: form.nif,
+        dataNascimento: form.dataNascimento,
+        id_tipoUtilizador: form.id_tipoUtilizador,
+        valorHora: form.id_tipoUtilizador === hashesDiscobertas.PROFESSOR ? parseFloat(form.valorHora || "36") : null,
+        professorExterno: form.id_tipoUtilizador === hashesDiscobertas.PROFESSOR ? form.professorExterno : false,
+      };
+
       const res = await fetch(`${BASE_URL}/api/utilizadores`, {
         method: "POST",
         headers: authHeaders(),
-        body: JSON.stringify(form),
+        body: JSON.stringify(payload),
       });
 
       if (!res.ok) {
@@ -239,7 +267,6 @@ export default function UtilizadoresPage() {
       setSuccessMsg("Utilizador criado com sucesso!");
       setModalAberto(false);
       
-      // Limpa os campos mantendo a hash inicial padrão
       setForm({
         nome: "",
         email: "",
@@ -247,14 +274,36 @@ export default function UtilizadoresPage() {
         nif: "",
         dataNascimento: "",
         id_tipoUtilizador: hashesDiscobertas.ALUNO || "",
+        valorHora: "36",
+        professorExterno: false,
       });
 
-      // Atualiza a tabela imediatamente
       carregar(0);
     } catch (err: any) {
       setErrorMsg(err.message || "Ocorreu um erro ao guardar o utilizador.");
     } finally {
       setLoadingInserir(false);
+    }
+  };
+
+  // ── Enviar Atualização de Edição para o Servidor ──
+  const handleAtualizarUtilizador = async () => {
+    if (!editForm.id) return;
+    try {
+      const res = await fetch(`${BASE_URL}/api/utilizadores/${editForm.id}`, {
+        method: "PUT",
+        headers: authHeaders(),
+        body: JSON.stringify(editForm),
+      });
+
+      if (!res.ok) throw new Error("Erro ao atualizar utilizador.");
+
+      setSuccessMsg("Utilizador atualizado com sucesso!");
+      setIsEditing(false);
+      setDetalhe({ ...detalhe, ...editForm } as UtilizadorResponseDto);
+      carregar(paginaAtual);
+    } catch (err: any) {
+      setErrorMsg(err.message || "Não foi possível guardar as alterações.");
     }
   };
 
@@ -271,18 +320,22 @@ export default function UtilizadoresPage() {
     } catch { setErrorMsg("Erro ao alterar estado."); }
   }
 
-  // ── Apagar (soft delete) ──
-  async function apagar(u: UtilizadorResponseDto) {
-    if (!confirm(`Tens a certeza que queres apagar ${u.nome}?`)) return;
+  // ── Apagar Permanente (Hard Delete) ──
+  async function eliminarPermanente(u: UtilizadorResponseDto) {
+    if (!confirm(`⚠️ ATENÇÃO: Tens a certeza que queres ELIMINAR PERMANENTEMENTE o utilizador ${u.nome}? Esta ação é irreversível!`)) return;
     try {
-      const res = await fetch(`${BASE_URL}/api/utilizadores/${u.id}`, {
-        method: "DELETE", headers: authHeaders(),
+      const res = await fetch(`${BASE_URL}/api/utilizadores/eliminaPermanente/${u.id}`, {
+        method: "DELETE", 
+        headers: authHeaders(),
       });
       if (!res.ok) throw new Error();
-      setSuccessMsg(`${u.nome} foi removido.`);
-      setDetalhe(null);
-      carregar(paginaAtual);
-    } catch { setErrorMsg("Erro ao apagar utilizador."); }
+      
+      setSuccessMsg(`${u.nome} foi completamente eliminado do sistema.`);
+      setDetalhe(null); 
+      carregar(paginaAtual); 
+    } catch { 
+      setErrorMsg("Erro ao eliminar permanentemente o utilizador."); 
+    }
   }
 
   // ── Repor password ──
@@ -328,7 +381,7 @@ export default function UtilizadoresPage() {
 
       <div style={{ display: "flex", flexDirection: "column", minHeight: "100vh", background: "var(--background)", fontFamily: "var(--font-lato)" }}>
 
-        {/* Notificações Rápidas de Feedback */}
+        {/* Notificações de Feedback */}
         {(successMsg || errorMsg) && (
           <div style={{ position: "fixed", top: 68, right: 24, zIndex: 110, animation: "fadeUp 0.2s ease", maxWidth: 320, padding: "12px 16px", borderRadius: 6, fontSize: 13, border: "1px solid", background: successMsg ? "#f0fdf4" : "#fef2f2", color: successMsg ? "#15803d" : "#991b1b", borderColor: successMsg ? "#bbf7d0" : "#fecaca", boxShadow: "0 4px 12px rgba(0,0,0,0.05)" }}>
             {successMsg || errorMsg}
@@ -352,7 +405,7 @@ export default function UtilizadoresPage() {
               {userName ? `Bem-vindo, ${userName.split(" ")[0]}` : ""}
             </span>
             <div style={{ position: "relative" }}>
-              <div onClick={() => setShowProfileMenu(!showProfileMenu)}
+              <div onClick={() => { setShowProfileMenu(!showProfileMenu); }}
                 style={{ width: 30, height: 30, borderRadius: "50%", background: "var(--panel-dark)", color: "var(--accent-gold)", fontSize: 11, letterSpacing: 1, fontFamily: "var(--font-playfair)", fontWeight: 400, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}>
                 {userInitials}
               </div>
@@ -423,7 +476,7 @@ export default function UtilizadoresPage() {
             </div>
           </aside>
 
-          {/* ── CONTEÚDO ── */}
+          {/* ── CONTEÚDO PRINCIPAL ── */}
           <main style={{ flex: 1, overflowY: "auto", padding: "28px 28px 40px" }}>
 
             {/* Cabeçalho */}
@@ -437,7 +490,6 @@ export default function UtilizadoresPage() {
                   {totalElementos} {totalElementos === 1 ? "utilizador registado" : "utilizadores registados"}
                 </p>
               </div>
-              {/* ATUALIZADO: Agora abre o pop-up interno em vez de redirecionar de página */}
               <button onClick={() => setModalAberto(true)}
                 style={{ display: "flex", alignItems: "center", gap: 8, padding: "10px 20px", background: "var(--panel-dark)", border: "none", borderRadius: 6, color: "var(--accent-gold)", fontFamily: "var(--font-lato)", fontSize: 12, fontWeight: 400, letterSpacing: 1, textTransform: "uppercase", cursor: "pointer", transition: "opacity .2s" }}
                 onMouseEnter={e => (e.currentTarget.style.opacity = ".85")}
@@ -470,7 +522,7 @@ export default function UtilizadoresPage() {
               </div>
             )}
 
-            {/* Lista */}
+            {/* Lista de Utilizadores */}
             {!loading && (
               <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                 {filtrados.length === 0 ? (
@@ -482,7 +534,7 @@ export default function UtilizadoresPage() {
                 ) : filtrados.map(u => {
                   const cor = TIPO_CORES[u.tipoUtilizador] ?? TIPO_CORES.ROLE_ALUNO;
                   return (
-                    <div key={u.id} onClick={() => setDetalhe(u)}
+                    <div key={u.id} onClick={() => { setDetalhe(u); setIsEditing(false); }}
                       style={{ display: "flex", alignItems: "center", gap: 14, background: "#FFFCF8", border: "1px solid var(--border-warm)", borderRadius: 8, padding: "14px 18px", cursor: "pointer", transition: "border-color .15s, box-shadow .15s", animation: "fadeUp .2s ease" }}
                       onMouseEnter={e => { (e.currentTarget).style.borderColor = "rgba(160,133,96,0.45)"; (e.currentTarget).style.boxShadow = "0 2px 12px rgba(44,28,10,0.06)"; }}
                       onMouseLeave={e => { (e.currentTarget).style.borderColor = "var(--border-warm)"; (e.currentTarget).style.boxShadow = "none"; }}>
@@ -546,14 +598,165 @@ export default function UtilizadoresPage() {
         </footer>
       </div>
 
-      {/* ══ POP-UP INTERNO: NOVO UTILIZADOR (IGUAL À ESTRUTURA DO MARKETPLACE) ══ */}
+      {/* ══ POP-UP INTERNO: DETALHE / EDIÇÃO DO UTILIZADOR ══ */}
+      {detalhe && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(44,28,10,0.40)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 100, padding: 20 }}
+          onClick={() => setDetalhe(null)}>
+          <div style={{ background: "#FBF7F2", border: "1px solid var(--border-warm)", borderRadius: 12, padding: 28, width: "100%", maxWidth: 460, animation: "fadeUp .2s ease", position: "relative" }}
+            onClick={e => e.stopPropagation()}>
+            
+            <button onClick={() => setDetalhe(null)} style={{ position: "absolute", top: 20, right: 20, background: "none", border: "none", color: "var(--accent-muted)", cursor: "pointer", fontSize: 16 }}>✕</button>
+
+            <div style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 24 }}>
+              <div style={{ width: 56, height: 56, borderRadius: "50%", background: "var(--panel-dark)", color: "var(--accent-gold)", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "var(--font-playfair)", fontSize: 18 }}>
+                {initials(detalhe.nome)}
+              </div>
+              <div>
+                {isEditing ? (
+                  <input type="text" value={editForm.nome || ""} onChange={e => setEditForm({ ...editForm, nome: e.target.value })}
+                    style={{ background: "#FFF", border: "1px solid var(--border-warm)", borderRadius: 4, padding: "4px 8px", fontSize: 16, fontFamily: "var(--font-playfair)", color: "var(--panel-dark)", width: "100%" }} />
+                ) : (
+                  <h2 style={{ fontFamily: "var(--font-playfair)", fontSize: 20, color: "var(--panel-dark)", margin: 0, fontWeight: 400 }}>{detalhe.nome}</h2>
+                )}
+                <p style={{ fontSize: 12, color: "var(--accent-muted)", margin: "2px 0 6px" }}>{detalhe.email}</p>
+                <span style={{ background: "rgba(44,28,10,0.06)", border: "1px solid rgba(44,28,10,0.15)", borderRadius: 4, padding: "2px 8px", fontSize: 10, textTransform: "uppercase" }}>
+                  {TIPO_LABELS[detalhe.tipoUtilizador] ?? detalhe.tipoUtilizador}
+                </span>
+              </div>
+            </div>
+
+            <hr style={{ border: 0, borderTop: "1px solid var(--border-warm)", marginBottom: 20 }} />
+
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 28 }}>
+              <div>
+                <span style={{ display: "block", fontSize: 9, letterSpacing: 1.5, textTransform: "uppercase", color: "var(--accent-muted)", marginBottom: 4 }}>Telefone</span>
+                {isEditing ? (
+                  <input type="text" value={editForm.telefone || ""} onChange={e => setEditForm({ ...editForm, telefone: e.target.value })}
+                    style={{ background: "#FFF", border: "1px solid var(--border-warm)", borderRadius: 4, padding: "4px 8px", fontSize: 13, width: "100%" }} />
+                ) : (
+                  <span style={{ fontSize: 13, color: "var(--panel-dark)" }}>{detalhe.telefone || "—"}</span>
+                )}
+              </div>
+              <div>
+                <span style={{ display: "block", fontSize: 9, letterSpacing: 1.5, textTransform: "uppercase", color: "var(--accent-muted)", marginBottom: 4 }}>NIF</span>
+                {isEditing ? (
+                  <input type="text" value={editForm.nif || ""} onChange={e => setEditForm({ ...editForm, nif: e.target.value })}
+                    style={{ background: "#FFF", border: "1px solid var(--border-warm)", borderRadius: 4, padding: "4px 8px", fontSize: 13, width: "100%" }} />
+                ) : (
+                  <span style={{ fontSize: 13, color: "var(--panel-dark)" }}>{detalhe.nif || "—"}</span>
+                )}
+              </div>
+              <div>
+                <span style={{ display: "block", fontSize: 9, letterSpacing: 1.5, textTransform: "uppercase", color: "var(--accent-muted)", marginBottom: 4 }}>Nascimento</span>
+                <span style={{ fontSize: 13, color: "var(--panel-dark)" }}>{formatDate(detalhe.dataNascimento)}</span>
+              </div>
+              <div>
+                <span style={{ display: "block", fontSize: 9, letterSpacing: 1.5, textTransform: "uppercase", color: "var(--accent-muted)", marginBottom: 4 }}>Membro desde</span>
+                <span style={{ fontSize: 13, color: "var(--panel-dark)" }}>{formatDate(detalhe.criadoEm)}</span>
+              </div>
+
+              {/* Se for Professor, exibe o Valor/Hora e permite a sua edição */}
+              {/* Se for Professor, exibe o Valor/Hora e permite a sua edição */}
+      {(detalhe.tipoUtilizador === "PROFESSOR" || detalhe.tipoUtilizador === "ROLE_PROFESSOR") && isEditing && (
+  <>
+    <div>
+      <span style={{ display: "block", fontSize: 9, letterSpacing: 1.5, textTransform: "uppercase", color: "var(--accent-muted)", marginBottom: 4 }}>Valor por Hora</span>
+      <input 
+        type="number" 
+        value={editForm.valorHora !== undefined ? editForm.valorHora : ""} 
+        onChange={e => setEditForm({ ...editForm, valorHora: parseFloat(e.target.value) || 0 })}
+        style={{ background: "#FFF", border: "1px solid var(--border-warm)", borderRadius: 4, padding: "4px 8px", fontSize: 13, width: "100%" }} 
+      />
+    </div>
+
+    <div>
+      <span style={{ display: "block", fontSize: 9, letterSpacing: 1.5, textTransform: "uppercase", color: "var(--accent-muted)", marginBottom: 4 }}>Regime</span>
+      <div style={{ display: "flex", alignItems: "center", gap: 6, height: "30px" }}>
+        <input 
+          type="checkbox" 
+          id="editExterno" 
+          checked={editForm.professorExterno === true || String(editForm.professorExterno) === "true"} 
+          onChange={e => {
+            const valorMarcado = e.target.checked;
+            setEditForm(prev => ({ ...prev, professorExterno: valorMarcado }));
+          }} 
+          style={{ cursor: "pointer" }} 
+        />
+        <label htmlFor="editExterno" style={{ fontSize: 12, color: "var(--panel-dark)", cursor: "pointer" }}>Externo</label>
+      </div>
+    </div>
+  </>
+)}
+
+              <div style={{ gridColumn: "span 2" }}>
+                <span style={{ display: "block", fontSize: 9, letterSpacing: 1.5, textTransform: "uppercase", color: "var(--accent-muted)", marginBottom: 4 }}>Estado</span>
+                <span style={{ fontSize: 13, color: detalhe.ativo ? "#27ae60" : "#c0392b", fontWeight: 500 }}>
+                  {detalhe.ativo ? "✓ Ativo" : "✕ Inativo"}
+                </span>
+              </div>
+            </div>
+
+            {/* Ações Verticais */}
+            <div style={{ display: "flex", flexDirection: "column", gap: 8, paddingLeft: 0 }}>
+              {!isEditing ? (
+                <>
+                  <button onClick={() => { setReporTarget(detalhe); setDetalhe(null); }}
+                    style={{ padding: "10px", borderRadius: 8, background: "rgba(78,114,169,0.08)", border: "1px solid rgba(78,114,169,0.25)", color: "#2D4E7A", fontFamily: "var(--font-lato)", fontSize: 12, cursor: "pointer", letterSpacing: .5 }}>
+                    <i className="ti ti-key" style={{ marginRight: 8 }} />Repor palavra-passe
+                  </button>
+
+               <button onClick={() => { 
+  setIsEditing(true); 
+  const isExterno = detalhe?.professorExterno === true || 
+                    String(detalhe?.professorExterno) === "true" || 
+                    (detalhe?.valorHora !== undefined && detalhe?.valorHora !== 36);
+
+  setEditForm({
+    ...detalhe,
+    valorHora: detalhe?.valorHora ?? 36,
+    professorExterno: isExterno
+  }); 
+}}
+                    style={{ padding: "10px", borderRadius: 8, background: "rgba(230,126,34,0.08)", border: "1px solid rgba(230,126,34,0.25)", color: "#e67e22", fontFamily: "var(--font-lato)", fontSize: 12, cursor: "pointer", letterSpacing: .5 }}>
+                    <i className="ti ti-edit" style={{ marginRight: 8 }} />Editar dados
+                  </button>
+
+                  <button onClick={() => toggleAtivo(detalhe)}
+                    style={{ padding: "10px", borderRadius: 8, background: "#FFFCF8", border: "1px solid var(--border-warm)", color: "var(--panel-dark)", fontFamily: "var(--font-lato)", fontSize: 12, cursor: "pointer", letterSpacing: .5 }}>
+                    <i className={`ti ${detalhe.ativo ? "ti-user-off" : "ti-user-check"}`} style={{ marginRight: 8 }} />
+                    {detalhe.ativo ? "Desativar conta" : "Ativar conta"}
+                  </button>
+
+                  <button onClick={() => eliminarPermanente(detalhe)}
+                    style={{ padding: "10px", borderRadius: 8, background: "rgba(192,57,43,0.06)", border: "1px solid rgba(192,57,43,0.20)", color: "#c0392b", fontFamily: "var(--font-lato)", fontSize: 12, cursor: "pointer", letterSpacing: .5 }}>
+                    <i className="ti ti-trash" style={{ marginRight: 8 }} />Apagar utilizador
+                  </button>
+                </>
+              ) : (
+                <>
+                  <button onClick={handleAtualizarUtilizador}
+                    style={{ padding: "10px", borderRadius: 8, background: "rgba(46,204,113,0.15)", border: "1px solid #2ecc71", color: "#27ae60", fontFamily: "var(--font-lato)", fontSize: 12, fontWeight: "bold", cursor: "pointer", letterSpacing: .5 }}>
+                    <i className="ti ti-device-floppy" style={{ marginRight: 8 }} />Guardar Alterações
+                  </button>
+
+                  <button onClick={() => setIsEditing(false)}
+                    style={{ padding: "10px", borderRadius: 8, background: "#f5f5f5", border: "1px solid #ccc", color: "#666", fontFamily: "var(--font-lato)", fontSize: 12, cursor: "pointer", letterSpacing: .5 }}>
+                    Cancelar
+                  </button>
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ══ POP-UP INTERNO: NOVO UTILIZADOR ══ */}
       {modalAberto && (
         <div style={{ position: "fixed", inset: 0, background: "rgba(44,28,10,0.40)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 100, padding: 20 }}
           onClick={() => setModalAberto(false)}>
           <div style={{ background: "#FBF7F2", border: "1px solid var(--border-warm)", borderRadius: 12, padding: 28, width: "100%", maxWidth: 440, maxHeight: "90dvh", overflowY: "auto", animation: "fadeUp .2s ease", position: "relative" }}
             onClick={e => e.stopPropagation()}>
             
-            {/* Barra lateral decorativa coerente com os teus outros pop-ups */}
             <div style={{ position: "absolute", top: 0, left: 0, bottom: 0, width: 3, background: "var(--panel-dark)", borderRadius: "12px 0 0 12px" }} />
 
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20, paddingLeft: 8 }}>
@@ -562,170 +765,78 @@ export default function UtilizadoresPage() {
             </div>
 
             <form onSubmit={handleSalvarUtilizador} style={{ display: "flex", flexDirection: "column", gap: 14, paddingLeft: 8 }}>
-              
               <div>
-                <label style={{ display: "block", fontSize: 10, letterSpacing: 2, textTransform: "uppercase", color: "var(--accent-muted)", fontWeight: 300, marginBottom: 4 }}>Nome Completo *</label>
-                <input type="text" required name="nome" value={form.nome} onChange={handleInputChange}
-                  style={{ width: "100%", background: "#FFFCF8", border: "1px solid var(--border-warm)", borderRadius: 6, padding: "9px 12px", color: "var(--panel-dark)", fontFamily: "var(--font-lato)", fontSize: 13, outline: "none" }} />
+                <label style={{ display: "block", fontSize: 10, letterSpacing: 2, textTransform: "uppercase", color: "var(--accent-muted)", fontWeight: 400, marginBottom: 4 }}>Nome Completo *</label>
+                <input type="text" name="nome" value={form.nome} onChange={handleInputChange} required style={{ width: "100%", padding: "8px 12px", borderRadius: 6, border: "1px solid var(--border-warm)", background: "#FFF" }} />
               </div>
-
               <div>
-                <label style={{ display: "block", fontSize: 10, letterSpacing: 2, textTransform: "uppercase", color: "var(--accent-muted)", fontWeight: 300, marginBottom: 4 }}>Email *</label>
-                <input type="email" required name="email" value={form.email} onChange={handleInputChange}
-                  style={{ width: "100%", background: "#FFFCF8", border: "1px solid var(--border-warm)", borderRadius: 6, padding: "9px 12px", color: "var(--panel-dark)", fontFamily: "var(--font-lato)", fontSize: 13, outline: "none" }} />
+                <label style={{ display: "block", fontSize: 10, letterSpacing: 2, textTransform: "uppercase", color: "var(--accent-muted)", fontWeight: 400, marginBottom: 4 }}>Email Institucional *</label>
+                <input type="email" name="email" value={form.email} onChange={handleInputChange} required style={{ width: "100%", padding: "8px 12px", borderRadius: 6, border: "1px solid var(--border-warm)", background: "#FFF" }} />
               </div>
-
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
                 <div>
-                  <label style={{ display: "block", fontSize: 10, letterSpacing: 2, textTransform: "uppercase", color: "var(--accent-muted)", fontWeight: 300, marginBottom: 4 }}>Telefone</label>
-                  <input type="text" name="telefone" value={form.telefone} onChange={handleInputChange}
-                    style={{ width: "100%", background: "#FFFCF8", border: "1px solid var(--border-warm)", borderRadius: 6, padding: "9px 12px", color: "var(--panel-dark)", fontFamily: "var(--font-lato)", fontSize: 13, outline: "none" }} />
+                  <label style={{ display: "block", fontSize: 10, letterSpacing: 2, textTransform: "uppercase", color: "var(--accent-muted)", fontWeight: 400, marginBottom: 4 }}>Telefone</label>
+                  <input type="text" name="telefone" value={form.telefone} onChange={handleInputChange} style={{ width: "100%", padding: "8px 12px", borderRadius: 6, border: "1px solid var(--border-warm)", background: "#FFF" }} />
                 </div>
                 <div>
-                  <label style={{ display: "block", fontSize: 10, letterSpacing: 2, textTransform: "uppercase", color: "var(--accent-muted)", fontWeight: 300, marginBottom: 4 }}>NIF</label>
-                  <input type="text" name="nif" value={form.nif} onChange={handleInputChange}
-                    style={{ width: "100%", background: "#FFFCF8", border: "1px solid var(--border-warm)", borderRadius: 6, padding: "9px 12px", color: "var(--panel-dark)", fontFamily: "var(--font-lato)", fontSize: 13, outline: "none" }} />
+                  <label style={{ display: "block", fontSize: 10, letterSpacing: 2, textTransform: "uppercase", color: "var(--accent-muted)", fontWeight: 400, marginBottom: 4 }}>NIF</label>
+                  <input type="text" name="nif" value={form.nif} onChange={handleInputChange} style={{ width: "100%", padding: "8px 12px", borderRadius: 6, border: "1px solid var(--border-warm)", background: "#FFF" }} />
                 </div>
               </div>
-
               <div>
-                <label style={{ display: "block", fontSize: 10, letterSpacing: 2, textTransform: "uppercase", color: "var(--accent-muted)", fontWeight: 300, marginBottom: 4 }}>Data de Nascimento *</label>
-                <input type="date" required name="dataNascimento" value={form.dataNascimento} onChange={handleInputChange}
-                  style={{ width: "100%", background: "#FFFCF8", border: "1px solid var(--border-warm)", borderRadius: 6, padding: "9px 12px", color: "var(--panel-dark)", fontFamily: "var(--font-lato)", fontSize: 13, outline: "none" }} />
+                <label style={{ display: "block", fontSize: 10, letterSpacing: 2, textTransform: "uppercase", color: "var(--accent-muted)", fontWeight: 400, marginBottom: 4 }}>Data de Nascimento *</label>
+                <input type="date" name="dataNascimento" value={form.dataNascimento} onChange={handleInputChange} required style={{ width: "100%", padding: "8px 12px", borderRadius: 6, border: "1px solid var(--border-warm)", background: "#FFF" }} />
+              </div>
+              <div>
+                <label style={{ display: "block", fontSize: 10, letterSpacing: 2, textTransform: "uppercase", color: "var(--accent-muted)", fontWeight: 400, marginBottom: 4 }}>Tipo de Utilizador *</label>
+                <select name="id_tipoUtilizador" value={form.id_tipoUtilizador} onChange={handleInputChange} required style={{ width: "100%", padding: "8px 12px", borderRadius: 6, border: "1px solid var(--border-warm)", background: "#FFF", cursor: "pointer" }}>
+                  {loadingHashes ? (
+                    <option>A carregar funções…</option>
+                  ) : (
+                    TIPOS_CRIAR.map(t => <option key={t} value={hashesDiscobertas[t]}>{TIPO_LABELS[t]}</option>)
+                  )}
+                </select>
               </div>
 
-              <div>
-                <label style={{ display: "block", fontSize: 10, letterSpacing: 2, textTransform: "uppercase", color: "var(--accent-muted)", fontWeight: 300, marginBottom: 4 }}>Tipo de Utilizador *</label>
-                {loadingHashes ? (
-                  <div style={{ fontSize: 12, color: "var(--accent-muted)", fontWeight: 300, padding: "8px 0" }}>A validar chaves com o servidor...</div>
-                ) : (
-                  <select name="id_tipoUtilizador" value={form.id_tipoUtilizador} onChange={handleInputChange}
-                    style={{ width: "100%", background: "#FFFCF8", border: "1px solid var(--border-warm)", borderRadius: 6, padding: "9px 12px", color: "var(--panel-dark)", fontFamily: "var(--font-lato)", fontSize: 13, outline: "none", cursor: "pointer" }}>
-                    <option value={hashesDiscobertas.ALUNO}>Aluno</option>
-                    <option value={hashesDiscobertas.PROFESSOR}>Professor</option>
-                    <option value={hashesDiscobertas.ENCARREGADO}>Encarregado</option>
-                  </select>
-                )}
-              </div>
+              {/* Campos extras condicionados para Professores */}
+              {form.id_tipoUtilizador === hashesDiscobertas.PROFESSOR && hashesDiscobertas.PROFESSOR !== "" && (
+                <div style={{ padding: "12px", borderRadius: 6, background: "rgba(160,133,96,0.06)", border: "1px solid rgba(160,133,96,0.2)", display: "flex", flexDirection: "column", gap: 10, animation: "fadeUp .15s ease" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 2 }}>
+                    <input type="checkbox" id="professorExterno" name="professorExterno" checked={form.professorExterno} onChange={handleCheckboxChange} style={{ cursor: "pointer" }} />
+                    <label htmlFor="professorExterno" style={{ fontSize: 12, color: "var(--panel-dark)", cursor: "pointer", fontWeight: 500 }}>Este professor é externo</label>
+                  </div>
+                  <div>
+                    <label style={{ display: "block", fontSize: 10, letterSpacing: 2, textTransform: "uppercase", color: "#7A5020", fontWeight: 400, marginBottom: 4 }}>Valor por Hora (€)</label>
+                    <input type="number" name="valorHora" value={form.valorHora} onChange={handleInputChange} disabled={!form.professorExterno} placeholder="36" style={{ width: "100%", padding: "8px 12px", borderRadius: 6, border: "1px solid var(--border-warm)", background: form.professorExterno ? "#FFF" : "#f5f5f5", color: form.professorExterno ? "var(--panel-dark)" : "#888", cursor: form.professorExterno ? "text" : "not-allowed" }} />
+                    {!form.professorExterno && (
+                      <span style={{ fontSize: 11, color: "var(--accent-muted)", marginTop: 4, display: "block" }}>Professores internos usam o valor padrão de 36€.</span>
+                    )}
+                  </div>
+                </div>
+              )}
 
-              <button type="submit" disabled={loadingInserir || loadingHashes}
-                style={{ width: "100%", padding: "11px", background: "var(--panel-dark)", border: "none", borderRadius: 6, color: "var(--accent-gold)", fontFamily: "var(--font-lato)", fontSize: 12, fontWeight: 400, letterSpacing: 1, textTransform: "uppercase", cursor: (loadingInserir || loadingHashes) ? "not-allowed" : "pointer", opacity: (loadingInserir || loadingHashes) ? 0.6 : 1, transition: "opacity 0.2s", marginTop: 8 }}>
-                {loadingInserir ? "A processar..." : "Criar Conta"}
+              <button type="submit" disabled={loadingInserir} style={{ width: "100%", padding: "12px", background: "var(--panel-dark)", color: "var(--accent-gold)", border: "none", borderRadius: 6, fontSize: 12, letterSpacing: 1, textTransform: "uppercase", cursor: loadingInserir ? "not-allowed" : "pointer", marginTop: 8 }}>
+                {loadingInserir ? "A guardar…" : "Criar Conta"}
               </button>
             </form>
           </div>
         </div>
       )}
 
-      {/* ══ MODAL DETALHE ══ */}
-      {detalhe && (
-        <div style={{ position: "fixed", inset: 0, background: "rgba(44,28,10,0.40)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 100, padding: 20 }}
-          onClick={() => setDetalhe(null)}>
-          <div style={{ background: "#FBF7F2", border: "1px solid var(--border-warm)", borderRadius: 12, padding: 28, width: "100%", maxWidth: 460, maxHeight: "90dvh", overflowY: "auto", animation: "fadeUp .2s ease", position: "relative" }}
-            onClick={e => e.stopPropagation()}>
-
-            {/* Barra lateral decorativa */}
-            <div style={{ position: "absolute", top: 0, left: 0, bottom: 0, width: 3, background: "var(--panel-dark)", borderRadius: "12px 0 0 12px" }} />
-
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20, paddingLeft: 8 }}>
-              <p style={{ fontSize: 10, letterSpacing: 3, textTransform: "uppercase", color: "var(--accent-muted)", fontWeight: 300 }}>Detalhe do utilizador</p>
-              <button onClick={() => setDetalhe(null)} style={{ background: "none", border: "none", color: "var(--accent-muted)", cursor: "pointer", fontSize: 18, lineHeight: 1 }}>✕</button>
-            </div>
-
-            {/* Avatar + nome */}
-            <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 20, paddingBottom: 20, borderBottom: "1px solid var(--border-warm)", paddingLeft: 8 }}>
-              <div style={{ width: 56, height: 56, borderRadius: "50%", background: "var(--panel-dark)", color: "var(--accent-gold)", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "var(--font-playfair)", fontWeight: 400, fontSize: 18, letterSpacing: 1, flexShrink: 0 }}>
-                {initials(detalhe.nome)}
-              </div>
-              <div>
-                <div style={{ fontFamily: "var(--font-playfair)", fontWeight: 400, fontSize: 18, color: "var(--panel-dark)", marginBottom: 4 }}>{detalhe.nome}</div>
-                <div style={{ fontSize: 12, color: "var(--accent-muted)", fontWeight: 300, marginBottom: 6 }}>{detalhe.email}</div>
-                {(() => { const cor = TIPO_CORES[detalhe.tipoUtilizador] ?? TIPO_CORES.ROLE_ALUNO; return (
-                  <span style={{ background: cor.bg, border: `1px solid ${cor.border}`, color: cor.text, borderRadius: 4, padding: "2px 10px", fontSize: 10, fontWeight: 400, letterSpacing: .5 }}>
-                    {TIPO_LABELS[detalhe.tipoUtilizador] ?? detalhe.tipoUtilizador}
-                  </span>
-                ); })()}
-              </div>
-            </div>
-
-            {/* Campos */}
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 24, paddingLeft: 8 }}>
-              {[
-                { label: "Telefone",       value: detalhe.telefone || "—" },
-                { label: "NIF",            value: detalhe.nif || "—" },
-                { label: "Nascimento",     value: formatDate(detalhe.dataNascimento) },
-                { label: "Membro desde",   value: formatDate(detalhe.criadoEm) },
-                { label: "Estado",         value: detalhe.ativo ? "✓ Ativo" : "✗ Inativo" },
-              ].map(({ label, value }) => (
-                <div key={label}>
-                  <div style={{ fontSize: 9, letterSpacing: 2, textTransform: "uppercase", color: "var(--accent-muted)", fontWeight: 300, marginBottom: 4 }}>{label}</div>
-                  <div style={{ fontSize: 13, color: "var(--panel-dark)", fontWeight: 400 }}>{value}</div>
-                </div>
-              ))}
-            </div>
-
-            {/* Ações */}
-            <div style={{ display: "flex", flexDirection: "column", gap: 8, paddingLeft: 8 }}>
-              <button onClick={() => { setReporTarget(detalhe); setDetalhe(null); }}
-                style={{ padding: "10px", borderRadius: 8, background: "rgba(78,114,169,0.08)", border: "1px solid rgba(78,114,169,0.25)", color: "#2D4E7A", fontFamily: "var(--font-lato)", fontSize: 12, cursor: "pointer", letterSpacing: .5 }}>
-                <i className="ti ti-key" style={{ marginRight: 8 }} />Repor palavra-passe
-              </button>
-              <button onClick={() => toggleAtivo(detalhe)}
-                style={{ padding: "10px", borderRadius: 8, background: "#FFFCF8", border: "1px solid var(--border-warm)", color: "var(--panel-dark)", fontFamily: "var(--font-lato)", fontSize: 12, cursor: "pointer", letterSpacing: .5 }}>
-                <i className={`ti ${detalhe.ativo ? "ti-user-off" : "ti-user-check"}`} style={{ marginRight: 8 }} />
-                {detalhe.ativo ? "Desativar conta" : "Ativar conta"}
-              </button>
-              <button onClick={() => apagar(detalhe)}
-                style={{ padding: "10px", borderRadius: 8, background: "rgba(192,57,43,0.06)", border: "1px solid rgba(192,57,43,0.20)", color: "#c0392b", fontFamily: "var(--font-lato)", fontSize: 12, cursor: "pointer", letterSpacing: .5 }}>
-                <i className="ti ti-trash" style={{ marginRight: 8 }} />Apagar utilizador
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* ══ MODAL REPOR PASSWORD ══ */}
+      {/* Modal Repor Password */}
       {reporTarget && (
-        <div style={{ position: "fixed", inset: 0, background: "rgba(44,28,10,0.40)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 100, padding: 20 }}
-          onClick={() => setReporTarget(null)}>
-          <form style={{ background: "#FBF7F2", border: "1px solid var(--border-warm)", borderRadius: 12, padding: 28, width: "100%", maxWidth: 400, animation: "fadeUp .2s ease", position: "relative" }}
-            onSubmit={reporPassword} onClick={e => e.stopPropagation()}>
-
-            <div style={{ position: "absolute", top: 0, left: 0, bottom: 0, width: 3, background: "var(--panel-dark)", borderRadius: "12px 0 0 12px" }} />
-
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16, paddingLeft: 8 }}>
-              <p style={{ fontFamily: "var(--font-playfair)", fontSize: 17, color: "var(--panel-dark)", fontWeight: 400 }}>Repor palavra-passe</p>
-              <button type="button" onClick={() => setReporTarget(null)} style={{ background: "none", border: "none", color: "var(--accent-muted)", cursor: "pointer", fontSize: 18 }}>✕</button>
-            </div>
-
-            <p style={{ fontSize: 12, color: "var(--accent-muted)", fontWeight: 300, marginBottom: 20, paddingLeft: 8 }}>
-              A alterar a credencial de <strong>{reporTarget.nome}</strong>.
-            </p>
-
-            <div style={{ display: "flex", flexDirection: "column", gap: 14, paddingLeft: 8, marginBottom: 20 }}>
-              <div>
-                <label style={{ display: "block", fontSize: 10, letterSpacing: 2, textTransform: "uppercase", color: "var(--accent-muted)", fontWeight: 300, marginBottom: 4 }}>Nova palavra-passe</label>
-                <input type="password" required value={novaPass} onChange={e => setNovaPass(e.target.value)}
-                  style={{ width: "100%", background: "#FFFCF8", border: "1px solid var(--border-warm)", borderRadius: 6, padding: "9px 12px", color: "var(--panel-dark)", fontFamily: "var(--font-lato)", fontSize: 13, outline: "none" }} />
+        <div style={{ position: "fixed", inset: 0, background: "rgba(44,28,10,0.40)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 100, padding: 20 }} onClick={() => setReporTarget(null)}>
+          <div style={{ background: "#FBF7F2", border: "1px solid var(--border-warm)", borderRadius: 12, padding: 28, width: "100%", maxWidth: 400 }} onClick={e => e.stopPropagation()}>
+            <h3 style={{ fontFamily: "var(--font-playfair)", fontSize: 18, margin: "0 0 16px" }}>Repor Password para {reporTarget.nome}</h3>
+            <form onSubmit={reporPassword} style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+              <input type="password" placeholder="Nova Password" value={novaPass} onChange={e => setNovaPass(e.target.value)} required style={{ padding: 10, borderRadius: 6, border: "1px solid var(--border-warm)" }} />
+              <input type="password" placeholder="Confirmar Password" value={confirmarPass} onChange={e => setConfirmarPass(e.target.value)} required style={{ padding: 10, borderRadius: 6, border: "1px solid var(--border-warm)" }} />
+              <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", marginTop: 8 }}>
+                <button type="button" onClick={() => setReporTarget(null)} style={{ padding: "8px 16px", background: "none", border: "1px solid #ccc", borderRadius: 6, cursor: "pointer" }}>Cancelar</button>
+                <button type="submit" disabled={loadingRepor} style={{ padding: "8px 16px", background: "var(--panel-dark)", color: "var(--accent-gold)", border: "none", borderRadius: 6, cursor: "pointer" }}>{loadingRepor ? "A gravar…" : "Gravar"}</button>
               </div>
-              <div>
-                <label style={{ display: "block", fontSize: 10, letterSpacing: 2, textTransform: "uppercase", color: "var(--accent-muted)", fontWeight: 300, marginBottom: 4 }}>Confirmar nova palavra-passe</label>
-                <input type="password" required value={confirmarPass} onChange={e => setConfirmarPass(e.target.value)}
-                  style={{ width: "100%", background: "#FFFCF8", border: "1px solid var(--border-warm)", borderRadius: 6, padding: "9px 12px", color: "var(--panel-dark)", fontFamily: "var(--font-lato)", fontSize: 13, outline: "none" }} />
-              </div>
-            </div>
-
-            <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, paddingLeft: 8 }}>
-              <button type="button" onClick={() => setReporTarget(null)}
-                style={{ padding: "8px 16px", border: "1px solid var(--border-warm)", borderRadius: 6, background: "transparent", color: "var(--panel-dark)", fontSize: 12, cursor: "pointer", fontFamily: "var(--font-lato)" }}>
-                Cancelar
-              </button>
-              <button type="submit" disabled={loadingRepor}
-                style={{ padding: "8px 16px", border: "none", borderRadius: 6, background: "var(--panel-dark)", color: "var(--accent-gold)", fontSize: 12, cursor: loadingRepor ? "not-allowed" : "pointer", opacity: loadingRepor ? 0.6 : 1, fontFamily: "var(--font-lato)" }}>
-                {loadingRepor ? "A guardar..." : "Alterar"}
-              </button>
-            </div>
-          </form>
+            </form>
+          </div>
         </div>
       )}
     </>
