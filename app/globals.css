@@ -21,6 +21,9 @@
   --color-accent-muted: var(--accent-muted);
   --color-border-warm: var(--border-warm);
 
+  --panel-light: #F2EDE4;
+  --border-color: var(--border-warm);
+
   /* Mapeamento das fontes */
   --font-sans: var(--font-lato), sans-serif;
   --font-serif: var(--font-playfair), serif;

@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState, useCallback, useRef } from "react";
-import { useRouter } from "next/navigation";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -123,103 +122,6 @@ function normalizeAula(a: any): AulaDto {
     estudio:    a.estudio    ?? h.estudioId,
     professor:  a.professor  ?? h.professor ?? h.idcriadoPor,
   };
-}
-
-// ─── Navbar + Drawer (reutilizável, igual à landing) ─────────────────────────
-
-const NAV_SECTIONS = [
-  { title: "Principal", items: [
-    { icon: "ti-home",        label: "Início",      href: "/landingPage" },
-    { icon: "ti-calendar",    label: "Horários",    href: "/horarios" },
-    { icon: "ti-credit-card", label: "Pagamentos",  href: "/pagamentos" },
-  ]},
-  { title: "Comunidade", items: [
-    { icon: "ti-mail",         label: "Mensagens",   href: "/mensagens" },
-    { icon: "ti-star",         label: "Eventos",     href: "/eventos" },
-    { icon: "ti-shopping-bag", label: "Marketplace", href: "/marketplace" },
-  ]},
-  { title: "Gestão", items: [
-    { icon: "ti-chart-bar", label: "Gestão de Faltas", href: "/faltas" },
-  ]},
-];
-
-function Navbar({ userName, initials, onDrawer }: { userName: string; initials: string; onDrawer: () => void }) {
-  return (
-    <nav style={{ height: "52px", borderBottom: "1px solid var(--border-warm)", background: "var(--background)", display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0 20px", flexShrink: 0 }}>
-      <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-        <button onClick={onDrawer} aria-label="Abrir menu" style={{ width: 32, height: 32, border: "1px solid var(--border-warm)", borderRadius: 4, background: "#FFFCF8", color: "var(--panel-dark)", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>
-          <i className="ti ti-menu-2" style={{ fontSize: 16 }} />
-        </button>
-        <div>
-          <span style={{ fontFamily: "var(--font-playfair)", fontSize: 16, letterSpacing: 4, color: "var(--panel-dark)", fontWeight: 400 }}>entartes</span>
-          <span style={{ fontSize: 9, letterSpacing: 3, textTransform: "uppercase" as const, color: "var(--accent-muted)", fontWeight: 300, marginLeft: 4 }}>· escola de dança</span>
-        </div>
-      </div>
-      <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-        <span style={{ fontSize: 12, color: "var(--accent-muted)", fontWeight: 300 }}>
-          {userName ? `Bem-vindo, ${userName.split(" ")[0]}` : ""}
-        </span>
-        <button aria-label="Notificações" style={{ width: 30, height: 30, borderRadius: "50%", border: "1px solid var(--border-warm)", background: "transparent", color: "var(--accent-muted)", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>
-          <i className="ti ti-bell" style={{ fontSize: 15 }} />
-        </button>
-        <div style={{ width: 30, height: 30, borderRadius: "50%", background: "var(--panel-dark)", color: "var(--accent-gold)", fontSize: 11, letterSpacing: 1, fontFamily: "var(--font-playfair)", fontWeight: 400, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}>
-          {initials}
-        </div>
-      </div>
-    </nav>
-  );
-}
-
-function Drawer({ open, onClose, currentHref, onLogout }: { open: boolean; onClose: () => void; currentHref: string; onLogout: () => void }) {
-  const router = useRouter();
-  return (
-    <>
-      {open && <div style={{ position: "absolute", inset: 0, zIndex: 10, background: "rgba(44,31,20,0.30)" }} onClick={onClose} />}
-      <aside style={{ position: "absolute", top: 0, bottom: 0, left: 0, zIndex: 20, width: 220, background: "var(--panel-dark)", transform: open ? "translateX(0)" : "translateX(-100%)", transition: "transform .28s cubic-bezier(.4,0,.2,1)", display: "flex", flexDirection: "column" }}>
-        <div style={{ padding: "20px", borderBottom: "1px solid rgba(212,178,136,0.12)" }}>
-          <span style={{ fontFamily: "var(--font-playfair)", fontSize: 13, letterSpacing: 3, color: "var(--accent-gold)", fontWeight: 400, display: "block" }}>entartes</span>
-          <span style={{ fontSize: 9, letterSpacing: 3, textTransform: "uppercase" as const, color: "rgba(212,178,136,0.35)", fontWeight: 300, marginTop: 2, display: "block" }}>escola de dança</span>
-        </div>
-        <div style={{ flex: 1, overflowY: "auto", padding: "8px 0" }}>
-          {NAV_SECTIONS.map(s => (
-            <div key={s.title}>
-              <div style={{ fontSize: 9, letterSpacing: 3, textTransform: "uppercase" as const, color: "rgba(212,178,136,0.22)", fontWeight: 300, padding: "14px 20px 4px" }}>{s.title}</div>
-              {s.items.map(item => {
-                const active = currentHref === item.href;
-                return (
-                  <button key={item.href}
-                    onClick={() => { router.push(item.href); onClose(); }}
-                    style={{ display: "flex", alignItems: "center", gap: 10, width: "100%", padding: "10px 20px", color: active ? "var(--accent-gold)" : "rgba(212,178,136,0.55)", background: active ? "rgba(212,178,136,0.12)" : "transparent", border: "none", fontSize: 12, letterSpacing: .5, fontWeight: active ? 400 : 300, cursor: "pointer", textAlign: "left" }}
-                    onMouseEnter={e => { if (!active) { (e.currentTarget).style.background = "rgba(212,178,136,0.08)"; (e.currentTarget).style.color = "var(--accent-gold)"; } }}
-                    onMouseLeave={e => { if (!active) { (e.currentTarget).style.background = "transparent"; (e.currentTarget).style.color = "rgba(212,178,136,0.55)"; } }}>
-                    <i className={`ti ${item.icon}`} style={{ fontSize: 15 }} aria-hidden="true" />
-                    {item.label}
-                  </button>
-                );
-              })}
-            </div>
-          ))}
-        </div>
-        <div style={{ padding: "16px 20px", borderTop: "1px solid rgba(212,178,136,0.10)" }}>
-          <button onClick={onLogout} style={{ display: "flex", alignItems: "center", gap: 10, color: "rgba(212,178,136,0.35)", fontSize: 12, fontWeight: 300, background: "transparent", border: "none", cursor: "pointer" }}
-            onMouseEnter={e => ((e.currentTarget).style.color = "#E8A09A")}
-            onMouseLeave={e => ((e.currentTarget).style.color = "rgba(212,178,136,0.35)")}>
-            <i className="ti ti-logout" style={{ fontSize: 15 }} aria-hidden="true" />
-            Sair
-          </button>
-        </div>
-      </aside>
-    </>
-  );
-}
-
-function Footer() {
-  return (
-    <footer style={{ padding: "12px 24px", borderTop: "1px solid var(--border-warm)", display: "flex", alignItems: "center", justifyContent: "space-between", flexShrink: 0 }}>
-      <span style={{ fontFamily: "var(--font-playfair)", fontSize: 12, letterSpacing: 3, color: "var(--accent-muted)", fontWeight: 400 }}>entartes</span>
-      <span style={{ fontSize: 10, color: "var(--accent-muted)", fontWeight: 300 }}>© 2025 Entartes — Escola de Dança</span>
-    </footer>
-  );
 }
 
 // ─── Componentes UI internos ──────────────────────────────────────────────────
@@ -1077,26 +979,14 @@ function CoachingGrid({ items, onAction, actionLabel, actionPerigo }: { items: C
 // ─── Página principal ─────────────────────────────────────────────────────────
 
 export default function HorariosPage() {
-  const router                          = useRouter();
-  const [drawerOpen, setDrawerOpen]     = useState(false);
-  const [userName, setUserName]         = useState("");
-  const [role, setRole]                 = useState<Role|null>(null);
+  const [role, setRole] = useState<Role|null>(null);
+  const [userName, setUserName] = useState("");
 
   useEffect(() => {
     const { nome, role } = getUserData();
     setUserName(nome);
     setRole(role);
   }, []);
-
-  useEffect(() => {
-    const fn = (e: KeyboardEvent) => { if (e.key==="Escape") setDrawerOpen(false); };
-    document.addEventListener("keydown", fn);
-    return () => document.removeEventListener("keydown", fn);
-  }, []);
-
-  const handleLogout = () => { localStorage.removeItem("token"); localStorage.removeItem("user"); router.push("/"); };
-
-  const initials = userName ? userName.split(" ").map(n=>n[0]).slice(0,2).join("").toUpperCase() : "U";
 
   const roleLabel: Record<Role, string> = {
     ALUNO:       "Aluno",
@@ -1108,44 +998,30 @@ export default function HorariosPage() {
   return (
     <>
       <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
-      <div style={{ display:"flex", flexDirection:"column", minHeight:"100vh", background:"var(--background)", fontFamily:"var(--font-lato)" }}>
 
-        <Navbar userName={userName} initials={initials} onDrawer={() => setDrawerOpen(true)} />
-
-        <div style={{ display:"flex", flex:1, position:"relative", overflow:"hidden" }}>
-          <Drawer open={drawerOpen} onClose={()=>setDrawerOpen(false)} currentHref="/horarios" onLogout={handleLogout} />
-
-          <main style={{ flex:1, overflowY:"auto", padding:"28px 28px 40px" }}>
-
-            {/* Cabeçalho da secção */}
-            <div style={{ marginBottom:28 }}>
-              <p style={{ fontSize:10, letterSpacing:3, textTransform:"uppercase", color:"var(--accent-muted)", fontWeight:300, marginBottom:4 }}>
-                {role ? roleLabel[role] : "—"}
-              </p>
-              <h1 style={{ fontFamily:"var(--font-playfair)", fontSize:26, color:"var(--panel-dark)", fontWeight:400, marginBottom:0 }}>
-                Horários
-              </h1>
-            </div>
-
-            {!role ? (
-              <div style={{ textAlign:"center", padding:80 }}>
-                <p style={{ fontFamily:"var(--font-playfair)", fontSize:20, color:"var(--panel-dark)", marginBottom:8 }}>Sem sessão iniciada</p>
-                <p style={{ fontSize:13, color:"var(--accent-muted)", fontWeight:300 }}>Faz login para aceder aos horários.</p>
-              </div>
-            ) : (
-              <>
-                {role==="ALUNO"       && <AlunoView       userName={userName} />}
-                {role==="ENCARREGADO" && <EncarregadoView userName={userName} />}
-                {role==="PROFESSOR"   && <ProfessorView   userName={userName} />}
-                {role==="COORDENACAO" && <CoordenacaoView />}
-              </>
-            )}
-
-          </main>
-        </div>
-
-        <Footer />
+      {/* Cabeçalho da secção */}
+      <div style={{ marginBottom:28 }}>
+        <p style={{ fontSize:10, letterSpacing:3, textTransform:"uppercase", color:"var(--accent-muted)", fontWeight:300, marginBottom:4 }}>
+          {role ? roleLabel[role] : "—"}
+        </p>
+        <h1 style={{ fontFamily:"var(--font-playfair)", fontSize:26, color:"var(--panel-dark)", fontWeight:400, marginBottom:0 }}>
+          Horários
+        </h1>
       </div>
+
+      {!role ? (
+        <div style={{ textAlign:"center", padding:80 }}>
+          <p style={{ fontFamily:"var(--font-playfair)", fontSize:20, color:"var(--panel-dark)", marginBottom:8 }}>Sem sessão iniciada</p>
+          <p style={{ fontSize:13, color:"var(--accent-muted)", fontWeight:300 }}>Faz login para aceder aos horários.</p>
+        </div>
+      ) : (
+        <>
+          {role==="ALUNO"       && <AlunoView       userName={userName} />}
+          {role==="ENCARREGADO" && <EncarregadoView userName={userName} />}
+          {role==="PROFESSOR"   && <ProfessorView   userName={userName} />}
+          {role==="COORDENACAO" && <CoordenacaoView />}
+        </>
+      )}
     </>
   );
 }

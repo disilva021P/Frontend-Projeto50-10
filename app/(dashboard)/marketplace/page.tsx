@@ -42,31 +42,6 @@ const FILTROS_TIPO = [
 
 const CONDICOES = ["Novo", "Como novo", "Bom estado", "Usado"];
 
-const NAV_SECTIONS = [
-  {
-    title: "Principal",
-    items: [
-      { icon: "ti-home", label: "Início", href: "/landingPage" },
-      { icon: "ti-calendar", label: "Horários", href: "/horarios" },
-      { icon: "ti-credit-card", label: "Pagamentos", href: "/pagamentos" },
-    ],
-  },
-  {
-    title: "Comunidade",
-    items: [
-      { icon: "ti-mail", label: "Mensagens", href: "/mensagens" },
-      { icon: "ti-star", label: "Eventos", href: "/eventos" },
-      { icon: "ti-shopping-bag", label: "Marketplace", href: "/marketplace" },
-    ],
-  },
-  {
-    title: "Gestão",
-    items: [
-      { icon: "ti-chart-bar", label: "Gestão de Faltas", href: "/faltas" },
-    ],
-  },
-];
-
 function GaleriaImagens({ ids }: { ids: string[] }) {
   const [ativa, setAtiva] = useState(0);
   const total = ids.length;
@@ -146,14 +121,10 @@ function GaleriaImagens({ ids }: { ids: string[] }) {
 
 export default function MarketplacePage() {
   const router = useRouter();
-  const drawerRef = useRef<HTMLDivElement>(null);
 
-  // Estados de navegação e controlo estrutural (drawer e menus)
-  const [drawerOpen, setDrawerOpen] = useState(false);
+  // Estados mantidos apenas para controlo interno e Marketplace
   const [userName, setUserName] = useState("");
   const [role, setRole] = useState<Role | null>(null);
-  const [showNotifPanel, setShowNotifPanel] = useState(false);
-  const [showProfileMenu, setShowProfileMenu] = useState(false);
 
   // Estados do Marketplace
   const [artigos, setArtigos] = useState<Artigo[]>([]);
@@ -196,77 +167,37 @@ export default function MarketplacePage() {
     precoAluguer: "",
   });
 
-  const [notificacoes, setNotificacoes] = useState<any[]>([]);
-  const [unreadCount, setUnreadCount] = useState(0);
+  const [alugueresAtivos, setAlugueresAtivos] = useState<any[]>([]);
+  const [mostrarAlugueres, setMostrarAlugueres] = useState(false);
 
-  // Sincronização do utilizador a partir do localStorage igual à LandingPage
   useEffect(() => {
     const raw = localStorage.getItem("user");
+    const token = localStorage.getItem("token");
+
+    let idFinal: string | undefined;
+    let nomeUsuario = "";
+
     if (raw) {
       try {
         const parsed = JSON.parse(raw);
         setUserName(parsed.nome ?? "");
         setRole((parsed.tipoUtilizadorId as Role) ?? null);
-
-        // Mantém compatibilidade com a pesquisa por ID do dono do artigo
-        setUsuarioLogado({
-          id: parsed.id || parsed.sub,
-          nome: parsed.nome ?? "Utilizador",
-        });
-      } catch {
-        /* ignora */
-      }
+        idFinal = parsed.id ?? parsed.sub;
+        nomeUsuario = parsed.nome ?? "Utilizador";
+      } catch { /* ignora */ }
     }
 
-    const handleKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setDrawerOpen(false);
-    };
-    document.addEventListener("keydown", handleKey);
-    return () => document.removeEventListener("keydown", handleKey);
+    if (!idFinal && token) {
+      try {
+        const payload = JSON.parse(window.atob(token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/')));
+        idFinal = payload.sub ?? payload.id;
+      } catch { /* ignora */ }
+    }
+
+    if (idFinal) {
+      setUsuarioLogado({ id: String(idFinal), nome: nomeUsuario });
+    }
   }, []);
-
-  const carregarNotificacoes = async () => {
-    const token = localStorage.getItem("token");
-    const userId = usuarioLogado?.id;
-    if (!userId || !token) return;
-
-    try {
-      const res = await api.get("/notificacoes/me", {
-        params: { userId: userId },
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      const listaNotif = res.data.content || [];
-      setNotificacoes(listaNotif);
-      setUnreadCount(listaNotif.filter((n: any) => n.lida === false).length);
-    } catch (err: any) {
-      console.error("Erro ao carregar notificações:", err.response?.data);
-    }
-  };
-
-  useEffect(() => {
-    if (usuarioLogado?.id) {
-      carregarNotificacoes();
-      const interval = setInterval(() => {
-        carregarNotificacoes();
-      }, 10000);
-      return () => clearInterval(interval);
-    }
-  }, [usuarioLogado?.id]);
-
-  const marcarTodasComoLidas = async () => {
-    const naoLidas = notificacoes.filter((n) => !n.lida);
-    if (naoLidas.length === 0) return;
-
-    try {
-      await Promise.all(
-        naoLidas.map((n) => api.put(`/notificacoes/${n.id}/ler`)),
-      );
-      setNotificacoes((prev) => prev.map((n) => ({ ...n, lida: true })));
-      setUnreadCount(0);
-    } catch (err) {
-      console.error("Erro ao marcar notificações como lidas:", err);
-    }
-  };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files) {
@@ -305,9 +236,7 @@ export default function MarketplacePage() {
       if (precoMin) params.min = precoMin;
       if (precoMax) params.max = precoMax;
 
-      // SE O FILTRO "APENAS MEUS" ESTIVER ATIVO
       if (apenasMeus) {
-        // Vamos buscar o ID diretamente do Token guardado, sem falhas:
         const token = localStorage.getItem("token");
         let meuIdReal = usuarioLogado?.id;
 
@@ -324,19 +253,16 @@ export default function MarketplacePage() {
 
         if (meuIdReal) {
           params.donoId = meuIdReal;
-        } else {
-          console.error("Não foi possível filtrar: ID do utilizador não encontrado no Token.");
         }
       }
 
       const response = await api.get<PaginaResponse>('/marketplace', { params });
-      
       setArtigos(response.data.content);
       setTotalPaginas(response.data.totalPages);
       setPaginaAtual(response.data.number);
     } catch (error) {
       console.error('Erro ao carregar:', error);
-    } finally {
+    } {
       setLoading(false);
     }
   };
@@ -569,7 +495,6 @@ export default function MarketplacePage() {
       alert("Operação efetuada com sucesso!");
       setArtigoSelecionado(null);
       carregarArtigos(0);
-      carregarNotificacoes();
     } catch (err: any) {
       console.error(err);
       alert(
@@ -593,25 +518,6 @@ export default function MarketplacePage() {
       }
   };
 
-  const handleLogout = () => {
-    localStorage.removeItem("token");
-    localStorage.removeItem("user");
-    router.push("/");
-  };
-
-  // Cálculo de iniciais idêntico ao teu ficheiro enviado
-  const initials = userName
-    ? userName
-        .split(" ")
-        .map((n) => n[0])
-        .slice(0, 2)
-        .join("")
-        .toUpperCase()
-    : "U";
-
-  const [alugueresAtivos, setAlugueresAtivos] = useState<any[]>([]);
-  const [mostrarAlugueres, setMostrarAlugueres] = useState(false);
-
   const carregarAlugueresAtivos = async () => {
     if (!usuarioLogado?.id) return;
     try {
@@ -629,425 +535,80 @@ export default function MarketplacePage() {
   }, [apenasMeus, usuarioLogado?.id]);
 
   return (
-    <div className="flex flex-col min-h-screen bg-background font-sans text-panel-dark">
-      {/* ── NAVBAR ── */}
-      <nav
-        className="flex items-center justify-between px-5 flex-shrink-0 sticky top-0 z-40"
-        style={{
-          height: "52px",
-          borderBottom: "1px solid var(--border-warm)",
-          background: "var(--background)",
-        }}
-      >
-        <div className="flex items-center gap-3">
-          <button
-            onClick={() => setDrawerOpen(true)}
-            aria-label="Abrir menu"
-            className="flex items-center justify-center shadow-xs"
-            style={{
-              width: "32px",
-              height: "32px",
-              border: "1px solid var(--border-warm)",
-              borderRadius: "4px",
-              background: "#FFFCF8",
-              color: "var(--panel-dark)",
-              cursor: "pointer",
-            }}
-          >
-            <i className="ti ti-menu-2" style={{ fontSize: "16px" }} />
-          </button>
-          <div>
-            <span
-              style={{
-                fontFamily: "var(--font-playfair)",
-                fontSize: "16px",
-                letterSpacing: "4px",
-                color: "var(--panel-dark)",
-                fontWeight: 400,
-              }}
-            >
-              entartes
-            </span>
-            <span
-              className="hidden sm:inline"
-              style={{
-                fontSize: "9px",
-                letterSpacing: "3px",
-                textTransform: "uppercase",
-                color: "var(--accent-muted)",
-                fontWeight: 300,
-                marginLeft: "4px",
-              }}
-            >
-              · marketplace
-            </span>
-          </div>
-        </div>
-
-        <div className="flex items-center gap-3">
-          <span
-            style={{
-              fontSize: "12px",
-              color: "var(--accent-muted)",
-              fontWeight: 300,
-            }}
-          >
-            Bem-vindo{userName ? `, ${userName.split(" ")[0]}` : ""}
-          </span>
-
-          {/* SINO DE NOTIFICAÇÕES NO TOPO DIREITO */}
-          <div className="relative">
-            <button
-              onClick={() => {
-                const novoEstado = !showNotifPanel;
-                setShowNotifPanel(novoEstado);
-                if (novoEstado) {
-                  marcarTodasComoLidas();
-                  setShowProfileMenu(false);
-                }
-              }}
-              aria-label="Notificações"
-              className="flex items-center justify-center relative transition-colors"
-              style={{
-                width: "30px",
-                height: "30px",
-                borderRadius: "50%",
-                border: "1px solid var(--border-warm)",
-                background: "transparent",
-                color: "var(--accent-muted)",
-                cursor: "pointer",
-              }}
-            >
-              <i className="ti ti-bell" style={{ fontSize: "15px" }} />
-              {unreadCount > 0 && (
-                <span className="absolute -top-1 -right-1 bg-panel-dark text-[8px] font-normal w-4 h-4 flex items-center justify-center rounded-full text-accent-gold">
-                  {unreadCount}
-                </span>
-              )}
-            </button>
-
-            {showNotifPanel && (
-              <div className="absolute right-0 mt-2 w-72 bg-[#FBF7F2] border border-border-warm rounded-sm shadow-xl z-50 overflow-hidden">
-                <div className="p-3 border-b border-border-warm flex justify-between items-center bg-[#FFFCF8]">
-                  <h3
-                    style={{ fontFamily: "var(--font-playfair)" }}
-                    className="text-xs text-panel-dark tracking-wide font-normal"
-                  >
-                    Notificações
-                  </h3>
-                  <button
-                    onClick={() => setShowNotifPanel(false)}
-                    className="text-accent-muted hover:text-panel-dark text-sm"
-                  >
-                    &times;
-                  </button>
-                </div>
-                <div className="max-h-64 overflow-y-auto divide-y divide-border-warm/30">
-                  {notificacoes.length === 0 ? (
-                    <p className="p-6 text-center text-accent-muted text-xs font-light">
-                      Sem novas notificações.
-                    </p>
-                  ) : (
-                    notificacoes.map((n) => (
-                      <div
-                        key={n.id}
-                        className="p-3 hover:bg-[#FFFCF8] transition-colors"
-                      >
-                        <div className="flex items-start justify-between gap-2">
-                          <p className="text-[11px] font-normal text-panel-dark">
-                            {n.titulo}
-                          </p>
-                          {!n.lida && (
-                            <span className="w-1.5 h-1.5 rounded-full bg-accent-gold mt-1 flex-shrink-0"></span>
-                          )}
-                        </div>
-                        <p className="text-xs text-accent-muted mt-1 font-light leading-snug">
-                          {n.mensagem}
-                        </p>
-                      </div>
-                    ))
-                  )}
-                </div>
-              </div>
-            )}
-          </div>
-
-          {/* BOLINHA DO PERFIL IDÊNTICA (Com Menu Dropdown) */}
-          <div className="relative">
-            <div
-              onClick={() => {
-                setShowProfileMenu(!showProfileMenu);
-                setShowNotifPanel(false);
-              }}
-              className="flex items-center justify-center hover:opacity-90 transition-opacity"
-              style={{
-                width: "30px",
-                height: "30px",
-                borderRadius: "50%",
-                background: "var(--panel-dark)",
-                color: "var(--accent-gold)",
-                fontSize: "11px",
-                letterSpacing: "1px",
-                fontFamily: "var(--font-playfair)",
-                fontWeight: 400,
-                cursor: "pointer",
-              }}
-            >
-              {initials}
+    <div className="flex flex-col min-h-full bg-background font-sans text-panel-dark">
+      {/* ── CONTEÚDO DA PÁGINA (MARKETPLACE) ── */}
+      {/* Removidos: `<nav>` redundante e `<aside>` (Drawer) duplicado. O DashboardLayout já os renderiza! */}
+      <div className="flex flex-1 relative overflow-hidden">
+        <main className="flex-1 overflow-y-auto">
+          <header className="mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div>
+              <p className="text-[10px] tracking-[3px] uppercase text-accent-muted font-light mb-1">
+                Comunidade
+              </p>
+              <h1
+                style={{ fontFamily: "var(--font-playfair)" }}
+                className="text-2xl font-normal text-panel-dark"
+              >
+                Marketplace
+              </h1>
             </div>
 
-            {showProfileMenu && (
-              <div className="absolute right-0 mt-2 w-48 bg-[#FBF7F2] border border-border-warm rounded-sm shadow-xl z-50 overflow-hidden py-1">
-                <div className="px-3 py-2 border-b border-border-warm/30 bg-[#FFFCF8]">
-                  <p className="text-[10px] text-accent-muted uppercase tracking-wider font-light">
-                    Sessão iniciada
-                  </p>
-                  <p className="text-xs font-normal text-panel-dark truncate">
-                    {userName || "Utilizador"}
-                  </p>
-                </div>
+            <div className="flex items-center gap-3 self-end sm:self-auto">
+              {/* 1. Botão Recompras/Alugueres */}
+              {apenasMeus && (
                 <button
-                  onClick={() => {
-                    router.push("/perfil");
-                    setShowProfileMenu(false);
-                  }}
-                  className="w-full text-left px-3 py-2 text-xs text-panel-dark hover:bg-panel-dark/5 transition-colors flex items-center gap-2"
-                >
-                  <i className="ti ti-user-cog text-accent-muted" /> O meu
-                  perfil
-                </button>
-                <div className="border-t border-border-warm/30 my-1"></div>
-                <button
-                  onClick={handleLogout}
-                  className="w-full text-left px-3 py-2 text-xs text-red-600 hover:bg-red-50 transition-colors flex items-center gap-2"
-                >
-                  <i className="ti ti-logout" /> Sair
-                </button>
-              </div>
-            )}
-          </div>
-        </div>
-      </nav>
-
-      {/* ── CORPO PRINCIPAL DO MARKETPLACE ── */}
-      <div className="flex flex-1 relative overflow-hidden">
-        {/* Overlay do Drawer */}
-        {drawerOpen && (
-          <div
-            className="absolute inset-0 z-10"
-            style={{ background: "rgba(44,31,20,0.30)" }}
-            onClick={() => setDrawerOpen(false)}
-          />
-        )}
-
-        {/* ── DRAWER SIDEBAR IDÊNTICA ── */}
-        <aside
-          ref={drawerRef}
-          className="absolute top-0 bottom-0 left-0 z-20 flex flex-col"
-          style={{
-            width: "220px",
-            background: "var(--panel-dark)",
-            transform: drawerOpen ? "translateX(0)" : "translateX(-100%)",
-            transition: "transform .28s cubic-bezier(.4,0,.2,1)",
-          }}
-        >
-          <div
-            className="px-5 py-5"
-            style={{ borderBottom: "1px solid rgba(212,178,136,0.12)" }}
-          >
-            <span
-              style={{
-                fontFamily: "var(--font-playfair)",
-                fontSize: "13px",
-                letterSpacing: "3px",
-                color: "var(--accent-gold)",
-                fontWeight: 400,
-                display: "block",
-              }}
-            >
-              entartes
-            </span>
-            <span
-              style={{
-                fontSize: "9px",
-                letterSpacing: "3px",
-                textTransform: "uppercase",
-                color: "rgba(212,178,136,0.35)",
-                fontWeight: 300,
-                marginTop: "2px",
-                display: "block",
-              }}
-            >
-              escola de dança
-            </span>
-          </div>
-
-          <div className="flex-1 overflow-y-auto py-2">
-            {NAV_SECTIONS.map((section) => (
-              <div key={section.title}>
-                <div
-                  style={{
-                    fontSize: "9px",
-                    letterSpacing: "3px",
-                    textTransform: "uppercase",
-                    color: "rgba(212,178,136,0.22)",
-                    fontWeight: 300,
-                    padding: "14px 20px 4px",
-                  }}
-                >
-                  {section.title}
-                </div>
-                {section.items.map((item) => (
-                  <button
-                    key={item.href}
-                    onClick={() => {
-                      router.push(item.href);
-                      setDrawerOpen(false);
-                    }}
-                    className="flex items-center gap-2 w-full transition-colors"
-                    style={{
-                      padding: "10px 20px",
-                      color: "rgba(212,178,136,0.55)",
-                      fontSize: "12px",
-                      letterSpacing: ".5px",
-                      fontWeight: 300,
-                      background: "transparent",
-                      border: "none",
-                      cursor: "pointer",
-                      textAlign: "left",
-                    }}
-                    onMouseEnter={(e) => {
-                      (e.currentTarget as HTMLElement).style.background =
-                        "rgba(212,178,136,0.08)";
-                      (e.currentTarget as HTMLElement).style.color =
-                        "var(--accent-gold)";
-                    }}
-                    onMouseLeave={(e) => {
-                      (e.currentTarget as HTMLElement).style.background =
-                        "transparent";
-                      (e.currentTarget as HTMLElement).style.color =
-                        "rgba(212,178,136,0.55)";
-                    }}
-                  >
-                    <i
-                      className={`ti ${item.icon}`}
-                      style={{ fontSize: "15px" }}
-                      aria-hidden="true"
-                    />
-                    {item.label}
-                  </button>
-                ))}
-              </div>
-            ))}
-          </div>
-
-          <div
-            style={{
-              padding: "16px 20px",
-              borderTop: "1px solid rgba(212,178,136,0.10)",
-            }}
-          >
-            <button
-              onClick={handleLogout}
-              className="flex items-center gap-2"
-              style={{
-                color: "rgba(212,178,136,0.35)",
-                fontSize: "12px",
-                fontWeight: 300,
-                background: "transparent",
-                border: "none",
-                cursor: "pointer",
-              }}
-              onMouseEnter={(e) =>
-                ((e.currentTarget as HTMLElement).style.color = "#E8A09A")
-              }
-              onMouseLeave={(e) =>
-                ((e.currentTarget as HTMLElement).style.color =
-                  "rgba(212,178,136,0.35)")
-              }
-            >
-              <i
-                className="ti ti-logout"
-                style={{ fontSize: "15px" }}
-                aria-hidden="true"
-              />
-              Sair
-            </button>
-          </div>
-        </aside>
-
-        {/* ── CONTEÚDO DA PÁGINA (MARKETPLACE) ── */}
-          <main className="flex-1 overflow-y-auto p-[28px_28px_40px]">
-            <header className="mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-              <div>
-                <p className="text-[10px] tracking-[3px] uppercase text-accent-muted font-light mb-1">
-                  Comunidade
-                </p>
-                <h1
-                  style={{ fontFamily: "var(--font-playfair)" }}
-                  className="text-2xl font-normal text-panel-dark"
-                >
-                  Marketplace
-                </h1>
-              </div>
-
-              <div className="flex items-center gap-3 self-end sm:self-auto">
-                
-                {/* 1. Botão Recompras/Alugueres (Agora à Esquerda e com Cor Ativa Forte) */}
-                {apenasMeus && (
-                  <button
-                    onClick={() => setMostrarAlugueres(!mostrarAlugueres)}
-                    className={`px-4 py-2 border rounded-sm text-xs tracking-wide transition-all uppercase ${
-                      mostrarAlugueres
-                        ? "bg-panel-dark text-accent-gold border-panel-dark font-medium shadow-sm"
-                        : "bg-[#FFFCF8] text-panel-dark border-border-warm hover:border-accent-muted"
-                    }`}
-                  >
-                    <i className="ti ti-package mr-1" /> Recompras/Alugueres ({alugueresAtivos.length})
-                  </button>
-                )}
-
-                {/* 2. Botão Ver os meus anúncios (Agora à Direita e com Cor Ativa Forte) */}
-                <button
-                  onClick={() => {
-                    setApenasMeus(!apenasMeus);
-                    if (mostrarAlugueres) setMostrarAlugueres(false); // Desativa alugueres se desligar os meus anúncios
-                  }}
+                  onClick={() => setMostrarAlugueres(!mostrarAlugueres)}
                   className={`px-4 py-2 border rounded-sm text-xs tracking-wide transition-all uppercase ${
-                    apenasMeus && !mostrarAlugueres
+                    mostrarAlugueres
                       ? "bg-panel-dark text-accent-gold border-panel-dark font-medium shadow-sm"
-                      : "bg-[#FFFCF8] text-accent-muted border-border-warm hover:border-accent-muted"
+                      : "bg-[#FFFCF8] text-panel-dark border-border-warm hover:border-accent-muted"
                   }`}
                 >
-                  {apenasMeus ? "• Ver todos os artigos" : "Ver os meus anúncios"}
+                  <i className="ti ti-package mr-1" /> Recompras/Alugueres ({alugueresAtivos.length})
                 </button>
+              )}
 
-                {/* 3. Botão Criar Anúncio */}
-                <button
-                  onClick={() => {
-                    setIdSendoEditado(null);
-                    setForm({
-                      nome: "",
-                      descricao: "",
-                      tamanho: "",
-                      cor: "",
-                      condicao: "Novo",
-                      isVenda: false,
-                      isAluguer: false,
-                      isDoacao: false,
-                      precoVenda: "",
-                      precoAluguer: "",
-                    });
-                    setImagens([]);
-                    setPreviews([]);
-                    setModalAberto(true);
-                  }}
-                  className="px-4 py-2 bg-panel-dark hover:bg-panel-dark/90 text-accent-gold rounded-sm text-xs tracking-wider uppercase font-normal transition-all"
-                >
-                  + Criar anúncio
-                </button>
-              </div>
-            </header>
+              {/* 2. Botão Ver os meus anúncios */}
+              <button
+                onClick={() => {
+                  setApenasMeus(!apenasMeus);
+                  if (mostrarAlugueres) setMostrarAlugueres(false);
+                }}
+                className={`px-4 py-2 border rounded-sm text-xs tracking-wide transition-all uppercase ${
+                  apenasMeus && !mostrarAlugueres
+                    ? "bg-panel-dark text-accent-gold border-panel-dark font-medium shadow-sm"
+                    : "bg-[#FFFCF8] text-accent-muted border-border-warm hover:border-accent-muted"
+                }`}
+              >
+                {apenasMeus ? "• Ver todos os artigos" : "Ver os meus anúncios"}
+              </button>
+
+              {/* 3. Botão Criar Anúncio */}
+              <button
+                onClick={() => {
+                  setIdSendoEditado(null);
+                  setForm({
+                    nome: "",
+                    descricao: "",
+                    tamanho: "",
+                    cor: "",
+                    condicao: "Novo",
+                    isVenda: false,
+                    isAluguer: false,
+                    isDoacao: false,
+                    precoVenda: "",
+                    precoAluguer: "",
+                  });
+                  setImagens([]);
+                  setPreviews([]);
+                  setModalAberto(true);
+                }}
+                className="px-4 py-2 bg-panel-dark hover:bg-panel-dark/90 text-accent-gold rounded-sm text-xs tracking-wider uppercase font-normal transition-all"
+              >
+                + Criar anúncio
+              </button>
+            </div>
+          </header>
 
           {/* PESQUISA */}
           <div className="relative mb-5">
@@ -1206,6 +767,8 @@ export default function MarketplacePage() {
                 A atualizar montra...
               </p>
             </div>
+          ) : mostrarAlugueres ? (
+            null
           ) : artigos.length === 0 ? (
             <div className="text-center py-20 text-accent-muted bg-[#FBF7F2] rounded-sm border border-dashed border-border-warm max-w-md mx-auto px-4">
               <i className="ti ti-box text-2xl block mb-2 text-border-warm" />
@@ -1227,7 +790,6 @@ export default function MarketplacePage() {
                   onClick={() => setArtigoSelecionado(artigo)}
                   className="bg-[#FFFCF8] rounded-sm border border-border-warm overflow-hidden flex flex-col hover:border-accent-muted hover:shadow-xs transition-all duration-200 group cursor-pointer"
                 >
-                  {/* Imagem — ratio vertical 3:4 */}
                   <div className="w-full bg-[#FBF7F2] overflow-hidden relative" style={{ aspectRatio: "3/4" }}>
                     {artigo.imagemId ? (
                       <img
@@ -1242,7 +804,6 @@ export default function MarketplacePage() {
                     )}
                   </div>
 
-                  {/* Informação essencial artigos*/}
                   <div className="px-3 py-3 flex flex-col gap-1.5">
                     <div className="flex items-baseline justify-between gap-2">
                       <h3
@@ -1403,7 +964,6 @@ export default function MarketplacePage() {
                   <label className="text-[9px] uppercase font-normal tracking-wider text-accent-muted">
                     Descrição
                   </label>
-                  {/* Contador de caracteres até 100 */}
                   <span className={`text-[9px] font-light ${(form.descricao?.length || 0) >= 100 ? "text-red-400" : "text-accent-muted"}`}>
                     {form.descricao?.length || 0}/100
                   </span>
@@ -1582,9 +1142,6 @@ export default function MarketplacePage() {
                 >
                   {artigoSelecionado.nome.length > 50 ? artigoSelecionado.nome.slice(0, 50) + "…" : artigoSelecionado.nome}
                 </h2>
-                <p className="text-[10px] text-accent-muted mt-0.5 tracking-wide">
-                  ID: {artigoSelecionado.id}
-                </p>
               </div>
               <button
                 onClick={() => {
@@ -1607,11 +1164,9 @@ export default function MarketplacePage() {
                     <h3 className="text-[9px] font-normal text-accent-muted uppercase tracking-wider mb-1">
                       Especificações
                     </h3>
-                    {/* Removido o Regex. Usamos break-words para quebrar strings longas de forma limpa */}
                     <p className="text-panel-dark text-xs leading-relaxed mb-3 font-light break-words whitespace-pre-line">
                       {(() => {
                         const desc = artigoSelecionado.descricao || "Sem descrição.";
-                        // Apenas limita o máximo global de 100 caracteres com reticências
                         return desc.length > 100 ? desc.slice(0, 100) + "…" : desc;
                       })()}
                     </p>
@@ -1655,7 +1210,8 @@ export default function MarketplacePage() {
                         </span>
                       </p>
                     )}
-                    {artigoSelecionado.isAluguer && usuarioLogado?.id !== artigoSelecionado?.donoId && (
+                    
+                    {artigoSelecionado.isAluguer && (
                       <div className="bg-[#FBF7F2]/60 p-2 rounded-sm border border-border-warm/30 space-y-2">
                         <p className="text-sm text-panel-dark font-light flex justify-between items-center">
                           <span>Taxa de Aluguer:</span>{" "}
@@ -1666,21 +1222,25 @@ export default function MarketplacePage() {
                             </span>
                           </span>
                         </p>
-                        <div className="pt-2 border-t border-border-warm/40">
-                          <label className="text-[9px] font-normal text-accent-muted uppercase tracking-wider block mb-0.5">
-                            Previsão de Devolução
-                          </label>
-                          <input
-                            type="date"
-                            min={new Date().toISOString().split("T")[0]}
-                            value={dataFimAluguer}
-                            onChange={(e) => setDataFimAluguer(e.target.value)}
-                            className="w-full bg-[#FFFCF8] border border-border-warm rounded-sm px-2 py-1 text-xs text-panel-dark outline-none"
-                          />
-                        </div>
+                        
+                        {(!usuarioLogado?.id || !artigoSelecionado?.donoId || String(usuarioLogado.id) !== String(artigoSelecionado.donoId)) && (
+                          <div className="pt-2 border-t border-border-warm/40">
+                            <label className="text-[9px] font-normal text-accent-muted uppercase tracking-wider block mb-0.5">
+                              Previsão de Devolução
+                            </label>
+                            <input
+                              type="date"
+                              min={new Date().toISOString().split("T")[0]}
+                              value={dataFimAluguer}
+                              onChange={(e) => setDataFimAluguer(e.target.value)}
+                              className="w-full bg-[#FFFCF8] border border-border-warm rounded-sm px-2 py-1 text-xs text-panel-dark outline-none"
+                            />
+                          </div>
+                        )}
                       </div>
                     )}
-                    {artigoSelecionado.isDoacao && usuarioLogado?.id !== artigoSelecionado?.donoId && (
+                    
+                    {artigoSelecionado.isDoacao && (
                       <p className="text-xs text-panel-dark bg-[#FBF7F2] p-2 rounded-sm border border-border-warm/40 text-center font-light">
                         ✨ Disponível para Doação Gratuita
                       </p>
@@ -1691,7 +1251,7 @@ export default function MarketplacePage() {
                 <div className="pt-4 mt-4 border-t border-border-warm/40">
                   {usuarioLogado?.id &&
                   artigoSelecionado?.donoId &&
-                  usuarioLogado.id === artigoSelecionado.donoId ? (
+                  String(usuarioLogado.id) === String(artigoSelecionado.donoId) ? (
                     <div className="space-y-2">
                       <p className="text-accent-muted text-[9px] text-center uppercase tracking-wider font-light">
                         Gestão do teu artigo
@@ -1699,13 +1259,13 @@ export default function MarketplacePage() {
                       <div className="flex gap-2">
                         <button
                           onClick={() => prepararEdicao(artigoSelecionado)}
-                          className="flex-1 border border-border-warm py-2 rounded-sm text-xs text-panel-dark"
+                          className="flex-1 border border-border-warm py-2 rounded-sm text-xs text-panel-dark hover:bg-neutral-50 transition-all"
                         >
                           Editar Anúncio
                         </button>
                         <button
                           onClick={() => handleArquivar(artigoSelecionado.id)}
-                          className="flex-1 border border-red-200 py-2 rounded-sm text-xs text-red-500"
+                          className="flex-1 border border-red-200 py-2 rounded-sm text-xs text-red-500 hover:bg-red-50 transition-all"
                         >
                           Remover Artigo
                         </button>

@@ -3,7 +3,6 @@ import { Playfair_Display, Lato, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import "@tabler/icons-webfont/dist/tabler-icons.min.css";
 
-
 const playfair = Playfair_Display({
   variable: "--font-playfair",
   subsets: ["latin"],
@@ -37,8 +36,8 @@ export default function RootLayout({
       lang="pt"
       className={`${playfair.variable} ${lato.variable} ${geistMono.variable} h-full antialiased`}
     >
-      {/* Adicionadas as variáveis à classe do body para garantir consistência */}
       <body className={`${lato.className} min-h-full flex flex-col`}>
+        {/* Aqui entra o conteúdo limpo: se for a raiz mostra só o login, se for o grupo mostra com a Navbar */}
         {children}
       </body>
     </html>
