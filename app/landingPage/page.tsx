@@ -31,6 +31,7 @@ interface AulaDto {
   diaSemana?: string;
 }
 
+// Interface criada para suportar o novo painel de notificações
 interface Notificacao {
   id: string;
   titulo: string;
@@ -40,6 +41,7 @@ interface Notificacao {
 
 const BASE_URL = "http://localhost:8080";
 
+// Seg → Sáb (6 dias)
 const DIAS_ABREV = ["Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
 
 function diaParaIdx(dia: string | undefined): number {
@@ -93,7 +95,7 @@ function getIntervaloSemana(): string {
   return `${diaSeg} a ${diaSab} de ${mesSab}`;
 }
 
-// ─── Itens da sidebar (CORRIGIDO: Utilizadores Adicionados) ───────────────────
+// ─── Itens da sidebar ──────────────────────────────────────────────────────────
 const NAV_SECTIONS: {
   title: string;
   items: { icon: string; label: string; href: string; sub: string }[];
@@ -145,14 +147,8 @@ const NAV_SECTIONS: {
     ],
   },
   {
-    title: "Gestão",
+    title: "Gestão ",
     items: [
-      {
-        icon: "ti-users",
-        label: "Utilizadores",
-        href: "/utilizadores",
-        sub: "Controlo e perfis do sistema",
-      },
       {
         icon: "ti-chart-bar",
         label: "Gestão de Faltas",
@@ -449,11 +445,12 @@ function HorarioResumo({ role }: { role: Role }) {
   );
 }
 
-// ─── Tema dos cards (CORRIGIDO: Adicionado Tema de Utilizadores) ──────────────
+// ─── Tema dos cards ───────────────────────────────────────────────────────────
 const CARD_THEMES: Record<
   string,
   {
     imageQuery: string;
+    localImage: string; // ── ADICIONADO: Propriedade para o caminho em public/images/
     overlay: string;
     tint: string;
     accent: string;
@@ -462,6 +459,7 @@ const CARD_THEMES: Record<
 > = {
   "/horarios": {
     imageQuery: "clock schedule calendar minimal",
+    localImage: "/images/cardHorarios.jpg", 
     overlay:
       "linear-gradient(160deg, rgba(64,47,29,0.70) 0%, rgba(64,47,29,0.82) 100%)",
     tint: "#402F1D",
@@ -470,6 +468,7 @@ const CARD_THEMES: Record<
   },
   "/pagamentos": {
     imageQuery: "gold coins finance minimal",
+    localImage: "/images/cardPagamentos.jpg", 
     overlay:
       "linear-gradient(160deg, rgba(78,57,35,0.64) 0%, rgba(78,57,35,0.75) 100%)",
     tint: "#4E3923",
@@ -478,6 +477,7 @@ const CARD_THEMES: Record<
   },
   "/mensagens": {
     imageQuery: "letter envelope handwritten paper",
+    localImage: "/images/cardMensagens.jpg",
     overlay:
       "linear-gradient(160deg, rgba(92,68,42,0.58) 0%, rgba(92,68,42,0.68) 100%)",
     tint: "#5C442A",
@@ -486,6 +486,7 @@ const CARD_THEMES: Record<
   },
   "/eventos": {
     imageQuery: "stage spotlight performance dance theatre",
+    localImage: "/images/cardEventos.jpg",
     overlay:
       "linear-gradient(160deg, rgba(106,79,49,0.52) 0%, rgba(106,79,49,0.61) 100%)",
     tint: "#6A4F31",
@@ -494,22 +495,16 @@ const CARD_THEMES: Record<
   },
   "/marketplace": {
     imageQuery: "ballet shoes pointe shoe dance accessories",
+    localImage: "/images/cardMarketplace.jpg",
     overlay:
       "linear-gradient(160deg, rgba(119,89,55,0.46) 0%, rgba(119,89,55,0.54) 100%)",
     tint: "#775937",
     accent: "#F2D09E",
     pill: "rgba(242,208,158,0.15)",
   },
-  "/utilizadores": {
-    imageQuery: "team professional workspace group network",
-    overlay:
-      "linear-gradient(160deg, rgba(125,92,58,0.43) 0%, rgba(125,92,58,0.51) 100%)",
-    tint: "#7D5C3A",
-    accent: "#E4C594",
-    pill: "rgba(228,197,148,0.15)",
-  },
   "/faltas": {
     imageQuery: "notebook attendance list pen paper",
+    localImage: "/images/cardFaltas.jpg", 
     overlay:
       "linear-gradient(160deg, rgba(130,97,61,0.40) 0%, rgba(130,97,61,0.48) 100%)",
     tint: "#82613D",
@@ -544,7 +539,7 @@ function AtalhoAfixado({
   const [hovered, setHovered] = useState(false);
   const [imgLoaded, setImgLoaded] = useState(false);
 
-  const imgSrc = unsplashUrl(theme.imageQuery);
+  const imgSrc = theme.localImage;
 
   return (
     <div
@@ -557,64 +552,67 @@ function AtalhoAfixado({
         height: "180px",
         cursor: "pointer",
         boxShadow: hovered
-          ? "0 8px 32px rgba(44,28,10,0.22), 0 2px 8px rgba(44,28,10,0.12)"
+          ? `0 12px 28px ${theme.tint}40, 0 4px 12px rgba(0,0,0,0.1)`
           : "0 2px 10px rgba(44,28,10,0.10)",
-        transform: hovered
-          ? "translateY(-3px) scale(1.01)"
-          : "translateY(0) scale(1)",
-        transition:
-          "transform .25s cubic-bezier(.4,0,.2,1), box-shadow .25s cubic-bezier(.4,0,.2,1)",
-        border: `1px solid ${hovered ? "rgba(245,217,168,0.30)" : "rgba(180,140,80,0.18)"}`,
+        transform: hovered ? "translateY(-4px)" : "translateY(0)",
+        transition: "transform .3s cubic-bezier(.25,.8,.25,1), box-shadow .3s cubic-bezier(.25,.8,.25,1)",
+        border: `1px solid ${hovered ? "rgba(245,217,168,0.25)" : "rgba(180,140,80,0.12)"}`,
+        background: theme.tint, // Cor sólida de fundo do card
       }}
       onClick={() => router.push(item.href)}
     >
-      <img
-        src={imgSrc}
-        alt=""
-        aria-hidden="true"
-        onLoad={() => setImgLoaded(true)}
+      {/* ── CONTENTOR DA IMAGEM ── */}
+      <div
+        style={{
+          position: "absolute",
+          top: 0,
+          right: 0,
+          bottom: 0,
+          width: "70%", 
+          opacity: imgLoaded ? (hovered ? 1 : 0.80) : 0,
+          transition: "opacity .3s ease",
+          pointerEvents: "none",
+          maskImage: "linear-gradient(to left, rgba(0,0,0,1) 30%, rgba(0,0,0,0) 100%)",
+          WebkitMaskImage: "linear-gradient(to left, rgba(0,0,0,1) 30%, rgba(0,0,0,0) 100%)",
+        }}
+      >
+        <img
+          src={imgSrc}
+          alt=""
+          aria-hidden="true"
+          onLoad={() => setImgLoaded(true)}
+          style={{
+            width: "100%",
+            height: "100%",
+            objectFit: "cover",
+            filter: "brightness(0.75) saturate(0.9)", // Ajuste opcional de tons
+            transform: hovered ? "scale(1.06)" : "scale(1.01)",
+            transition: "transform .4s ease",
+          }}
+        />
+      </div>
+
+      {/* ── OVERLAY DE DEGRADÉ ── */}
+      <div
         style={{
           position: "absolute",
           inset: 0,
-          width: "100%",
+          background: `linear-gradient(to right, ${theme.tint} 35%, ${theme.tint}10 100%)`,
+          pointerEvents: "none",
+        }}
+      />
+
+      {/* ── CONTEÚDO DO CARD ── */}
+      <div
+        style={{
+          position: "relative",
+          inset: 0,
           height: "100%",
-          objectFit: "cover",
-          filter: `blur(${hovered ? "1px" : "2.5px"}) saturate(0.75) brightness(0.82)`,
-          transform: hovered ? "scale(1.06)" : "scale(1.02)",
-          transition: "filter .35s ease, transform .35s ease",
-          opacity: imgLoaded ? 1 : 0,
-          transitionProperty: "filter, transform, opacity",
-        }}
-      />
-
-      <div
-        style={{
-          position: "absolute",
-          inset: 0,
-          background: theme.tint,
-          opacity: imgLoaded ? 0 : 1,
-          transition: "opacity .4s",
-        }}
-      />
-
-      <div
-        style={{
-          position: "absolute",
-          inset: 0,
-          background: theme.overlay,
-          opacity: hovered ? 0.88 : 0.8,
-          transition: "opacity .3s",
-        }}
-      />
-
-      <div
-        style={{
-          position: "absolute",
-          inset: 0,
           padding: "18px 16px",
           display: "flex",
           flexDirection: "column",
           justifyContent: "space-between",
+          zIndex: 2,
         }}
       >
         <div
@@ -653,13 +651,11 @@ function AtalhoAfixado({
             title="Desafixar"
             style={{
               background: "none",
-              backdropFilter: "none",
               border: "none",
               cursor: "pointer",
               color: theme.accent,
               padding: "4px",
-              margin: "0",
-              transition: "opacity .2s, transform .2s",
+              transition: "opacity .2s",
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
@@ -673,25 +669,8 @@ function AtalhoAfixado({
               (e.currentTarget as HTMLElement).style.opacity = "0.75";
             }}
           >
-            <div
-              style={{
-                position: "relative",
-                width: "16px",
-                height: "16px",
-                display: "flex",
-                alignItems: "center",
-              }}
-            >
-              <i
-                className="ti ti-pin"
-                style={{
-                  fontSize: "15px",
-                  fontWeight: "bold",
-                  display: "block",
-                  transformOrigin: "center",
-                }}
-              />
-
+            <div style={{ position: "relative", width: "16px", height: "16px", display: "flex", alignItems: "center" }}>
+              <i className="ti ti-pin" style={{ fontSize: "15px", fontWeight: "bold" }} />
               <div
                 style={{
                   position: "absolute",
@@ -701,10 +680,7 @@ function AtalhoAfixado({
                   height: "2px",
                   background: theme.accent,
                   transform: "translateY(-50%) rotate(45deg)",
-                  transformOrigin: "center",
-                  boxShadow: "0 0 2px rgba(0,0,0,0.4)",
                   borderRadius: "2px",
-                  pointerEvents: "none",
                 }}
               />
             </div>
@@ -719,7 +695,7 @@ function AtalhoAfixado({
               fontWeight: 500,
               letterSpacing: ".2px",
               marginBottom: "4px",
-              textShadow: "0 1px 4px rgba(0,0,0,0.35)",
+              textShadow: "0 1px 4px rgba(0,0,0,0.3)", // Sombra leve no texto para destacar contra qualquer imagem
             }}
           >
             {item.label}
@@ -730,7 +706,7 @@ function AtalhoAfixado({
               color: theme.accent,
               fontWeight: 300,
               lineHeight: 1.4,
-              opacity: 0.85,
+              opacity: 0.9,
               letterSpacing: ".2px",
             }}
           >
@@ -773,8 +749,10 @@ export default function LandingPage() {
       }
     };
 
+    // Executa imediatamente ao montar a página
     carregarDadosLocais();
 
+    // Escuta quando o utilizador volta atrás ou muda o foco para reidratar a página sem precisar de F5
     window.addEventListener('pageshow', carregarDadosLocais);
     window.addEventListener('focus', carregarDadosLocais);
 
@@ -792,6 +770,7 @@ export default function LandingPage() {
     return () => document.removeEventListener("keydown", handleKey);
   }, []);
 
+  // ── NOVO: Função para limpar as notificações não lidas ao abrir o painel ──
   const marcarTodasComoLidas = () => {
     setNotificacoes((prev) => prev.map((n) => ({ ...n, lida: true })));
     setUnreadCount(0);
@@ -842,7 +821,7 @@ export default function LandingPage() {
           fontFamily: "var(--font-lato)",
         }}
       >
-        {/* ── NAVBAR (Com Dropdowns interativos) ── */}
+        {/* ── NAVBAR ── */}
         <nav
           className="flex items-center justify-between px-5 flex-shrink-0 sticky top-0 z-40"
           style={{
@@ -984,7 +963,7 @@ export default function LandingPage() {
               )}
             </div>
 
-            {/* BOLINHA DO PERFIL (Com Menu Dropdown) */}
+            {/* BOLINHA DO PERFIL IDÊNTICA (Com Menu Dropdown) */}
             <div className="relative">
               <div
                 onClick={() => {
@@ -1025,7 +1004,8 @@ export default function LandingPage() {
                     }}
                     className="w-full text-left px-3 py-2 text-xs text-panel-dark hover:bg-panel-dark/5 transition-colors flex items-center gap-2"
                   >
-                    <i className="ti ti-user-cog text-accent-muted" /> O meu perfil
+                    <i className="ti ti-user-cog text-accent-muted" /> O meu
+                    perfil
                   </button>
                   <div className="border-t border-border-warm/30 my-1"></div>
                   <button
@@ -1040,7 +1020,7 @@ export default function LandingPage() {
           </div>
         </nav>
 
-        {/* ── CORPO PRINCIPAL COM DRAWER LATERAL INTEGRADO ── */}
+        {/* ── BODY ── */}
         <div className="flex flex-1 relative overflow-hidden">
           {/* Overlay */}
           {drawerOpen && (
@@ -1051,125 +1031,354 @@ export default function LandingPage() {
             />
           )}
 
-          {/* BARRA LATERAL (Drawer) */}
+          {/* ── DRAWER (Mantendo o tom #775937 / terra médio pedido anteriormente) ── */}
           <aside
             ref={drawerRef}
-            className="absolute top-0 bottom-0 left-0 z-20 flex flex-col flex-shrink-0"
+            className="absolute top-0 bottom-0 left-0 z-20 flex flex-col"
             style={{
-              width: "220px",
-              background: "#402F1D",
-              borderRight: "1px solid rgba(245,217,168,0.08)",
+              width: "240px",
+              background: "#503c25",
+              boxShadow: "4px 0 24px rgba(44,28,10,0.30)",
               transform: drawerOpen ? "translateX(0)" : "translateX(-100%)",
               transition: "transform .28s cubic-bezier(.4,0,.2,1)",
-              maxHeight: "100vh",
+              borderRight: "1px solid rgba(245,217,168,0.12)",
             }}
           >
-            <div className="p-4 flex items-center justify-between" style={{ borderBottom: "1px solid rgba(245,217,168,0.08)" }}>
-              <div>
-                <span style={{ fontFamily: "var(--font-playfair)", fontSize: "14px", letterSpacing: "3px", color: "#FFF8EE", fontWeight: 400, display: "block" }}>entartes</span>
-                <span style={{ fontSize: "10px", letterSpacing: "2px", textTransform: "uppercase", color: "rgba(245,217,168,0.55)", fontWeight: 300, marginTop: "2px", display: "block" }}>escola de dança</span>
-              </div>
-              <button onClick={() => setDrawerOpen(false)} className="flex items-center justify-center" style={{ background: "none", border: "none", color: "rgba(255,248,238,0.4)", cursor: "pointer", padding: "4px" }}>
-                <i className="ti ti-x" style={{ fontSize: "16px" }} />
-              </button>
+            {/* Topo do Drawer */}
+            <div
+              className="px-5 py-5"
+              style={{ borderBottom: "1px solid rgba(245,217,168,0.12)" }}
+            >
+              <span
+                style={{
+                  fontFamily: "var(--font-playfair)",
+                  fontSize: "14px",
+                  letterSpacing: "3px",
+                  color: "#FFF8EE",
+                  fontWeight: 500,
+                  display: "block",
+                }}
+              >
+                entartes
+              </span>
+              <span
+                style={{
+                  fontSize: "10px",
+                  letterSpacing: "2px",
+                  textTransform: "uppercase",
+                  color: "rgba(245,217,168,0.65)",
+                  fontWeight: 400,
+                  marginTop: "4px",
+                  display: "block",
+                }}
+              >
+                escola de dança
+              </span>
             </div>
 
+            {/* Conteúdo / Itens de Navegação */}
             <div className="flex-1 overflow-y-auto py-2">
-              {NAV_SECTIONS.map((section) => (
-                <div key={section.title} className="mb-4">
-                  <div className="flex items-center gap-2 px-4 py-2">
-                    <span style={{ fontSize: "10px", letterSpacing: "2px", textTransform: "uppercase", color: "rgba(245,217,168,0.65)", fontWeight: 400 }}>{section.title}</span>
-                    <div className="flex-1" style={{ borderBottom: "1px solid rgba(245,217,168,0.12)", marginTop: "2px" }} />
-                  </div>
-                  {section.items.map((item) => {
-                    const isPinned = pinnedHrefs.includes(item.href);
-                    return (
-                      <div key={item.href} className="nav-item flex items-center justify-between w-full px-4 py-1.5 hover:bg-white/5 transition-colors group">
-                        <button
-                          onClick={() => { router.push(item.href); setDrawerOpen(false); }}
-                          className="flex items-center gap-3 flex-1 text-left"
-                          style={{ background: "none", border: "none", cursor: "pointer", color: "rgba(255,248,238,0.85)", fontSize: "13px", fontWeight: 300 }}
+              {NAV_SECTIONS.map((section) => {
+                const cleanTitle = section.title.replace(/─/g, "").trim();
+
+                return (
+                  <div key={section.title} style={{ marginBottom: "14px" }}>
+                    <div
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "10px",
+                        padding: "14px 20px 8px",
+                      }}
+                    >
+                      <span
+                        style={{
+                          fontSize: "11px",
+                          letterSpacing: "2px",
+                          textTransform: "uppercase",
+                          color: "rgba(245,217,168,0.75)",
+                          fontWeight: 500,
+                          whiteSpace: "nowrap",
+                        }}
+                      >
+                        {cleanTitle}
+                      </span>
+                      <div
+                        style={{
+                          flex: 1,
+                          borderBottom: "1px solid rgba(245,217,168,0.18)",
+                          marginTop: "2px",
+                        }}
+                      />
+                    </div>
+
+                    {section.items.map((item) => {
+                      const isPinned = pinnedHrefs.includes(item.href);
+                      const canPin = item.href !== "/landingPage";
+                      const theme = CARD_THEMES[item.href] ?? DEFAULT_THEME;
+
+                      return (
+                        <div
+                          key={item.href}
+                          className="nav-item"
+                          style={{
+                            display: "flex",
+                            alignItems: "center",
+                            gap: "2px",
+                          }}
                         >
-                          <i className={`ti ${item.icon}`} style={{ fontSize: "15px", color: "rgba(245,217,168,0.75)" }} />
-                          {item.label}
-                        </button>
-                        {item.href !== "/landingPage" && (
                           <button
-                            onClick={() => togglePin(item.href)}
-                            className={`pin-btn ${isPinned ? "is-pinned text-accent-gold" : "text-white/30 hover:text-white/80"}`}
-                            style={{ background: "none", border: "none", cursor: "pointer", padding: "4px" }}
+                            onClick={() => {
+                              router.push(item.href);
+                              setDrawerOpen(false);
+                            }}
+                            className="flex items-center gap-2"
+                            style={{
+                              flex: 1,
+                              padding: "10px 20px",
+                              color: "rgba(255,248,238,0.75)",
+                              fontSize: "13px",
+                              letterSpacing: ".4px",
+                              fontWeight: 300,
+                              background: "transparent",
+                              border: "none",
+                              cursor: "pointer",
+                              textAlign: "left",
+                              transition: "background .2s, color .2s",
+                            }}
+                            onMouseEnter={(e) => {
+                              (
+                                e.currentTarget as HTMLElement
+                              ).style.background = "rgba(255,255,255,0.08)";
+                              (e.currentTarget as HTMLElement).style.color =
+                                "var(--accent-gold)";
+                            }}
+                            onMouseLeave={(e) => {
+                              (
+                                e.currentTarget as HTMLElement
+                              ).style.background = "transparent";
+                              (e.currentTarget as HTMLElement).style.color =
+                                "rgba(255,248,238,0.75)";
+                            }}
                           >
-                            <i className="ti ti-pin" style={{ fontSize: "13px" }} />
+                            <i
+                              className={`ti ${item.icon}`}
+                              style={{ fontSize: "15px", opacity: 0.85 }}
+                              aria-hidden="true"
+                            />
+                            {item.label}
                           </button>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
-              ))}
+
+                          {canPin && (
+                            <button
+                              onClick={() => togglePin(item.href)}
+                              title={
+                                isPinned ? "Desafixar" : "Afixar no painel"
+                              }
+                              className={`pin-btn${isPinned ? " is-pinned" : ""}`}
+                              style={{
+                                padding: "10px 20px 10px 0",
+                                background: "none",
+                                backdropFilter: "none",
+                                border: "none",
+                                cursor: "pointer",
+                                color: isPinned
+                                  ? theme.accent
+                                  : "rgba(245,217,168,0.30)",
+                                transition: "opacity .2s, color .2s",
+                                display: "flex",
+                                alignItems: "center",
+                                justifyContent: "center",
+                                opacity: isPinned ? 0.75 : undefined,
+                              }}
+                              onMouseEnter={(e) => {
+                                const el = e.currentTarget as HTMLElement;
+                                if (isPinned) {
+                                  el.style.opacity = "1";
+                                } else {
+                                  el.style.color = "var(--accent-gold)";
+                                }
+                              }}
+                              onMouseLeave={(e) => {
+                                const el = e.currentTarget as HTMLElement;
+                                if (isPinned) {
+                                  el.style.opacity = "0.75";
+                                } else {
+                                  el.style.color = "rgba(245,217,168,0.30)";
+                                }
+                              }}
+                            >
+                              {isPinned ? (
+                                <div
+                                  style={{
+                                    position: "relative",
+                                    width: "16px",
+                                    height: "16px",
+                                    display: "flex",
+                                    alignItems: "center",
+                                  }}
+                                >
+                                  <i
+                                    className="ti ti-pin"
+                                    style={{
+                                      fontSize: "14px",
+                                      fontWeight: "bold",
+                                      display: "block",
+                                      transformOrigin: "center",
+                                    }}
+                                  />
+                                  <div
+                                    style={{
+                                      position: "absolute",
+                                      top: "45%",
+                                      left: "1px",
+                                      right: "1px",
+                                      height: "2px",
+                                      background: theme.accent,
+                                      transform:
+                                        "translateY(-50%) rotate(45deg)",
+                                      transformOrigin: "center",
+                                      boxShadow: "0 0 2px rgba(0,0,0,0.4)",
+                                      borderRadius: "2px",
+                                      pointerEvents: "none",
+                                    }}
+                                  />
+                                </div>
+                              ) : (
+                                <i
+                                  className="ti ti-pin"
+                                  style={{ fontSize: "13px" }}
+                                />
+                              )}
+                            </button>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                );
+              })}
             </div>
 
-            <div className="p-4" style={{ borderTop: "1px solid rgba(245,217,168,0.08)" }}>
-              <button onClick={handleLogout} className="flex items-center gap-2" style={{ background: "none", border: "none", cursor: "pointer", color: "rgba(245,217,168,0.45)", fontSize: "12px", fontWeight: 300 }}>
-                <i className="ti ti-logout" style={{ fontSize: "14px" }} /> Terminar sessão
+            {/* Botão Sair / Rodapé */}
+            <div
+              style={{
+                padding: "16px 20px",
+                borderTop: "1px solid rgba(245,217,168,0.12)",
+              }}
+            >
+              <button
+                onClick={handleLogout}
+                className="flex items-center gap-2"
+                style={{
+                  color: "rgba(245,217,168,0.45)",
+                  fontSize: "13px",
+                  fontWeight: 300,
+                  background: "transparent",
+                  border: "none",
+                  cursor: "pointer",
+                }}
+                onMouseEnter={(e) =>
+                  ((e.currentTarget as HTMLElement).style.color = "#F3AEAE")
+                }
+                onMouseLeave={(e) =>
+                  ((e.currentTarget as HTMLElement).style.color =
+                    "rgba(245,217,168,0.45)")
+                }
+              >
+                <i
+                  className="ti ti-logout"
+                  style={{ fontSize: "15px" }}
+                  aria-hidden="true"
+                />
+                Sair
               </button>
             </div>
           </aside>
 
-          {/* CONTEÚDO PRINCIPAL (DENTRO DA LANDING PAGE) */}
-          <main className="flex-1 overflow-y-auto px-4 py-5 sm:px-6 sm:py-6 lg:px-8">
-            <div className="max-w-5xl mx-auto">
-              
-              {/* Resumo do Horário Semanal baseado na Role */}
-              {role && <HorarioResumo role={role} />}
+          {/* ── CONTEÚDO PRINCIPAL ── */}
+          <main
+            className="flex-1 overflow-y-auto"
+            style={{ padding: "28px 28px 40px" }}
+          >
+            {/* Cabeçalho */}
+            <div style={{ marginBottom: "24px" }}>
+              <p
+                style={{
+                  fontSize: "10px",
+                  letterSpacing: "3px",
+                  textTransform: "uppercase",
+                  color: "var(--accent-muted)",
+                  fontWeight: 300,
+                  marginBottom: "4px",
+                }}
+              >
+                Painel geral
+              </p>
+              <h1
+                style={{
+                  fontFamily: "var(--font-playfair)",
+                  fontSize: "24px",
+                  color: "var(--panel-dark)",
+                  fontWeight: 400,
+                }}
+              >
+                Olá{userName ? `, ${userName.split(" ")[0]}` : ""}
+              </h1>
+            </div>
 
-              {/* Título da Secção de Atalhos */}
-              <div className="flex items-center gap-2 mb-4 mt-6">
-                <i className="ti ti-pin text-accent-muted" style={{ fontSize: "14px", transform: "rotate(45deg)" }} />
-                <h3 style={{ fontFamily: "var(--font-playfair)", fontSize: "14px", color: "var(--panel-dark)", fontWeight: 400 }}>
-                  Atalhos Rápidos
-                </h3>
-                <span style={{ fontSize: "10px", color: "var(--accent-muted)", fontWeight: 300 }}>
-                  Clica no <i className="ti ti-pin" style={{ fontSize: "10px" }} /> para afixar secções no painel de início.
-                </span>
-              </div>
+            {/* ── HORÁRIO DA SEMANA ── */}
+            {role && <HorarioResumo role={role} />}
 
-              {/* Grid dos Atalhos Afixados */}
-              {itensPinned.length === 0 ? (
+            {/* ── ATALHOS AFIXADOS ── */}
+            {itensPinned.length > 0 ? (
+              <div>
                 <div
                   style={{
-                    border: "1px dashed var(--border-warm)",
-                    borderRadius: "12px",
-                    padding: "40px 20px",
-                    textAlign: "center",
-                    background: "rgba(251,247,242,0.4)",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "6px",
+                    marginBottom: "12px",
                   }}
                 >
-                  <i className="ti ti-pin text-border-warm mb-2 block" style={{ fontSize: "24px", opacity: 0.6 }} />
-                  <p style={{ fontSize: "13px", color: "var(--panel-dark)", fontWeight: 400, marginBottom: "2px" }}>
-                    O teu espaço, à tua medida
-                  </p>
-                  <p style={{ fontSize: "11px", color: "var(--accent-muted)", fontWeight: 300, marginBottom: "14px" }}>
-                    Abre o menu lateral e clica no <i className="ti ti-pin" /> ao lado de qualquer secção para a afixar aqui como atalho rápido.
-                  </p>
-                  <button
-                    onClick={() => setDrawerOpen(true)}
+                  <i
+                    className="ti ti-pin"
                     style={{
-                      background: "#FFFCF8",
-                      border: "1px solid var(--border-warm)",
-                      borderRadius: "4px",
-                      padding: "6px 16px",
-                      fontSize: "11px",
-                      color: "var(--panel-dark)",
-                      cursor: "pointer",
-                      boxShadow: "0 1px 3px rgba(0,0,0,0.02)",
+                      fontSize: "12px",
+                      color: "var(--accent-muted)",
+                      display: "inline-block",
+                      transform: "rotate(45deg)",
+                    }}
+                  />
+                  <p
+                    style={{
+                      fontSize: "10px",
+                      letterSpacing: "3px",
+                      textTransform: "uppercase",
+                      color: "var(--accent-muted)",
+                      fontWeight: 300,
                     }}
                   >
-                    Abrir menu
-                  </button>
+                    Os teus atalhos
+                  </p>
                 </div>
-              ) : (
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                <div
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 300px), 1fr))",
+                    maxWidth: "100%",
+                    gap: "10px",
+                  }}
+                  className="grid-atalhos"
+                >
+                  <style>{`
+                    @media (min-width: 1024px) {
+                      .grid-atalhos {
+                        grid-template-columns: repeat(3, 1fr) !important;
+                      }
+                    }
+                  `}</style>
+
                   {itensPinned.map((item) => (
                     <AtalhoAfixado
                       key={item.href}
@@ -1178,11 +1387,124 @@ export default function LandingPage() {
                     />
                   ))}
                 </div>
-              )}
-
-            </div>
+              </div>
+            ) : (
+              <div
+                style={{
+                  display: "flex",
+                  flexDirection: "column",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  padding: "36px 24px",
+                  textAlign: "center",
+                  border: "1px dashed var(--border-warm)",
+                  borderRadius: "8px",
+                  background: "rgba(160,133,96,0.03)",
+                }}
+              >
+                <div
+                  style={{
+                    width: "40px",
+                    height: "40px",
+                    borderRadius: "50%",
+                    background: "rgba(160,133,96,0.08)",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    marginBottom: "14px",
+                  }}
+                >
+                  <i
+                    className="ti ti-pin"
+                    style={{ fontSize: "20px", color: "var(--accent-muted)" }}
+                  />
+                </div>
+                <p
+                  style={{
+                    fontSize: "14px",
+                    color: "var(--panel-dark)",
+                    fontWeight: 400,
+                    fontFamily: "var(--font-playfair)",
+                    marginBottom: "8px",
+                  }}
+                >
+                  O teu espaço, à tua medida
+                </p>
+                <p
+                  style={{
+                    fontSize: "12px",
+                    color: "var(--accent-muted)",
+                    fontWeight: 300,
+                    lineHeight: 1.7,
+                    maxWidth: "320px",
+                  }}
+                >
+                  Abre o menu lateral e clica no{" "}
+                  <i className="ti ti-pin" style={{ fontSize: "12px" }} /> ao
+                  lado de qualquer secção para a afixar aqui como atalho rápido.
+                </p>
+                <button
+                  onClick={() => setDrawerOpen(true)}
+                  style={{
+                    marginTop: "18px",
+                    padding: "8px 18px",
+                    background: "transparent",
+                    border: "1px solid var(--border-warm)",
+                    borderRadius: "6px",
+                    cursor: "pointer",
+                    fontSize: "11px",
+                    color: "var(--panel-dark)",
+                    letterSpacing: ".5px",
+                    fontWeight: 300,
+                    transition: "border-color .15s, color .15s",
+                  }}
+                  onMouseEnter={(e) => {
+                    const el = e.currentTarget as HTMLElement;
+                    el.style.borderColor = "var(--accent-muted)";
+                    el.style.color = "var(--accent-muted)";
+                  }}
+                  onMouseLeave={(e) => {
+                    const el = e.currentTarget as HTMLElement;
+                    el.style.borderColor = "var(--border-warm)";
+                    el.style.color = "var(--panel-dark)";
+                  }}
+                >
+                  Abrir menu
+                </button>
+              </div>
+            )}
           </main>
         </div>
+
+        {/* ── FOOTER ── */}
+        <footer
+          className="flex items-center justify-between flex-shrink-0"
+          style={{
+            padding: "12px 24px",
+            borderTop: "1px solid var(--border-warm)",
+          }}
+        >
+          <span
+            style={{
+              fontFamily: "var(--font-playfair)",
+              fontSize: "12px",
+              letterSpacing: "3px",
+              color: "var(--accent-muted)",
+              fontWeight: 400,
+            }}
+          >
+            entartes
+          </span>
+          <span
+            style={{
+              fontSize: "10px",
+              color: "var(--accent-muted)",
+              fontWeight: 300,
+            }}
+          >
+            © 2026 Entartes — Escola de Dança
+          </span>
+        </footer>
       </div>
     </>
   );
