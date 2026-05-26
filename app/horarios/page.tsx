@@ -12,7 +12,7 @@ interface TurmaDto   { id: string; nome: string; modalidade?: ResumoDto }
 interface EstudioDto { id: string; nome: string }
 interface AulaDto    {
   id: string; titulo?: string; dataAula?: string; horaInicio?: string; horaFim?: string;
-  turma?: TurmaDto; estudio?: EstudioDto; professor?: ResumoDto; diaSemana?: string;
+  turma?: TurmaDto; estudio?: EstudioDto; professor?: ResumoDto; diaSemana?: string | number;
 }
 interface CoachingDto {
   aulaDto: { id: string; dataAula: string; horaInicio: string; horaFim: string; duracaoMinutos: number };
@@ -41,7 +41,13 @@ const DIAS_OPTIONS = [
   { value: 5, label: "SEXTA"   }, { value: 6, label: "SÁBADO" },
   { value: 7, label: "DOMINGO" },
 ];
-const HORAS = ["08:00","09:00","10:00","11:00","12:00","13:00","14:00","15:00","16:00","17:00","18:00","19:00","20:00","21:00","22:00"];
+const HORAS = [
+  "00:00", "01:00", "02:00", "03:00", "04:00", "05:00", 
+  "06:00", "07:00", "08:00", "09:00", "10:00", "11:00", 
+  "12:00", "13:00", "14:00", "15:00", "16:00", "17:00", 
+  "18:00", "19:00", "20:00", "21:00", "22:00", "23:00"
+];
+
 const AULA_CORES       = ["#FBF0E4","#EAF4EC","#EEF2FB","#FBF0F7","#F5F5DC"];
 const AULA_CORES_BORDA = ["#D4B288","#9ECFAA","#9DBCE8","#D4A8C7","#C8C89E"];
 const AULA_CORES_TEXTO = ["#7A5020","#2D6A4F","#1A3F6F","#6B2D56","#5A5A30"];
@@ -75,8 +81,10 @@ function horaParaMin(h: string): number {
   const [hh, mm] = h.split(":").map(Number);
   return hh * 60 + (mm || 0);
 }
-function diaParaIdx(dia: string | undefined): number {
-  if (!dia) return -1;
+function diaParaIdx(dia: string | number | undefined): number {
+  if (dia === undefined || dia === null) return -1;
+  const n = typeof dia === "number" ? dia : parseInt(dia as string, 10);
+  if (!isNaN(n) && n >= 1 && n <= 7) return n - 1;
   const mapa: Record<string, number> = {
     SEGUNDA: 0, "SEGUNDA-FEIRA": 0,
     "TERÇA": 1, TERCA: 1, "TERÇA-FEIRA": 1,
@@ -86,7 +94,35 @@ function diaParaIdx(dia: string | undefined): number {
     "SÁBADO": 5, SABADO: 5,
     DOMINGO: 6,
   };
-  return mapa[dia.toUpperCase()] ?? -1;
+  return mapa[(dia as string).toUpperCase()] ?? -1;
+}
+
+// ─── Normalizar aulas do backend ────────────────────────────────────────────────────
+
+// O backend pode devolver os campos dentro de idHorario em vez da raiz.
+// Esta função normaliza a estrutura para o formato que a GrelhaHorario espera.
+function trimHora(h: string | undefined): string | undefined {
+  // Normaliza "21:00:00" -> "21:00"
+  return h ? h.substring(0, 5) : h;
+}
+
+function normalizeAula(a: any): AulaDto {
+  const h = a.idHorario ?? {};
+  const diaSemana = a.diaSemana ?? h.diaSemana;
+  const diaDerived = diaSemana ?? (a.dataAula
+    ? (() => { const d = new Date(a.dataAula + "T00:00:00"); return d.getDay() === 0 ? 7 : d.getDay(); })()
+    : undefined);
+  return {
+    id:         a.id,
+    titulo:     a.titulo     ?? h.titulo,
+    dataAula:   a.dataAula   ?? h.dataAula,
+    horaInicio: trimHora(a.horaInicio ?? h.horaInicio),
+    horaFim:    trimHora(a.horaFim    ?? h.horaFim),
+    diaSemana:  diaDerived,
+    turma:      a.turma      ?? h.idturmaId,
+    estudio:    a.estudio    ?? h.estudioId,
+    professor:  a.professor  ?? h.professor ?? h.idcriadoPor,
+  };
 }
 
 // ─── Navbar + Drawer (reutilizável, igual à landing) ─────────────────────────
@@ -263,15 +299,31 @@ function Tabs<T extends string>({ tabs, active, onChange }: { tabs: { key: T; la
 // ─── Grelha semanal ───────────────────────────────────────────────────────────
 
 function GrelhaHorario({ aulas, titulo, semanaOffset, onPrev, onNext }: { aulas: AulaDto[]; titulo: string; semanaOffset: number; onPrev: () => void; onNext: () => void }) {
-  const HORA_INICIO = 8;
-  const HORA_FIM = 22;
-  const TOTAL_MIN = (HORA_FIM - HORA_INICIO) * 60;
-  const ALTURA = 480;
+  const HORA_INICIO = 0;   // 00:00
+  const HORA_FIM    = 24;  // 24:00 (exclusive — representa o fim do dia)
+  const TOTAL_MIN   = (HORA_FIM - HORA_INICIO) * 60; // 1440 min
+  const PX_POR_HORA = 56;  // altura em px por cada hora
+  const ALTURA      = TOTAL_MIN / 60 * PX_POR_HORA;  // 24 * 56 = 1344px
+  const SCROLL_INICIAL = 8 * PX_POR_HORA;             // scroll para as 08:00 no mount
+
+  const scrollRef = useRef<HTMLDivElement>(null);
+
+  // Scroll automático para as 08:00 na primeira renderização
+  useEffect(() => {
+    if (scrollRef.current) {
+      scrollRef.current.scrollTop = SCROLL_INICIAL;
+    }
+  }, []);
 
   const aulasPorDia: AulaDto[][] = Array.from({ length: 7 }, () => []);
-  aulas.forEach(a => { const i = diaParaIdx(a.diaSemana); if (i >= 0) aulasPorDia[i].push(a); });
+  console.log("🎯 GrelhaHorario recebeu:", aulas.length, "aulas");
+  aulas.forEach(a => {
+    const i = diaParaIdx(a.diaSemana);
+    console.log("  → aula", a.id, "diaSemana=", a.diaSemana, "→ idx=", i);
+    if (i >= 0) aulasPorDia[i].push(a);
+  });
 
-  const pos  = (h: string) => ((horaParaMin(h) - HORA_INICIO * 60) / TOTAL_MIN) * ALTURA;
+  const pos  = (h: string) => (horaParaMin(h) / TOTAL_MIN) * ALTURA;
   const alto = (i: string, f: string) => Math.max(((horaParaMin(f) - horaParaMin(i)) / TOTAL_MIN) * ALTURA, 22);
 
   const semanaLabel = semanaOffset === 0 ? "Esta semana" : semanaOffset > 0 ? `+${semanaOffset} semanas` : `${semanaOffset} semanas`;
@@ -287,49 +339,61 @@ function GrelhaHorario({ aulas, titulo, semanaOffset, onPrev, onNext }: { aulas:
         </div>
       </div>
 
+      {/* Scroll horizontal (para semanas) + scroll vertical (para horas) */}
       <div style={{ overflowX: "auto" }}>
-        <div style={{ minWidth: 700, display: "grid", gridTemplateColumns: "48px repeat(7, 1fr)", border: "1px solid var(--border-warm)", borderRadius: 8, overflow: "hidden", background: "#fff" }}>
-          {/* Cabeçalho */}
-          <div style={{ background: "#FAF8F5", borderBottom: "1px solid var(--border-warm)" }} />
-          {DIAS.map(dia => (
-            <div key={dia} style={{ background: "#FAF8F5", borderBottom: "1px solid var(--border-warm)", borderLeft: "1px solid var(--border-warm)", padding: "8px 4px", textAlign: "center", fontSize: 10, fontWeight: 400, letterSpacing: 2, color: "var(--accent-muted)", textTransform: "uppercase" as const }}>
-              {dia}
-            </div>
-          ))}
+        <div style={{ minWidth: 700, border: "1px solid var(--border-warm)", borderRadius: 8, overflow: "hidden", background: "#fff" }}>
 
-          {/* Coluna horas */}
-          <div style={{ position: "relative", height: ALTURA }}>
-            {HORAS.map((h, i) => {
-              const top = ((horaParaMin(h) - HORA_INICIO * 60) / TOTAL_MIN) * ALTURA;
-              return (
-                <div key={h} style={{ position: "absolute", top, left: 0, right: 0, borderTop: i === 0 ? "none" : "1px solid #EEE", display: "flex", alignItems: "flex-start" }}>
-                  <span style={{ fontSize: 9, color: "var(--accent-muted)", padding: "0 4px", lineHeight: 1, marginTop: -5 }}>{h}</span>
-                </div>
-              );
-            })}
+          {/* Cabeçalho fixo (dias da semana) */}
+          <div style={{ display: "grid", gridTemplateColumns: "48px repeat(7, 1fr)", background: "#FAF8F5", borderBottom: "1px solid var(--border-warm)", position: "sticky", top: 0, zIndex: 2 }}>
+            <div />
+            {DIAS.map(dia => (
+              <div key={dia} style={{ borderLeft: "1px solid var(--border-warm)", padding: "8px 4px", textAlign: "center", fontSize: 10, fontWeight: 400, letterSpacing: 2, color: "var(--accent-muted)", textTransform: "uppercase" as const }}>
+                {dia}
+              </div>
+            ))}
           </div>
 
-          {/* Colunas dias */}
-          {DIAS.map((_, dIdx) => (
-            <div key={dIdx} style={{ position: "relative", height: ALTURA, borderLeft: "1px solid var(--border-warm)" }}>
-              {HORAS.map((h, i) => {
-                const top = ((horaParaMin(h) - HORA_INICIO * 60) / TOTAL_MIN) * ALTURA;
-                return <div key={h} style={{ position: "absolute", top, left: 0, right: 0, borderTop: i === 0 ? "none" : "1px solid #F5F0EA", height: 1 }} />;
-              })}
-              {aulasPorDia[dIdx].map((a, aIdx) => {
-                const top = pos(a.horaInicio ?? "08:00");
-                const height = alto(a.horaInicio ?? "08:00", a.horaFim ?? "09:00");
-                const c = aIdx % AULA_CORES.length;
-                return (
-                  <div key={a.id} style={{ position: "absolute", top: top + 1, left: 3, right: 3, height: height - 2, background: AULA_CORES[c], border: `1px solid ${AULA_CORES_BORDA[c]}`, borderLeft: `3px solid ${AULA_CORES_BORDA[c]}`, borderRadius: 4, padding: "3px 5px", overflow: "hidden" }}>
-                    <div style={{ fontSize: 10, fontWeight: 400, color: AULA_CORES_TEXTO[c], lineHeight: 1.2 }}>{a.turma?.nome ?? a.titulo ?? "Aula"}</div>
-                    <div style={{ fontSize: 9, color: AULA_CORES_TEXTO[c], opacity: .8, marginTop: 1 }}>{a.horaInicio} – {a.horaFim}</div>
-                    {height > 36 && a.professor && <div style={{ fontSize: 9, color: AULA_CORES_TEXTO[c], opacity: .65 }}>{a.professor.nome}</div>}
-                  </div>
-                );
-              })}
+          {/* Área com scroll vertical — mostra ≈10h de cada vez */}
+          <div ref={scrollRef} style={{ overflowY: "auto", maxHeight: 560 }}>
+            <div style={{ display: "grid", gridTemplateColumns: "48px repeat(7, 1fr)" }}>
+
+              {/* Coluna de horas */}
+              <div style={{ position: "relative", height: ALTURA }}>
+                {HORAS.map((h, i) => {
+                  const top = (horaParaMin(h) / TOTAL_MIN) * ALTURA;
+                  return (
+                    <div key={h} style={{ position: "absolute", top, left: 0, right: 0, display: "flex", alignItems: "flex-start" }}>
+                      {i > 0 && <div style={{ position: "absolute", top: 0, left: 0, right: 0, borderTop: "1px solid #EEE" }} />}
+                      <span style={{ fontSize: 9, color: "var(--accent-muted)", padding: "0 4px", lineHeight: 1, marginTop: -5, position: "relative", zIndex: 1, background: "#fff" }}>{h}</span>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Colunas dos dias */}
+              {DIAS.map((_, dIdx) => (
+                <div key={dIdx} style={{ position: "relative", height: ALTURA, borderLeft: "1px solid var(--border-warm)" }}>
+                  {HORAS.map((h, i) => {
+                    const top = (horaParaMin(h) / TOTAL_MIN) * ALTURA;
+                    return <div key={h} style={{ position: "absolute", top, left: 0, right: 0, borderTop: i === 0 ? "none" : "1px solid #F5F0EA", height: 1 }} />;
+                  })}
+                  {aulasPorDia[dIdx].map((a, aIdx) => {
+                    const top    = pos(a.horaInicio ?? "08:00");
+                    const height = alto(a.horaInicio ?? "08:00", a.horaFim ?? "09:00");
+                    const c = aIdx % AULA_CORES.length;
+                    return (
+                      <div key={a.id} style={{ position: "absolute", top: top + 1, left: 3, right: 3, height: height - 2, background: AULA_CORES[c], border: `1px solid ${AULA_CORES_BORDA[c]}`, borderLeft: `3px solid ${AULA_CORES_BORDA[c]}`, borderRadius: 4, padding: "3px 5px", overflow: "hidden" }}>
+                        <div style={{ fontSize: 10, fontWeight: 400, color: AULA_CORES_TEXTO[c], lineHeight: 1.2 }}>{a.turma?.nome ?? a.titulo ?? "Aula"}</div>
+                        <div style={{ fontSize: 9, color: AULA_CORES_TEXTO[c], opacity: .8, marginTop: 1 }}>{a.horaInicio} – {a.horaFim}</div>
+                        {height > 36 && a.professor && <div style={{ fontSize: 9, color: AULA_CORES_TEXTO[c], opacity: .65 }}>{a.professor.nome}</div>}
+                      </div>
+                    );
+                  })}
+                </div>
+              ))}
+
             </div>
-          ))}
+          </div>
         </div>
       </div>
     </div>
@@ -338,17 +402,274 @@ function GrelhaHorario({ aulas, titulo, semanaOffset, onPrev, onNext }: { aulas:
 
 // ─── Views por role ───────────────────────────────────────────────────────────
 
+function MarcarCoachingForm({
+  onSubmit,
+  err,
+  ok,
+  submitLabel = "Enviar pedido",
+}: {
+  onSubmit: (form: { professorId: string; modalidadeId: string; dataAula: string; horaInicio: string; horaFim: string; maxAlunos: number; descricao: string }) => Promise<void>;
+  err: string;
+  ok: string;
+  submitLabel?: string;
+}) {
+  const [modalidades, setMods]           = useState<ResumoDto[]>([]);
+  const [professores, setProfs]          = useState<any>(null); 
+  const [disponibilidades, setDisps]     = useState<DisponibilidadeDto[]>([]);
+  const [loadingProfs, setLoadingProfs]  = useState(false);
+  const [loadingDisps, setLoadingDisps]  = useState(false);
+  const [form, setForm]                  = useState({ professorId:"", modalidadeId:"", dataAula:"", horaInicio:"", horaFim:"", maxAlunos:1, descricao:"" });
+  const [submitting, setSubmitting]      = useState(false);
+  const [horarioSelecionadoId, setHorarioSelecionadoId] = useState<string>("");
+  
+  // Estado local para gerir erros específicos de validação de data
+  const [dataErro, setDataErro] = useState("");
+
+  useEffect(() => {
+    apiFetch<ResumoDto[]>(`${BASE}/api/modalidades`).then(m => setMods(m??[])).catch(console.error);
+  }, []);
+
+  useEffect(() => {
+    if (!form.modalidadeId) { setProfs(null); setDisps([]); setForm(f=>({...f,professorId:"",horaInicio:"",horaFim:""})); return; }
+    setLoadingProfs(true);
+    apiFetch<any>(`${BASE}/api/professores/${form.modalidadeId}`)
+          .then(p => setProfs(p))
+      .catch(console.error)
+      .finally(() => setLoadingProfs(false));
+    setDisps([]); setForm(f=>({...f,professorId:"",horaInicio:"",horaFim:""}));
+  }, [form.modalidadeId]);
+
+  useEffect(() => {
+    if (!form.professorId) { setDisps([]); setForm(f=>({...f,horaInicio:"",horaFim:""})); return; }
+    setLoadingDisps(true);
+    apiFetch<DisponibilidadeDto[]>(`${BASE}/disponibilidade/professor/${form.professorId}`)
+      .then(d => setDisps(d??[]))
+      .catch(console.error)
+      .finally(() => setLoadingDisps(false));
+    setForm(f=>({...f,horaInicio:"",horaFim:""}));
+  }, [form.professorId]);
+
+  const listaProfessores = professores?.content ?? [];
+  const profSel = listaProfessores.find((p: any) => String(p.id ?? p.utilizadorId) === form.professorId);
+  
+  // Encontra o objeto da disponibilidade ativa para saber qual é o diaSemana alvo (1-7)
+  const dispSelecionada = disponibilidades.find(d => d.id === horarioSelecionadoId);
+
+  // Função auxiliar para calcular a próxima data válida (ex: próximo sábado) a partir de hoje
+  const obterProximaDataPorDiaSemana = (diaSemanaAlvo: number): string => {
+    const hoje = new Date();
+    const resultado = new Date(hoje);
+    
+    // Converter JS (0-Domingo, 1-Segunda...) para o padrão do teu DTO (1-Segunda, ..., 7-Domingo)
+    const diaAtualJS = hoje.getDay() === 0 ? 7 : hoje.getDay();
+    
+    let diasAteAlvo = diaSemanaAlvo - diaAtualJS;
+    if (diasAteAlvo <= 0) {
+      diasAteAlvo += 7; // Se for hoje ou já passou esta semana, pula para a próxima semana
+    }
+    
+    resultado.setDate(hoje.getDate() + diasAteAlvo);
+    return resultado.toISOString().split('T')[0]; // Retorna YYYY-MM-DD
+  };
+
+  // Trata a alteração da data e valida se corresponde ao dia da semana correto
+  const handleDataChange = (dataString: string) => {
+    if (!dataString) {
+      setForm(f => ({ ...f, dataAula: "" }));
+      setDataErro("");
+      return;
+    }
+
+    if (dispSelecionada) {
+      const dataEscolhida = new Date(dataString + "T00:00:00");
+      const diaSemanaEscolhidoJS = dataEscolhida.getDay() === 0 ? 7 : dataEscolhida.getDay();
+
+      if (diaSemanaEscolhidoJS !== dispSelecionada.diaSemana) {
+        const diaNome = DIAS_OPTIONS.find(x => x.value === dispSelecionada.diaSemana)?.label;
+        setDataErro(`Aviso: O horário escolhido é às ${diaNome}s. Por favor, seleciona um dia correspondente.`);
+      } else {
+        setDataErro("");
+      }
+    }
+    
+    setForm(f => ({ ...f, dataAula: dataString }));
+  };
+
+  const handleSubmit = async () => {
+    if (dataErro) {
+      alert("Por favor, corrige a data antes de enviar. Ela deve coincidir com o dia da semana do horário.");
+      return;
+    }
+    setSubmitting(true);
+    try { 
+      await onSubmit(form); 
+      setForm({ professorId:"", modalidadeId:"", dataAula:"", horaInicio:"", horaFim:"", maxAlunos:1, descricao:"" }); 
+      setDisps([]); 
+      setProfs(null); 
+      setHorarioSelecionadoId("");
+      setDataErro("");
+    }
+    finally { setSubmitting(false); }
+  };
+
+  // Define a data mínima como o dia de hoje (formato YYYY-MM-DD)
+  const hojeString = new Date().toISOString().split('T')[0];
+
+  return (
+    <FormCard>
+      {err && <ErrMsg msg={err} />}
+      {ok && <OkMsg msg={ok} />}
+      {dataErro && <div style={{ color: "#721c24", padding: "10px 14px", background: "#f8d7da", borderRadius: 6, marginBottom: 12, fontSize: 13, border: "1px solid #f5c6cb" }}>⚠️ {dataErro}</div>}
+
+      {/* Passo 1 — Modalidade */}
+      <SelectField
+        label="1 · Modalidade"
+        value={form.modalidadeId}
+        onChange={v => setForm(f=>({...f,modalidadeId:v}))}
+        options={modalidades.map(m=>({value:m.id,label:m.nome}))}
+        placeholder="Escolher modalidade..."
+      />
+
+      {/* Passo 2 — Professor */}
+      {form.modalidadeId && (
+        <>
+          {loadingProfs ? (
+            <div style={{ fontSize:12, color:"var(--accent-muted)", marginBottom:14, fontWeight:300 }}>A carregar professores…</div>
+          ) : listaProfessores.length === 0 ? (
+            <div style={{ fontSize:12, color:"#c0392b", marginBottom:14, background:"#fde8e8", border:"1px solid #f5c6cb", borderRadius:6, padding:"8px 12px" }}>
+              Não há professores disponíveis para esta modalidade.
+            </div>
+          ) : (
+            <div style={{ marginBottom:14 }}>
+              <div style={{ fontSize:10, fontWeight:400, letterSpacing:2, color:"var(--accent-muted)", marginBottom:8, textTransform:"uppercase" as const }}>2 · Professor</div>
+              <div style={{ display:"flex", flexWrap:"wrap", gap:8 }}>
+              {listaProfessores.map((p: any, index: number) => {
+                const currentId = String(p.id ?? p.utilizadorId ?? p.utilizadores?.id);
+                const currentNome = p.nome ?? p.utilizador?.nome ?? p.utilizadores?.nome ?? "Professor sem nome";
+
+                return (
+                  <button 
+                    key={currentId ?? index}
+                    type="button"
+                    onClick={() => setForm(f => ({ ...f, professorId: currentId }))}
+                    style={{ 
+                      background: form.professorId === currentId ? 'var(--panel-dark)' : '#fff',
+                      color: form.professorId === currentId ? 'var(--accent-gold)' : 'var(--panel-dark)',
+                      border: '1px solid',
+                      borderColor: form.professorId === currentId ? 'var(--panel-dark)' : 'var(--border-warm)',
+                      padding: '8px 16px',
+                      borderRadius: '20px',
+                      fontSize: '13px',
+                      cursor: 'pointer',
+                      fontFamily: 'Lato, sans-serif'
+                    }}
+                  >
+                    {currentNome}
+                  </button>
+                );
+              })}
+              </div>
+            </div>
+          )}
+        </>
+      )}
+
+      {/* Passo 3 — Horário disponível */}
+      {form.professorId && (
+        <>
+          {loadingDisps ? (
+            <div style={{ fontSize:12, color:"var(--accent-muted)", marginBottom:14, fontWeight:300 }}>A carregar disponibilidades…</div>
+          ) : disponibilidades.length === 0 ? (
+            <div style={{ fontSize:12, color:"#c0392b", marginBottom:14, background:"#fde8e8", border:"1px solid #f5c6cb", borderRadius:6, padding:"8px 12px" }}>
+              {profSel ? (profSel.nome ?? profSel.utilizador?.nome ?? profSel.utilizadores?.nome) : "O professor"} não tem disponibilidades registadas.
+            </div>
+          ) : (
+            <div style={{ marginBottom:14 }}>
+              <div style={{ fontSize:10, fontWeight:400, letterSpacing:2, color:"var(--accent-muted)", marginBottom:8, textTransform:"uppercase" as const }}>3 · Horário disponível</div>
+              <div style={{ display:"flex", flexDirection:"column", gap:6 }}>
+                {disponibilidades.map(d => {
+                  const diaLabel = DIAS_OPTIONS.find(x=>x.value===d.diaSemana)?.label ?? String(d.diaSemana);
+                  const selected = horarioSelecionadoId === d.id; 
+
+                  return (
+                    <button 
+                      key={d.id} 
+                      type="button" 
+                      onClick={() => {
+                        setHorarioSelecionadoId(d.id);
+                        setDataErro(""); // Limpa erros antigos
+                        
+                        // Sugere e autocompila imediatamente a próxima data válida para aquele dia da semana!
+                        const proximaDataValida = obterProximaDataPorDiaSemana(d.diaSemana);
+                        
+                        setForm(f=>({
+                          ...f, 
+                          horaInicio: d.horaInicio, 
+                          horaFim: d.horaFim,
+                          dataAula: proximaDataValida // Facilita a vida do aluno preenchendo o sábado correto automaticamente
+                        }));
+                      }}
+                      style={{ 
+                        display:"flex", 
+                        alignItems:"center", 
+                        gap:12, 
+                        background: selected ? "var(--panel-dark)" : "#fff", 
+                        border:"1px solid", 
+                        borderColor: selected ? "var(--panel-dark)" : "var(--border-warm)", 
+                        borderRadius:8, 
+                        padding:"10px 16px", 
+                        cursor:"pointer", 
+                        textAlign:"left" as const, 
+                        fontFamily:"Lato, sans-serif" 
+                      }}
+                    >
+                      <i className="ti ti-clock" style={{ fontSize:14, color: selected ? "var(--accent-gold)" : "var(--accent-muted)" }} />
+                      <div>
+                        <div style={{ fontSize:13, color: selected ? "var(--accent-gold)" : "var(--panel-dark)", fontWeight:400 }}>{diaLabel} · {d.horaInicio} – {d.horaFim}</div>
+                        {(d.validoDe||d.validoAte) && <div style={{ fontSize:11, color: selected ? "rgba(212,178,136,0.7)" : "var(--accent-muted)", fontWeight:300, marginTop:2 }}>{d.validoDe} → {d.validoAte}</div>}
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+        </>
+      )}
+
+      {/* Passo 4 — Data e detalhes finais */}
+      {form.horaInicio && (
+        <>
+          <div style={{ height:1, background:"var(--border-warm)", margin:"4px 0 16px" }} />
+          
+          <InputField 
+            label="4 · Data da sessão" 
+            type="date" 
+            value={form.dataAula} 
+            min={hojeString} // Impede retroativamente escolher dias passados
+            onChange={handleDataChange} // Executa a validação do dia de semana inteligente
+          />
+          
+          <InputField label="Máx. alunos" type="number" min={1} value={form.maxAlunos} onChange={v=>setForm(f=>({...f,maxAlunos:Number(v)}))} />
+          <TextareaField label="Notas" value={form.descricao} onChange={v=>setForm(f=>({...f,descricao:v}))} />
+          
+          <BtnPrimario 
+            label={submitting ? "A enviar…" : submitLabel} 
+            onClick={handleSubmit} 
+          />
+        </>
+      )}
+    </FormCard>
+  );
+}
+
 function AlunoView({ userName }: { userName: string }) {
   const [semana, setSemana]         = useState<AulaDto[]>([]);
   const [coaching, setCoaching]     = useState<CoachingDto[]>([]);
   const [disponiveis, setDisp]      = useState<CoachingDto[]>([]);
-  const [professores, setProfs]     = useState<ResumoDto[]>([]);
-  const [modalidades, setMods]      = useState<ResumoDto[]>([]);
-  const [estudios, setEst]          = useState<ResumoDto[]>([]);
   const [offset, setOffset]         = useState(0);
   const [loading, setLoading]       = useState(true);
   const [tab, setTab]               = useState<"horario"|"coaching"|"disponiveis"|"marcar">("horario");
-  const [form, setForm]             = useState({ professorId:"", modalidadeId:"", estudioId:"", dataAula:"", horaInicio:"", horaFim:"", maxAlunos:1, descricao:"" });
   const [err, setErr]               = useState("");
   const [ok, setOk]                 = useState("");
 
@@ -358,12 +679,10 @@ function AlunoView({ userName }: { userName: string }) {
       apiFetch<AulaDto[]>(`${API}/semana?offset=${offset}`),
       apiFetch<{ content: CoachingDto[] }>(`${API}/coaching`),
       apiFetch<{ content: CoachingDto[] }>(`${API}/coachingsdisponiveis?offset=${offset}`),
-      apiFetch<ResumoDto[]>(`${BASE}/api/professores/selecionar`).catch(() => []),
-      apiFetch<ResumoDto[]>(`${BASE}/api/modalidades`).catch(() => []),
-      apiFetch<ResumoDto[]>(`${BASE}/api/estudios`).catch(() => []),
-    ]).then(([s,c,d,p,m,e]) => {
-      setSemana(s??[]); setCoaching(c?.content??[]); setDisp(d?.content??[]);
-      setProfs(p??[]); setMods(m??[]); setEst(e??[]);
+    ]).then(([s,c,d]) => {
+      const normalized = (s??[]).map(normalizeAula);
+      console.log("✅ setSemana:", normalized.length, "aulas", normalized.map(a => ({ id: a.id, diaSemana: a.diaSemana, horaInicio: a.horaInicio })));
+      setSemana(normalized); setCoaching(c?.content??[]); setDisp(d?.content??[]);
     }).catch(console.error).finally(() => setLoading(false));
   }, [offset]);
 
@@ -376,15 +695,12 @@ function AlunoView({ userName }: { userName: string }) {
     const upd = await apiFetch<{ content: CoachingDto[] }>(`${API}/coaching`);
     setCoaching(upd?.content ?? []);
   };
-  const marcar = async () => {
+  const marcar = async (form: { professorId: string; modalidadeId: string; dataAula: string; horaInicio: string; horaFim: string; maxAlunos: number; descricao: string }) => {
     setErr(""); setOk("");
-    try {
-      await apiFetch(`${API}/marcarcoaching`, { method:"POST", body:JSON.stringify(form) });
-      setOk("Coaching marcado! Aguarda confirmação.");
-      setForm({ professorId:"", modalidadeId:"", estudioId:"", dataAula:"", horaInicio:"", horaFim:"", maxAlunos:8, descricao:"" });
-      const upd = await apiFetch<{ content: CoachingDto[] }>(`${API}/coaching`);
-      setCoaching(upd?.content ?? []);
-    } catch(e: unknown) { setErr(String(e)); }
+    await apiFetch(`${API}/marcarcoaching`, { method:"POST", body:JSON.stringify(form) });
+    setOk("Coaching marcado! Aguarda confirmação.");
+    const upd = await apiFetch<{ content: CoachingDto[] }>(`${API}/coaching`);
+    setCoaching(upd?.content ?? []);
   };
 
   const TABS = [{ key:"horario", label:"Aulas" },{ key:"coaching", label:"Coaching" },{ key:"disponiveis", label:"Disponíveis" },{ key:"marcar", label:"+ Marcar coaching" }] as const;
@@ -412,22 +728,9 @@ function AlunoView({ userName }: { userName: string }) {
         )}
 
         {tab === "marcar" && (
-          <div style={{ maxWidth: 480 }}>
+          <div style={{ maxWidth: 520 }}>
             <SectionTitle>Marcar sessão de coaching</SectionTitle>
-            {err && <ErrMsg msg={err} />}{ok && <OkMsg msg={ok} />}
-            <FormCard>
-              <SelectField label="Professor" value={form.professorId} onChange={v=>setForm(f=>({...f,professorId:v}))} options={professores.map(p=>({value:String(p.id),label:p.nome}))} placeholder="Escolher professor..." />
-              <SelectField label="Modalidade" value={form.modalidadeId} onChange={v=>setForm(f=>({...f,modalidadeId:v}))} options={modalidades.map(m=>({value:m.id,label:m.nome}))} placeholder="Escolher modalidade..." />
-              <SelectField label="Estúdio / Sala" value={form.estudioId} onChange={v=>setForm(f=>({...f,estudioId:v}))} options={estudios.map(e=>({value:e.id,label:e.nome}))} placeholder="Escolher sala..." />
-              <InputField label="Data" type="date" value={form.dataAula} onChange={v=>setForm(f=>({...f,dataAula:v}))} />
-              <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:12 }}>
-                <InputField label="Hora início" type="time" value={form.horaInicio} onChange={v=>setForm(f=>({...f,horaInicio:v}))} />
-                <InputField label="Hora fim" type="time" value={form.horaFim} onChange={v=>setForm(f=>({...f,horaFim:v}))} />
-                <InputField label="Máx. alunos" type="number" min={1} value={form.maxAlunos} onChange={v=>setForm(f=>({...f,maxAlunos:Number(v)}))} />
-              </div>
-              <TextareaField label="Notas" value={form.descricao} onChange={v=>setForm(f=>({...f,descricao:v}))} />
-              <BtnPrimario label="Enviar pedido" onClick={marcar} />
-            </FormCard>
+            <MarcarCoachingForm onSubmit={marcar} err={err} ok={ok} />
           </div>
         )}
       </>}
@@ -441,23 +744,15 @@ function EncarregadoView({ userName }: { userName: string }) {
   const [semana, setSemana]         = useState<AulaDto[]>([]);
   const [coaching, setCoaching]     = useState<CoachingDto[]>([]);
   const [disponiveis, setDisp]      = useState<CoachingDto[]>([]);
-  const [professores, setProfs]     = useState<ResumoDto[]>([]);
-  const [modalidades, setMods]      = useState<ResumoDto[]>([]);
-  const [estudios, setEst]          = useState<ResumoDto[]>([]);
   const [offset, setOffset]         = useState(0);
   const [tab, setTab]               = useState<"horario"|"coaching"|"disponiveis"|"marcar">("horario");
   const [loading, setLoading]       = useState(false);
-  const [form, setForm]             = useState({ professorId:"", modalidadeId:"", estudioId:"", dataAula:"", horaInicio:"", horaFim:"", maxAlunos:8, descricao:"" });
   const [err, setErr]               = useState("");
   const [ok, setOk]                 = useState("");
 
   useEffect(() => {
-    Promise.all([
-      apiFetch<ResumoDto[]>(`${BASE}/api/utilizadores/meus-educandos`).catch(()=>[]),
-      apiFetch<ResumoDto[]>(`${BASE}/api/professores/selecionar`).catch(()=>[]),
-      apiFetch<ResumoDto[]>(`${BASE}/api/modalidades`).catch(()=>[]),
-      apiFetch<ResumoDto[]>(`${BASE}/api/estudios`).catch(()=>[]),
-    ]).then(([e,p,m,est]) => { setEducandos(e??[]); setProfs(p??[]); setMods(m??[]); setEst(est??[]); });
+    apiFetch<ResumoDto[]>(`${BASE}/api/utilizadores/meus-educandos`).catch(()=>[])
+      .then(e => setEducandos(e??[]));
   }, []);
 
   useEffect(() => {
@@ -467,21 +762,18 @@ function EncarregadoView({ userName }: { userName: string }) {
       apiFetch<AulaDto[]>(`${API}/semana/educando/${sel.id}?offset=${offset}`),
       apiFetch<{ content: CoachingDto[] }>(`${API}/coaching/educando/${sel.id}`),
       apiFetch<{ content: CoachingDto[] }>(`${API}/coachingsdisponiveis/educando/${sel.id}?offset=0`),
-    ]).then(([s,c,d]) => { setSemana(s??[]); setCoaching(c?.content??[]); setDisp(d?.content??[]); })
+    ]).then(([s,c,d]) => { setSemana((s??[]).map(normalizeAula)); setCoaching(c?.content??[]); setDisp(d?.content??[]); })
     .catch(console.error).finally(() => setLoading(false));
   }, [sel, offset]);
 
   const selecionar = (e: ResumoDto) => { setSel(e); setOffset(0); setTab("horario"); setErr(""); setOk(""); };
   const inscrever  = async (id: string) => { if (!sel) return; await apiFetch(`${API}/inscreverEmCoaching/${id}/educando/${sel.id}`,{method:"POST"}); const u=await apiFetch<{content:CoachingDto[]}>(`${API}/coaching/educando/${sel.id}`); setCoaching(u?.content??[]); };
   const cancelar   = async (id: string) => { if (!sel) return; await apiFetch(`${API}/cancelarCoaching/${id}/educando/${sel.id}`,{method:"DELETE"}); setCoaching(c=>c.filter(x=>x.aulaDto.id!==id)); };
-  const marcar     = async () => {
+  const marcar     = async (form: { professorId: string; modalidadeId: string; dataAula: string; horaInicio: string; horaFim: string; maxAlunos: number; descricao: string }) => {
     if (!sel) return; setErr(""); setOk("");
-    try {
-      await apiFetch(`${API}/marcarcoaching/educando/${sel.id}`,{method:"POST",body:JSON.stringify(form)});
-      setOk("Coaching marcado! Aguarda confirmação.");
-      setForm({ professorId:"", modalidadeId:"", estudioId:"", dataAula:"", horaInicio:"", horaFim:"", maxAlunos:8, descricao:"" });
-      const u=await apiFetch<{content:CoachingDto[]}>(`${API}/coaching/educando/${sel.id}`); setCoaching(u?.content??[]);
-    } catch(e: unknown) { setErr(String(e)); }
+    await apiFetch(`${API}/marcarcoaching/educando/${sel.id}`,{method:"POST",body:JSON.stringify(form)});
+    setOk("Coaching marcado! Aguarda confirmação.");
+    const u=await apiFetch<{content:CoachingDto[]}>(`${API}/coaching/educando/${sel.id}`); setCoaching(u?.content??[]);
   };
 
   const TABS = [{ key:"horario", label:"Aulas" },{ key:"coaching", label:"Coaching" },{ key:"disponiveis", label:"Disponíveis" },{ key:"marcar", label:"+ Marcar coaching" }] as const;
@@ -508,22 +800,9 @@ function EncarregadoView({ userName }: { userName: string }) {
           {tab==="coaching"     && <div><SectionTitle>Coachings de {sel.nome}</SectionTitle>{coaching.length===0&&<Empty>Sem coachings marcados.</Empty>}<CoachingGrid items={coaching} onAction={cancelar} actionLabel="Cancelar" actionPerigo /></div>}
           {tab==="disponiveis"  && <div><SectionTitle>Coachings disponíveis</SectionTitle>{disponiveis.length===0&&<Empty>Sem coachings disponíveis.</Empty>}<CoachingGrid items={disponiveis} onAction={inscrever} actionLabel="Inscrever" /></div>}
           {tab==="marcar"       && (
-            <div style={{ maxWidth: 480 }}>
+            <div style={{ maxWidth: 520 }}>
               <SectionTitle>Marcar coaching para {sel.nome}</SectionTitle>
-              {err&&<ErrMsg msg={err}/>}{ok&&<OkMsg msg={ok}/>}
-              <FormCard>
-                <SelectField label="Professor" value={form.professorId} onChange={v=>setForm(f=>({...f,professorId:v}))} options={professores.map(p=>({value:String(p.id),label:p.nome}))} placeholder="Escolher professor..." />
-                <SelectField label="Modalidade" value={form.modalidadeId} onChange={v=>setForm(f=>({...f,modalidadeId:v}))} options={modalidades.map(m=>({value:m.id,label:m.nome}))} placeholder="Escolher modalidade..." />
-                <SelectField label="Estúdio / Sala" value={form.estudioId} onChange={v=>setForm(f=>({...f,estudioId:v}))} options={estudios.map(e=>({value:e.id,label:e.nome}))} placeholder="Escolher sala..." />
-                <InputField label="Data" type="date" value={form.dataAula} onChange={v=>setForm(f=>({...f,dataAula:v}))} />
-                <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:12 }}>
-                  <InputField label="Hora início" type="time" value={form.horaInicio} onChange={v=>setForm(f=>({...f,horaInicio:v}))} />
-                  <InputField label="Hora fim"    type="time" value={form.horaFim}    onChange={v=>setForm(f=>({...f,horaFim:v}))} />
-                  <InputField label="Máx. alunos" type="number" min={1} value={form.maxAlunos} onChange={v=>setForm(f=>({...f,maxAlunos:Number(v)}))} />
-                </div>
-                <TextareaField label="Notas" value={form.descricao} onChange={v=>setForm(f=>({...f,descricao:v}))} />
-                <BtnPrimario label="Enviar pedido" onClick={marcar} />
-              </FormCard>
+              <MarcarCoachingForm onSubmit={marcar} err={err} ok={ok} />
             </div>
           )}
         </>}
@@ -550,7 +829,7 @@ function ProfessorView({ userName }: { userName: string }) {
         apiFetch<{ content: CoachingDto[] }>(`${API}/professor/coaching/pendentes`),
         apiFetch<DisponibilidadeDto[]>(`/disponibilidade/minhasdisponibilidades`),
       ]);
-      setHorario(h??[]); setPend(p?.content??[]); setDisps(d??[]);
+      setHorario((h??[]).map(normalizeAula)); setPend(p?.content??[]); setDisps(d??[]);
     } catch(e) { console.error(e); }
     setLoading(false);
   }, [offset]);
