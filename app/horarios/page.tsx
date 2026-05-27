@@ -38,7 +38,7 @@ const DIAS = ["SEGUNDA", "TERÇA", "QUARTA", "QUINTA", "SEXTA", "SÁBADO", "DOMI
 const DIAS_OPTIONS = [
   { value: 1, label: "SEGUNDA" }, { value: 2, label: "TERÇA" },
   { value: 3, label: "QUARTA"  }, { value: 4, label: "QUINTA" },
-  { value: 5, label: "SEXTA"   }, { value: 6, label: "SÁBADO" },
+  { value: 5, label: "SEXTA"   }, { value: 6, label: "SÁBADO" },  
   { value: 7, label: "DOMINGO" },
 ];
 const HORAS = ["08:00","09:00","10:00","11:00","12:00","13:00","14:00","15:00","16:00","17:00","18:00","19:00","20:00","21:00","22:00"];
