@@ -65,6 +65,12 @@ const NAV_SECTIONS = [
         href: "/utilizadores",
         sub: "Controlo de contas e permissões",
       },
+      {
+        icon: "ti-archive",
+        label: "Inventário",
+        href: "/inventario",
+        sub: "Controlo de stock e recursos",
+      },
     ],
   },
 ];
@@ -78,22 +84,23 @@ export default function Drawer() {
     <>
       {drawerOpen && (
         <div
-          className="absolute inset-0 z-10"
+          className="fixed inset-0 z-40" // 👈 Alterado de absolute para fixed e aumentado o z-index
           style={{ background: "rgba(44,31,20,0.30)" }}
           onClick={() => setDrawerOpen(false)}
         />
       )}
 
       <aside
-        className="absolute top-0 bottom-0 left-0 z-20 flex flex-col"
+        className="fixed top-0 bottom-0 left-0 z-50 flex flex-col" // 👈 Alterado de absolute para fixed e aumentado o z-index para ficar por cima de tudo
         style={{
           width: "240px",
+          maxWidth: "calc(100vw - 56px)", // 👈 Adicionada proteção para ecrãs muito pequenos de telemóvel
           background: "#503c25",
           boxShadow: "4px 0 24px rgba(44,28,10,0.30)",
           transform: drawerOpen ? "translateX(0)" : "translateX(-100%)",
           transition: "transform .28s cubic-bezier(.4,0,.2,1)",
           borderRight: "1px solid rgba(245,217,168,0.12)",
-          height: "100%",
+          height: "100vh", // 👈 Alterado de 100% para 100vh (altura inteira da janela)
         }}
       >
         <div
@@ -159,11 +166,14 @@ export default function Drawer() {
                       borderBottom: "1px solid rgba(245,217,168,0.18)",
                       marginTop: "2px",
                     }}
-                  />
+                  ></div>
                 </div>
 
                 {section.items.map((item) => {
-                  if (item.href === "/utilizadores" && role !== "COORDENACAO") {
+                  if (
+                    (item.href === "/utilizadores" || item.href === "/inventario") && 
+                    role !== "COORDENACAO"
+                  ) {
                     return null;
                   }
 
@@ -222,12 +232,10 @@ export default function Drawer() {
                             transition: "color 0.2s ease",
                           }}
                         >
-                          {/* Garantimos que a classe base 'ti' e o nome do ícone ficam perfeitamente separados */}
                           <i
                             className="ti ti-pin"
                             style={{ 
                               fontSize: "13px", 
-                              // Se estiver fixado, o ícone roda 45 graus para simular que foi "espetado" ou solto
                               transform: isPinned ? "rotate(-45deg)" : "none",
                               transition: "transform 0.2s ease",
                               display: "inline-block"

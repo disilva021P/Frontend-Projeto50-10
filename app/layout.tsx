@@ -37,7 +37,6 @@ export default function RootLayout({
       className={`${playfair.variable} ${lato.variable} ${geistMono.variable} h-full antialiased`}
     >
       <body className={`${lato.className} min-h-full flex flex-col`}>
-        {/* Aqui entra o conteúdo limpo: se for a raiz mostra só o login, se for o grupo mostra com a Navbar */}
         {children}
       </body>
     </html>

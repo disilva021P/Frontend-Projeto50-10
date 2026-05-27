@@ -418,7 +418,7 @@ function MarcarCoachingForm({
 
       if (diaSemanaEscolhidoJS !== dispSelecionada.diaSemana) {
         const diaNome = DIAS_OPTIONS.find(x => x.value === dispSelecionada.diaSemana)?.label;
-        setDataErro(`Aviso: O horário escolhido é às ${diaNome}s. Por favor, seleciona um dia correspondente.`);
+        setDataErro(`Aviso: O horário escolhido é às ${diaNome}S. Por favor, seleciona um dia correspondente.`);
       } else {
         setDataErro("");
       }
@@ -651,7 +651,9 @@ function AlunoView({ userName }: { userName: string }) {
         {tab === "coaching" && (
           <div>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
-              <SectionTitle style={{ marginBottom: 0 }}>Os meus coachings</SectionTitle>
+              <div style={{ marginBottom: 0 }}>
+                <SectionTitle>Os meus coachings</SectionTitle>
+              </div>
               <BtnPrimario label="+ Marcar Sessão" onClick={() => { setErr(""); setOk(""); setIsModalOpen(true); }} small />
             </div>
             {coaching.length === 0 && <Empty>Sem coachings marcados.</Empty>}
@@ -742,7 +744,9 @@ function EncarregadoView({ userName }: { userName: string }) {
           {tab==="coaching"     && (
             <div>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
-                <SectionTitle style={{ marginBottom: 0 }}>Coachings de {sel.nome}</SectionTitle>
+                <div style={{ marginBottom: 0 }}>
+                  <SectionTitle>Coachings de {sel.nome}</SectionTitle>
+                </div>
                 <BtnPrimario label="+ Marcar Sessão" onClick={() => { setErr(""); setOk(""); setIsModalOpen(true); }} small />
               </div>
               {coaching.length===0&&<Empty>Sem coachings marcados.</Empty>}

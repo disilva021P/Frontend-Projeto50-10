@@ -1,8 +1,38 @@
 "use client";
 
 import { useDashboard } from "../context/DashboardContext";
+import { usePathname } from "next/navigation";
+
+const NAV_SECTIONS = [
+  {
+    title: "Principal",
+    items: [
+      { label: "Início", href: "/landingPage" },
+      { label: "Horários", href: "/horarios" },
+      { label: "Pagamentos", href: "/pagamentos" },
+    ],
+  },
+  {
+    title: "Comunidade",
+    items: [
+      { label: "Mensagens", href: "/mensagens" },
+      { label: "Eventos", href: "/eventos" },
+      { label: "Marketplace", href: "/marketplace" },
+    ],
+  },
+  {
+    title: "Gestão",
+    items: [
+      { label: "Gestão de Faltas", href: "/faltas" },
+      { label: "Gestão de Utilizadores", href: "/utilizadores" },
+      { label: "Inventário", href: "/inventario" },
+    ],
+  },
+];
 
 export default function Navbar() {
+  const pathname = usePathname();
+
   const {
     setDrawerOpen,
     userName,
@@ -16,6 +46,20 @@ export default function Navbar() {
     handleLogout,
     initials,
   } = useDashboard();
+
+  // ─── ESCONDER NAVBAR EM ROTAS DE AUTENTICAÇÃO/RECUPERAÇÃO ───
+  if (pathname === "/recuperarPassword") {
+    return null;
+  }
+
+  // Mapeamento dinâmico do título da Navbar com base na rota
+  const currentItem = NAV_SECTIONS.flatMap(section => section.items).find(
+    (item) => item.href === pathname
+  );
+
+  const pageTitle = currentItem && pathname !== "/landingPage" 
+    ? currentItem.label.toLowerCase() 
+    : "início";
 
   return (
     <nav
@@ -66,7 +110,7 @@ export default function Navbar() {
               marginLeft: "4px",
             }}
           >
-            · início
+            · {pageTitle}
           </span>
         </div>
       </div>
@@ -151,6 +195,11 @@ export default function Navbar() {
                       <p className="text-xs text-accent-muted mt-1 font-light leading-snug">
                         {n.mensagem}
                       </p>
+                      {n.criadaEm && (
+                        <p className="text-[8px] text-gray-400 mt-1 uppercase">
+                          {new Date(n.criadaEm).toLocaleDateString()}
+                        </p>
+                      )}
                     </div>
                   ))
                 )}

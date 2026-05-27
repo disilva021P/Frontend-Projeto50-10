@@ -75,6 +75,7 @@ const CARD_THEMES: Record<
   "/eventos": { localImage: "/images/cardEventos.jpg", tint: "#6B5134", accent: "#F4D9B0", pill: "rgba(244,217,176,0.15)" },
   "/utilizadores": { localImage: "/images/cardUtilizadores.jpg", tint: "#6B5134", accent: "#F4D9B0", pill: "rgba(244,217,176,0.15)" },
   "/marketplace": { localImage: "/images/cardMarketplace.jpg", tint: "#7A5E3F", accent: "#F7DEBC", pill: "rgba(247,222,188,0.15)" },
+  "/inventario": { localImage: "/images/cardInventario.jpg", tint: "#6B5134", accent: "#F4D9B0", pill: "rgba(244,217,176,0.15)" },
 };
 
 const DEFAULT_THEME = { localImage: "", tint: "#402F1D", accent: "#F0D0A0", pill: "rgba(240,208,160,0.15)" };
@@ -172,7 +173,7 @@ function HorarioResumo({ role }: { role: Role }) {
       />
       <p
         style={{
-          fontSize: "9px",
+          fontSize: "11px",
           letterSpacing: "3px",
           textTransform: "uppercase",
           color: "var(--accent-muted)",
@@ -185,7 +186,7 @@ function HorarioResumo({ role }: { role: Role }) {
       <h2
         style={{
           fontFamily: "var(--font-playfair)",
-          fontSize: "18px",
+          fontSize: "19px",
           color: "var(--panel-dark)",
           fontWeight: 400,
           marginBottom: "18px",
@@ -194,7 +195,7 @@ function HorarioResumo({ role }: { role: Role }) {
         Os teus horários
       </h2>
       {erro ? (
-        <p style={{ fontSize: "12px", color: "var(--accent-muted)", fontWeight: 300 }}>
+        <p style={{ fontSize: "13px", color: "var(--accent-muted)", fontWeight: 300 }}>
           Não foi possível carregar os horários.
         </p>
       ) : (
@@ -275,7 +276,6 @@ function HorarioResumo({ role }: { role: Role }) {
                           lineHeight: 1.3,
                         }}
                       >
-                        {/* 🔥 LÊ DIRETAMENTE O TITULO GERADO NO BACKEND (Ex: "Ballet Clássico" ou "Coaching Ballet") */}
                         {a.titulo ?? "Aula"}
                       </div>
                       {a.idHorario?.idcriatedPor && (
@@ -306,7 +306,7 @@ function HorarioResumo({ role }: { role: Role }) {
           justifyContent: "space-between",
         }}
       >
-        <span style={{ fontSize: "11px", color: "var(--accent-muted)", fontWeight: 300 }}>
+        <span style={{ fontSize: "12px", color: "var(--accent-muted)", fontWeight: 300 }}>
           {aulas.length} {aulas.length === 1 ? "aula" : "aulas"} esta semana
         </span>
         <button
@@ -315,7 +315,7 @@ function HorarioResumo({ role }: { role: Role }) {
             background: "none",
             border: "none",
             cursor: "pointer",
-            fontSize: "11px",
+            fontSize: "12px",
             color: "var(--accent-muted)",
             letterSpacing: ".5px",
             fontWeight: 400,
@@ -390,7 +390,7 @@ function AtalhoAfixado({
       </div>
       <div style={{ position: "absolute", inset: 0, background: `linear-gradient(to right, ${theme.tint} 35%, ${theme.tint}10 100%)`, pointerEvents: "none" }} />
       <div style={{ position: "relative", inset: 0, height: "100%", padding: "18px 16px", display: "flex", flexDirection: "column", justifyContent: "space-between", zIndex: 2 }}>
-        <div style={{ display: "flex", alignItems: "flex-start", justifyWith: "space-between", justifyContent: "space-between" }}>
+        <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between" }}>
           <div style={{ width: "36px", height: "36px", borderRadius: "8px", background: theme.pill, backdropFilter: "blur(6px)", border: `1px solid ${theme.accent}28`, display: "flex", alignItems: "center", justifyContent: "center", color: theme.accent }}>
             <i className={`ti ${item.icon}`} style={{ fontSize: "17px" }} />
           </div>
@@ -442,12 +442,17 @@ export default function LandingPage() {
       items: [
         { icon: "ti-chart-bar", label: "Gestão de Faltas", href: "/faltas", sub: "Presenças e justificações" },
         { icon: "ti-users", label: "Gestão de Utilizadores", href: "/utilizadores", sub: "Controlo de contas e permissões" },
+        { icon: "ti-archive", label: "Inventário", href: "/inventario", sub: "Controlo de stock e recursos" },
       ],
     },
   ];
 
   const totalItensVisiveisEAlfinetados = NAV_SECTIONS.flatMap(s => s.items).filter(item => {
+    // Oculta Gestão de Utilizadores se não for COORDENACAO
     if (item.href === "/utilizadores" && role !== "COORDENACAO") return false;
+
+    // Oculta Gestão de Stock/Inventario se nao for COORDENACAO
+    if (item.href === "/inventario" && role !== "COORDENACAO") return false;
     return pinnedHrefs.includes(item.href);
   }).length;
 
@@ -469,6 +474,8 @@ export default function LandingPage() {
           {NAV_SECTIONS.map((section) => {
             const itensFiltradosDaSeccao = section.items.filter((item) => {
               if (item.href === "/utilizadores" && role !== "COORDENACAO") return false;
+
+              if (item.href === "/inventario" && role !== "COORDENACAO") return false;
               return pinnedHrefs.includes(item.href);
             });
 
@@ -477,7 +484,7 @@ export default function LandingPage() {
             return (
               <div key={section.title}>
                 <div style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "14px", marginTop: "4px" }}>
-                  <span style={{ fontSize: "11px", letterSpacing: "2.5px", textTransform: "uppercase", color: "var(--accent-muted)", fontWeight: 400, whiteSpace: "nowrap" }}>
+                  <span style={{ fontSize: "12px", letterSpacing: "2.5px", textTransform: "uppercase", color: "var(--accent-muted)", fontWeight: 400, whiteSpace: "nowrap" }}>
                     {section.title}
                   </span>
                   <div style={{ flex: 1, borderBottom: "2px solid var(--border-warm)", opacity: 0.5 }} />
@@ -495,7 +502,7 @@ export default function LandingPage() {
         </div>
       ) : (
         <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "36px 24px", textAlign: "center", border: "1px dashed var(--border-warm)", borderRadius: "8px", background: "rgba(160,133,96,0.03)" }}>
-          <div style={{ width: "40px", height: "40px", borderRadius: "50%", background: "rgba(160,133,96,0.08)", display: "flex", alignItems: "center", justifyWith: "center", justifyContent: "center", marginBottom: "14px" }}>
+          <div style={{ width: "40px", height: "40px", borderRadius: "50%", background: "rgba(160,133,96,0.08)", display: "flex", alignItems: "center", justifyContent: "center", marginBottom: "14px" }}>
             <i className="ti ti-pin" style={{ fontSize: "20px", color: "var(--accent-muted)" }} />
           </div>
           <p style={{ fontSize: "14px", color: "var(--panel-dark)", fontWeight: 400, fontFamily: "var(--font-playfair)", marginBottom: "8px" }}>

@@ -132,6 +132,11 @@ export default function MarketplacePage() {
   const [totalPaginas, setTotalPaginas] = useState(0);
   const [loading, setLoading] = useState(true);
 
+  // Estados de Coordenação / Doações Pendentes
+  const [pendentes, setPendentes] = useState<Artigo[]>([]);
+  const [mostrarPendentes, setMostrarPendentes] = useState(false);
+  const [loadingPendentes, setLoadingPendentes] = useState(false);
+
   const [pesquisa, setPesquisa] = useState("");
   const [filtroTipo, setFiltroTipo] = useState<number | null>(null);
   const [filtroTamanho, setFiltroTamanho] = useState("");
@@ -262,13 +267,52 @@ export default function MarketplacePage() {
       setPaginaAtual(response.data.number);
     } catch (error) {
       console.error('Erro ao carregar:', error);
-    } {
+    } finally {
       setLoading(false);
     }
   };
 
+  // Carrega as Doações Pendentes (Exclusivo Coordenação)
+  const carregarPendentes = async () => {
+    setLoadingPendentes(true);
+    try {
+      const response = await api.get<Artigo[]>('/coordenacao/pendentes');
+      setPendentes(response.data);
+    } catch (error) {
+      console.error("Erro ao carregar doações pendentes:", error);
+    } finally {
+      setLoadingPendentes(false);
+    }
+  };
+
+  // Executa a ação de triagem (Aprovar=2, Recusar=5, Inventário=9)
+  const handleDecisao = async (id: string, novoEstado: number) => {
+    let acaoTexto = "alterar o estado deste artigo";
+    if (novoEstado === 2) acaoTexto = "aceitar e publicar esta doação";
+    if (novoEstado === 5) acaoTexto = "recusar esta doação";
+    if (novoEstado === 9) acaoTexto = "adicionar este artigo diretamente ao inventário escolar";
+
+    if (!confirm(`Tem a certeza que deseja ${acaoTexto}?`)) return;
+
+    try {
+      await api.put(`/marketplace/artigos/${id}/estado/${novoEstado}`);
+      alert("Operação realizada com sucesso!");
+      // Atualiza o estado local removendo o item processado de forma instantânea
+      setPendentes((prev) => prev.filter((artigo) => artigo.id !== id));
+      // Recarrega a montra principal caso o item tenha sido publicado
+      if (novoEstado === 2) carregarArtigos(0);
+    } catch (error) {
+      console.error("Erro ao processar decisão:", error);
+      alert("Ocorreu um erro ao atualizar o estado do artigo.");
+    }
+  };
+
   useEffect(() => {
-    carregarArtigos(0);
+    if (!mostrarPendentes) {
+      carregarArtigos(0);
+    } else {
+      carregarPendentes();
+    }
   }, [
     pesquisa,
     filtroTipo,
@@ -279,7 +323,14 @@ export default function MarketplacePage() {
     precoMax,
     apenasMeus,
     usuarioLogado?.id,
+    mostrarPendentes
   ]);
+
+  useEffect(() => {
+  if (role === "COORDENACAO") {
+    carregarPendentes(); // carrega a contagem em background
+  }
+}, [role]);
 
   const handleChange = (
     e: React.ChangeEvent<
@@ -335,12 +386,41 @@ export default function MarketplacePage() {
     const totalImagensRestantes = previews.length;
     const temOpcaoNegocio = form.isVenda || form.isAluguer || form.isDoacao;
 
-    if (!form.nome || !temOpcaoNegocio) {
-      setErro(
-        "Preencha o nome do artigo e escolha pelo menos uma opção de negócio.",
-      );
+    // ─── VALIDAÇÕES DOS CAMPOS TEXTO OBRIGATÓRIOS ───
+    if (!form.nome.trim()) {
+      setErro("Por favor, introduza o nome do artigo.");
       return;
     }
+    if (!form.descricao.trim()) {
+      setErro("Por favor, introduza uma descrição para o artigo.");
+      return;
+    }
+    if (!form.tamanho.trim()) {
+      setErro("Por favor, introduza o tamanho do artigo (ex: S, M, L, 38).");
+      return;
+    }
+    if (!form.cor.trim()) {
+      setErro("Por favor, especifique a cor do artigo.");
+      return;
+    }
+
+    // Validação das Opções de Negócio
+    if (!temOpcaoNegocio) {
+      setErro("Escolha pelo menos uma opção de negócio (Doação, Venda ou Aluguer).");
+      return;
+    }
+
+    // Validação condicional dos preços com base no tipo de negócio ativo
+    if (form.isVenda && (!form.precoVenda || parseFloat(form.precoVenda) <= 0)) {
+      setErro("Por favor, insira um preço de venda válido e superior a 0€.");
+      return;
+    }
+    if (form.isAluguer && (!form.precoAluguer || parseFloat(form.precoAluguer) <= 0)) {
+      setErro("Por favor, insira um preço de aluguer válido e superior a 0€.");
+      return;
+    }
+
+    // Validação das Imagens
     if (totalImagensRestantes === 0) {
       setErro("O artigo deve conter pelo menos uma imagem descritiva.");
       return;
@@ -349,10 +429,10 @@ export default function MarketplacePage() {
     setLoadingInserir(true);
     try {
       const formData = new FormData();
-      formData.append("nome", form.nome);
-      formData.append("descricao", form.descricao || "");
-      formData.append("tamanho", form.tamanho || "");
-      formData.append("cor", form.cor || "");
+      formData.append("nome", form.nome.trim());
+      formData.append("descricao", form.descricao.trim());
+      formData.append("tamanho", form.tamanho.trim());
+      formData.append("cor", form.cor.trim());
       formData.append("condicao", form.condicao);
       formData.append("isVenda", String(form.isVenda));
       formData.append("isAluguer", String(form.isAluguer));
@@ -536,8 +616,6 @@ export default function MarketplacePage() {
 
   return (
     <div className="flex flex-col min-h-full bg-background font-sans text-panel-dark">
-      {/* ── CONTEÚDO DA PÁGINA (MARKETPLACE) ── */}
-      {/* Removidos: `<nav>` redundante e `<aside>` (Drawer) duplicado. O DashboardLayout já os renderiza! */}
       <div className="flex flex-1 relative overflow-hidden">
         <main className="flex-1 overflow-y-auto">
           <header className="mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
@@ -549,13 +627,38 @@ export default function MarketplacePage() {
                 style={{ fontFamily: "var(--font-playfair)" }}
                 className="text-2xl font-normal text-panel-dark"
               >
-                Marketplace
+                {mostrarPendentes ? "Moderação de Doações" : "Marketplace"}
               </h1>
             </div>
 
-            <div className="flex items-center gap-3 self-end sm:self-auto">
-              {/* 1. Botão Recompras/Alugueres */}
-              {apenasMeus && (
+            <div className="flex items-center gap-3 self-end sm:self-auto flex-wrap">
+              {/* 1. Botão Administrativo: Doações Pendentes (Apenas Visível para COORDENACAO) */}
+              {role === "COORDENACAO" && (
+                <button
+                  onClick={() => {
+                    setMostrarPendentes(!mostrarPendentes);
+                    setApenasMeus(false);
+                    setMostrarAlugueres(false);
+                  }}
+                  className={`px-4 py-2 border rounded-sm text-xs tracking-wide transition-all uppercase flex items-center gap-1.5 ${
+                    mostrarPendentes
+                      ? "bg-[#3A6A3A] text-white border-[#3A6A3A] font-medium shadow-sm"
+                      : "bg-[#FFFCF8] text-panel-dark border-border-warm hover:border-accent-muted"
+                  }`}
+                >
+                  <i className="ti ti-gavel" /> Doações Pendentes
+                  {pendentes.length > 0 && (
+                    <span className={`ml-1 inline-flex items-center justify-center w-4 h-4 rounded-full text-[10px] font-semibold leading-none ${
+                      mostrarPendentes ? "bg-white text-[#3A6A3A]" : "bg-[#3A6A3A] text-white"
+                    }`}>
+                      {pendentes.length}
+                    </span>
+                  )}
+                </button>
+              )}
+
+              {/* 2. Botão Recompras/Alugueres */}
+              {apenasMeus && !mostrarPendentes && (
                 <button
                   onClick={() => setMostrarAlugueres(!mostrarAlugueres)}
                   className={`px-4 py-2 border rounded-sm text-xs tracking-wide transition-all uppercase ${
@@ -564,26 +667,28 @@ export default function MarketplacePage() {
                       : "bg-[#FFFCF8] text-panel-dark border-border-warm hover:border-accent-muted"
                   }`}
                 >
-                  <i className="ti ti-package mr-1" /> Recompras/Alugueres ({alugueresAtivos.length})
+                  <i className="ti ti-package mr-1" /> Alugueres ({alugueresAtivos.length})
                 </button>
               )}
 
-              {/* 2. Botão Ver os meus anúncios */}
-              <button
-                onClick={() => {
-                  setApenasMeus(!apenasMeus);
-                  if (mostrarAlugueres) setMostrarAlugueres(false);
-                }}
-                className={`px-4 py-2 border rounded-sm text-xs tracking-wide transition-all uppercase ${
-                  apenasMeus && !mostrarAlugueres
-                    ? "bg-panel-dark text-accent-gold border-panel-dark font-medium shadow-sm"
-                    : "bg-[#FFFCF8] text-accent-muted border-border-warm hover:border-accent-muted"
-                }`}
-              >
-                {apenasMeus ? "• Ver todos os artigos" : "Ver os meus anúncios"}
-              </button>
+              {/* 3. Botão Ver os meus anúncios */}
+              {!mostrarPendentes && (
+                <button
+                  onClick={() => {
+                    setApenasMeus(!apenasMeus);
+                    if (mostrarAlugueres) setMostrarAlugueres(false);
+                  }}
+                  className={`px-4 py-2 border rounded-sm text-xs tracking-wide transition-all uppercase ${
+                    apenasMeus && !mostrarAlugueres
+                      ? "bg-panel-dark text-accent-gold border-panel-dark font-medium shadow-sm"
+                      : "bg-[#FFFCF8] text-accent-muted border-border-warm hover:border-accent-muted"
+                  }`}
+                >
+                  {apenasMeus ? "• Ver todos os artigos" : "Ver os meus anúncios"}
+                </button>
+              )}
 
-              {/* 3. Botão Criar Anúncio */}
+              {/* 4. Botão Criar Anúncio */}
               <button
                 onClick={() => {
                   setIdSendoEditado(null);
@@ -610,101 +715,106 @@ export default function MarketplacePage() {
             </div>
           </header>
 
-          {/* PESQUISA */}
-          <div className="relative mb-5">
-            <i className="ti ti-search absolute inset-y-0 left-3 flex items-center text-accent-muted text-sm" />
-            <input
-              type="text"
-              placeholder="O que procuras hoje? Digita o nome do artigo..."
-              value={pesquisa}
-              onChange={(e) => setPesquisa(e.target.value)}
-              className="w-full bg-[#FFFCF8] border border-border-warm rounded-sm py-2 pl-9 pr-4 text-sm text-panel-dark placeholder-accent-muted/60 outline-none focus:border-panel-dark transition-all"
-            />
-          </div>
+          {/* Oculta filtros e pesquisa se estiver no painel de moderação de pendentes */}
+          {!mostrarPendentes && (
+            <>
+              {/* PESQUISA */}
+              <div className="relative mb-5">
+                <i className="ti ti-search absolute inset-y-0 left-3 flex items-center text-accent-muted text-sm" />
+                <input
+                  type="text"
+                  placeholder="O que procura hoje?"
+                  value={pesquisa}
+                  onChange={(e) => setPesquisa(e.target.value)}
+                  className="w-full bg-[#FFFCF8] border border-border-warm rounded-sm py-2 pl-9 pr-4 text-sm text-panel-dark placeholder-accent-muted/60 outline-none focus:border-panel-dark transition-all"
+                />
+              </div>
 
-          {/* FILTROS */}
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 mb-6 bg-[#FBF7F2] p-4 border border-border-warm rounded-sm">
-            <div>
-              <label className="text-[9px] uppercase tracking-wider font-normal text-accent-muted block mb-1">
-                Tipo de Negócio
-              </label>
-              <select
-                onChange={(e) =>
-                  setFiltroTipo(e.target.value ? Number(e.target.value) : null)
-                }
-                className="w-full bg-[#FFFCF8] border border-border-warm rounded-sm p-1.5 text-xs text-panel-dark outline-none focus:border-panel-dark transition-colors"
-              >
-                {FILTROS_TIPO.map((f) => (
-                  <option key={f.label} value={f.value ?? ""}>
-                    {f.label}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <label className="text-[9px] uppercase tracking-wider font-normal text-accent-muted block mb-1">
-                Tamanho
-              </label>
-              <input
-                placeholder="Ex: M, 38"
-                onChange={(e) => setFiltroTamanho(e.target.value)}
-                className="w-full bg-[#FFFCF8] border border-border-warm rounded-sm p-1.5 text-xs text-panel-dark outline-none focus:border-panel-dark transition-colors"
-              />
-            </div>
-            <div>
-              <label className="text-[9px] uppercase tracking-wider font-normal text-accent-muted block mb-1">
-                Cor
-              </label>
-              <input
-                placeholder="Ex: Preto"
-                onChange={(e) => setFiltroCor(e.target.value)}
-                className="w-full bg-[#FFFCF8] border border-border-warm rounded-sm p-1.5 text-xs text-panel-dark outline-none focus:border-panel-dark transition-colors"
-              />
-            </div>
-            <div>
-              <label className="text-[9px] uppercase tracking-wider font-normal text-accent-muted block mb-1">
-                Condição
-              </label>
-              <select
-                onChange={(e) => setFiltroCondicao(e.target.value)}
-                className="w-full bg-[#FFFCF8] border border-border-warm rounded-sm p-1.5 text-xs text-panel-dark outline-none focus:border-panel-dark transition-colors"
-              >
-                <option value="">Qualquer</option>
-                {CONDICOES.map((c) => (
-                  <option key={c} value={c}>
-                    {c}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div className="col-span-2 flex gap-2">
-              <div className="flex-1">
-                <label className="text-[9px] uppercase tracking-wider font-normal text-accent-muted block mb-1">
-                  Mínimo (€)
-                </label>
-                <input
-                  type="number"
-                  placeholder="0"
-                  onChange={(e) => setPrecoMin(e.target.value)}
-                  className="w-full bg-[#FFFCF8] border border-border-warm rounded-sm p-1.5 text-xs text-panel-dark outline-none focus:border-panel-dark transition-colors"
-                />
+              {/* FILTROS */}
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 mb-6 bg-[#FBF7F2] p-4 border border-border-warm rounded-sm">
+                <div>
+                  <label className="text-[9px] uppercase tracking-wider font-normal text-accent-muted block mb-1">
+                    Tipo de Negócio
+                  </label>
+                  <select
+                    onChange={(e) =>
+                      setFiltroTipo(e.target.value ? Number(e.target.value) : null)
+                    }
+                    className="w-full bg-[#FFFCF8] border border-border-warm rounded-sm p-1.5 text-xs text-panel-dark outline-none focus:border-panel-dark transition-colors"
+                  >
+                    {FILTROS_TIPO.map((f) => (
+                      <option key={f.label} value={f.value ?? ""}>
+                        {f.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="text-[9px] uppercase tracking-wider font-normal text-accent-muted block mb-1">
+                    Tamanho
+                  </label>
+                  <input
+                    placeholder="Ex: M, 38"
+                    onChange={(e) => setFiltroTamanho(e.target.value)}
+                    className="w-full bg-[#FFFCF8] border border-border-warm rounded-sm p-1.5 text-xs text-panel-dark outline-none focus:border-panel-dark transition-colors"
+                  />
+                </div>
+                <div>
+                  <label className="text-[9px] uppercase tracking-wider font-normal text-accent-muted block mb-1">
+                    Cor
+                  </label>
+                  <input
+                    placeholder="Ex: Preto"
+                    onChange={(e) => setFiltroCor(e.target.value)}
+                    className="w-full bg-[#FFFCF8] border border-border-warm rounded-sm p-1.5 text-xs text-panel-dark outline-none focus:border-panel-dark transition-colors"
+                  />
+                </div>
+                <div>
+                  <label className="text-[9px] uppercase tracking-wider font-normal text-accent-muted block mb-1">
+                    Condição
+                  </label>
+                  <select
+                    onChange={(e) => setFiltroCondicao(e.target.value)}
+                    className="w-full bg-[#FFFCF8] border border-border-warm rounded-sm p-1.5 text-xs text-panel-dark outline-none focus:border-panel-dark transition-colors"
+                  >
+                    <option value="">Qualquer</option>
+                    {CONDICOES.map((c) => (
+                      <option key={c} value={c}>
+                        {c}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div className="col-span-2 flex gap-2">
+                  <div className="flex-1">
+                    <label className="text-[9px] uppercase tracking-wider font-normal text-accent-muted block mb-1">
+                      Mínimo (€)
+                    </label>
+                    <input
+                      type="number"
+                      placeholder="0"
+                      onChange={(e) => setPrecoMin(e.target.value)}
+                      className="w-full bg-[#FFFCF8] border border-border-warm rounded-sm p-1.5 text-xs text-panel-dark outline-none focus:border-panel-dark transition-colors"
+                    />
+                  </div>
+                  <div className="flex-1">
+                    <label className="text-[9px] uppercase tracking-wider font-normal text-accent-muted block mb-1">
+                      Máximo (€)
+                    </label>
+                    <input
+                      type="number"
+                      placeholder="Max"
+                      onChange={(e) => setPrecoMax(e.target.value)}
+                      className="w-full bg-[#FFFCF8] border border-border-warm rounded-sm p-1.5 text-xs text-panel-dark outline-none focus:border-panel-dark transition-colors"
+                    />
+                  </div>
+                </div>
               </div>
-              <div className="flex-1">
-                <label className="text-[9px] uppercase tracking-wider font-normal text-accent-muted block mb-1">
-                  Máximo (€)
-                </label>
-                <input
-                  type="number"
-                  placeholder="Max"
-                  onChange={(e) => setPrecoMax(e.target.value)}
-                  className="w-full bg-[#FFFCF8] border border-border-warm rounded-sm p-1.5 text-xs text-panel-dark outline-none focus:border-panel-dark transition-colors"
-                />
-              </div>
-            </div>
-          </div>
+            </>
+          )}
 
           {/* SEÇÃO RECOMPRAS / ALUGUERES ATIVOS */}
-          {apenasMeus && mostrarAlugueres && (
+          {apenasMeus && mostrarAlugueres && !mostrarPendentes && (
             <div className="mb-6 space-y-3">
               <h2
                 style={{ fontFamily: "var(--font-playfair)" }}
@@ -756,92 +866,188 @@ export default function MarketplacePage() {
             </div>
           )}
 
-          {/* MONTRA DE ARTIGOS */}
-          {loading ? (
-            <div className="flex flex-col items-center justify-center py-20 text-accent-muted gap-3">
-              <div
-                style={{ borderTopColor: "var(--accent-gold)" }}
-                className="w-5 h-5 border-2 border-border-warm rounded-full animate-spin"
-              ></div>
-              <p className="text-[11px] font-light uppercase tracking-wider animate-pulse">
-                A atualizar montra...
-              </p>
-            </div>
-          ) : mostrarAlugueres ? (
-            null
-          ) : artigos.length === 0 ? (
-            <div className="text-center py-20 text-accent-muted bg-[#FBF7F2] rounded-sm border border-dashed border-border-warm max-w-md mx-auto px-4">
-              <i className="ti ti-box text-2xl block mb-2 text-border-warm" />
-              <h3
-                style={{ fontFamily: "var(--font-playfair)" }}
-                className="text-sm text-panel-dark font-normal"
-              >
-                Nenhum artigo encontrado
-              </h3>
-              <p className="text-xs text-accent-muted mt-1 font-light">
-                Experimenta ajustar os filtros aplicados.
-              </p>
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-              {artigos.map((artigo) => (
+          {/* ── VISÃO DO COORDENADOR: LISTA DE DOAÇÕES PENDENTES ── */}
+          {mostrarPendentes ? (
+            loadingPendentes ? (
+              <div className="flex flex-col items-center justify-center py-20 text-accent-muted gap-3">
                 <div
-                  key={artigo.id}
-                  onClick={() => setArtigoSelecionado(artigo)}
-                  className="bg-[#FFFCF8] rounded-sm border border-border-warm overflow-hidden flex flex-col hover:border-accent-muted hover:shadow-xs transition-all duration-200 group cursor-pointer"
+                  style={{ borderTopColor: "var(--accent-gold)" }}
+                  className="w-5 h-5 border-2 border-border-warm rounded-full animate-spin"
+                ></div>
+                <p className="text-[11px] font-light uppercase tracking-wider animate-pulse">
+                  A carregar doações pendentes...
+                </p>
+              </div>
+            ) : pendentes.length === 0 ? (
+              <div className="text-center py-16 text-accent-muted bg-[#FBF7F2] rounded-sm border border-dashed border-border-warm max-w-md mx-auto px-4">
+                <i className="ti ti-check text-2xl block mb-2 text-[#3A6A3A]" />
+                <h3
+                  style={{ fontFamily: "var(--font-playfair)" }}
+                  className="text-sm text-panel-dark font-normal"
                 >
-                  <div className="w-full bg-[#FBF7F2] overflow-hidden relative" style={{ aspectRatio: "3/4" }}>
-                    {artigo.imagemId ? (
-                      <img
-                        src={`http://localhost:8080/api/marketplace/imagem/${artigo.imagemId}`}
-                        className="w-full h-full object-cover group-hover:scale-102 transition-transform duration-300"
-                        alt={artigo.nome}
-                      />
-                    ) : (
-                      <div className="w-full h-full flex flex-col items-center justify-center text-accent-muted text-[10px] uppercase tracking-wider font-light gap-1">
-                        <i className="ti ti-photo" /> Sem foto
+                  Tudo limpo!
+                </h3>
+                <p className="text-xs text-accent-muted mt-1 font-light">
+                  Nenhuma doação a aguardar moderação de momento.
+                </p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {pendentes.map((artigo) => (
+                  <div
+                    key={artigo.id}
+                    className="bg-[#FFFCF8] rounded-sm border border-border-warm overflow-hidden flex flex-col justify-between hover:shadow-xs transition-all duration-200"
+                  >
+                    <div>
+                      <div className="w-full bg-[#FBF7F2] h-48 relative">
+                        {artigo.imagemId ? (
+                          <img
+                            src={`http://localhost:8080/api/marketplace/imagem/${artigo.imagemId}`}
+                            className="w-full h-full object-cover"
+                            alt={artigo.nome}
+                          />
+                        ) : (
+                          <div className="w-full h-full flex flex-col items-center justify-center text-accent-muted text-[10px] uppercase tracking-wider font-light gap-1">
+                            <i className="ti ti-photo" /> Sem foto
+                          </div>
+                        )}
+                        <span className="absolute top-2 right-2 bg-panel-dark text-accent-gold text-[9px] px-2 py-0.5 uppercase tracking-wide rounded-xs font-light">
+                          Doador: {artigo.donoNome}
+                        </span>
                       </div>
-                    )}
-                  </div>
 
-                  <div className="px-3 py-3 flex flex-col gap-1.5">
-                    <div className="flex items-baseline justify-between gap-2">
-                      <h3
-                        style={{ fontFamily: "var(--font-playfair)" }}
-                        className="text-base text-panel-dark font-normal leading-snug flex-1 min-w-0"
-                      >
-                        {artigo.nome.length > 27 ? artigo.nome.slice(0, 27) + "…" : artigo.nome}
-                      </h3>
-                      <span style={{ whiteSpace: "nowrap", flexShrink: 0, display: "flex", alignItems: "baseline", gap: "4px" }}>
-                        {artigo.isVenda && artigo.precoVenda !== null && (
-                          <span style={{ fontFamily: "var(--font-playfair)", fontSize: "16px", color: "var(--panel-dark)", fontWeight: 400 }}>
-                            {artigo.precoVenda}€
-                          </span>
-                        )}
-                        {artigo.isVenda && artigo.isAluguer && artigo.precoAluguer !== null && (
-                          <span style={{ fontSize: "12px", color: "var(--accent-muted)", fontWeight: 300 }}>/</span>
-                        )}
-                        {artigo.isAluguer && artigo.precoAluguer !== null && (
-                          <span style={{ fontFamily: "var(--font-playfair)", fontSize: "15px", color: "#7A5FA0", fontWeight: 400 }}>
-                            {artigo.precoAluguer}€<span style={{ fontSize: "11px", color: "var(--accent-muted)", fontWeight: 300 }}> dia</span>
-                          </span>
-                        )}
-                        {!artigo.isVenda && !artigo.isAluguer && artigo.isDoacao && (
-                          <span style={{ fontSize: "14px", color: "#3A6A3A", fontWeight: 400 }}>Grátis</span>
-                        )}
-                      </span>
+                      <div className="p-3 space-y-1.5">
+                        <h3
+                          style={{ fontFamily: "var(--font-playfair)" }}
+                          className="text-base text-panel-dark font-normal leading-snug truncate"
+                        >
+                          {artigo.nome}
+                        </h3>
+                        <p className="text-xs text-accent-muted font-light line-clamp-2 h-8">
+                          {artigo.descricao || "Sem descrição informada."}
+                        </p>
+                        <p className="text-[11px] text-panel-dark bg-[#FBF7F2] px-2 py-1 rounded-xs inline-block font-light">
+                          {[artigo.tamanho, artigo.cor, artigo.condicao].filter(Boolean).join(" · ")}
+                        </p>
+                      </div>
                     </div>
-                    <p className="text-xs text-accent-muted font-light">
-                      {[artigo.tamanho, artigo.condicao].filter(Boolean).join(" · ") || "—"}
-                    </p>
+
+                    {/* Botões de Ação para a Triagem */}
+                    <div className="p-3 pt-0 border-t border-[#FBF7F2] mt-2 grid grid-cols-3 gap-1.5">
+                      <button
+                        onClick={() => handleDecisao(artigo.id, 2)}
+                        className="bg-[#3A6A3A] hover:bg-[#2E542E] text-white py-1.5 rounded-sm text-[10px] uppercase tracking-wider font-medium text-center transition-colors"
+                        title="Aprovar e publicar no Marketplace"
+                      >
+                        Aceitar
+                      </button>
+                      <button
+                        onClick={() => handleDecisao(artigo.id, 9)}
+                        className="bg-panel-dark hover:bg-panel-dark/90 text-accent-gold py-1.5 rounded-sm text-[10px] uppercase tracking-wider font-medium text-center transition-colors"
+                        title="Enviar diretamente para o inventário da escola"
+                      >
+                        Inventário
+                      </button>
+                      <button
+                        onClick={() => handleDecisao(artigo.id, 5)}
+                        className="bg-red-700 hover:bg-red-800 text-white py-1.5 rounded-sm text-[10px] uppercase tracking-wider font-medium text-center transition-colors"
+                        title="Recusar doação"
+                      >
+                        Recusar
+                      </button>
+                    </div>
                   </div>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            )
+          ) : (
+            /* MONTRA DE ARTIGOS REGULARES DO MARKETPLACE */
+            loading ? (
+              <div className="flex flex-col items-center justify-center py-20 text-accent-muted gap-3">
+                <div
+                  style={{ borderTopColor: "var(--accent-gold)" }}
+                  className="w-5 h-5 border-2 border-border-warm rounded-full animate-spin"
+                ></div>
+                <p className="text-[11px] font-light uppercase tracking-wider animate-pulse">
+                  A atualizar montra...
+                </p>
+              </div>
+            ) : mostrarAlugueres ? (
+              null
+            ) : artigos.length === 0 ? (
+              <div className="text-center py-20 text-accent-muted bg-[#FBF7F2] rounded-sm border border-dashed border-border-warm max-w-md mx-auto px-4">
+                <i className="ti ti-box text-2xl block mb-2 text-border-warm" />
+                <h3
+                  style={{ fontFamily: "var(--font-playfair)" }}
+                  className="text-sm text-panel-dark font-normal"
+                >
+                  Nenhum artigo encontrado
+                </h3>
+                <p className="text-xs text-accent-muted mt-1 font-light">
+                  Experimenta ajustar os filtros aplicados.
+                </p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                {artigos.map((artigo) => (
+                  <div
+                    key={artigo.id}
+                    onClick={() => setArtigoSelecionado(artigo)}
+                    className="bg-[#FFFCF8] rounded-sm border border-border-warm overflow-hidden flex flex-col hover:border-accent-muted hover:shadow-xs transition-all duration-200 group cursor-pointer"
+                  >
+                    <div className="w-full bg-[#FBF7F2] overflow-hidden relative" style={{ aspectRatio: "3/4" }}>
+                      {artigo.imagemId ? (
+                        <img
+                          src={`http://localhost:8080/api/marketplace/imagem/${artigo.imagemId}`}
+                          className="w-full h-full object-cover group-hover:scale-102 transition-transform duration-300"
+                          alt={artigo.nome}
+                        />
+                      ) : (
+                        <div className="w-full h-full flex flex-col items-center justify-center text-accent-muted text-[10px] uppercase tracking-wider font-light gap-1">
+                          <i className="ti ti-photo" /> Sem foto
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="px-3 py-3 flex flex-col gap-1.5">
+                      <div className="flex items-baseline justify-between gap-2">
+                        <h3
+                          style={{ fontFamily: "var(--font-playfair)" }}
+                          className="text-base text-panel-dark font-normal leading-snug flex-1 min-w-0"
+                        >
+                          {artigo.nome.length > 27 ? artigo.nome.slice(0, 27) + "…" : artigo.nome}
+                        </h3>
+                        <span style={{ whiteSpace: "nowrap", flexShrink: 0, display: "flex", alignItems: "baseline", gap: "4px" }}>
+                          {artigo.isVenda && artigo.precoVenda !== null && (
+                            <span style={{ fontFamily: "var(--font-playfair)", fontSize: "16px", color: "var(--panel-dark)", fontWeight: 400 }}>
+                              {artigo.precoVenda}€
+                            </span>
+                          )}
+                          {artigo.isVenda && artigo.isAluguer && artigo.precoAluguer !== null && (
+                            <span style={{ fontSize: "12px", color: "var(--accent-muted)", fontWeight: 300 }}>/</span>
+                          )}
+                          {artigo.isAluguer && artigo.precoAluguer !== null && (
+                            <span style={{ fontFamily: "var(--font-playfair)", fontSize: "15px", color: "#7A5FA0", fontWeight: 400 }}>
+                              {artigo.precoAluguer}€<span style={{ fontSize: "11px", color: "var(--accent-muted)", fontWeight: 300 }}> dia</span>
+                            </span>
+                          )}
+                          {!artigo.isVenda && !artigo.isAluguer && artigo.isDoacao && (
+                            <span style={{ fontSize: "14px", color: "#3A6A3A", fontWeight: 400 }}>Grátis</span>
+                          )}
+                        </span>
+                      </div>
+                      <p className="text-xs text-accent-muted font-light">
+                        {[artigo.tamanho, artigo.condicao].filter(Boolean).join(" · ") || "—"}
+                      </p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )
           )}
 
-          {/* PAGINAÇÃO */}
-          {totalPaginas > 1 && (
+          {/* PAGINAÇÃO (Ocultada se estiver a ver doações pendentes) */}
+          {!mostrarPendentes && totalPaginas > 1 && (
             <div className="mt-8 flex justify-center items-center gap-4">
               <button
                 disabled={paginaAtual === 0}
@@ -1242,7 +1448,7 @@ export default function MarketplacePage() {
                     
                     {artigoSelecionado.isDoacao && (
                       <p className="text-xs text-panel-dark bg-[#FBF7F2] p-2 rounded-sm border border-border-warm/40 text-center font-light">
-                        ✨ Disponível para Doação Gratuita
+                        Disponível para Doação Gratuita
                       </p>
                     )}
                   </div>

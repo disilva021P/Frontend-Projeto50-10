@@ -52,11 +52,11 @@ export default function LoginPage() {
 
         {/* ── Fade para o painel bege */}
         <div
-  className="absolute inset-0"
-  style={{
-    background: 'linear-gradient(to left, #F2EDE4 0%, rgba(242,237,228,0.55) 18%, rgba(242,237,228,0.0) 42%)',
-  }}
-/>
+          className="absolute inset-0"
+          style={{
+            background: 'linear-gradient(to left, #F2EDE4 0%, rgba(242,237,228,0.55) 18%, rgba(242,237,228,0.0) 42%)',
+          }}
+        />
 
         {/* Conteúdo sobre o vídeo */}
         <div className="relative z-10 flex flex-col justify-between h-full p-10">
@@ -199,7 +199,8 @@ export default function LoginPage() {
             <div className="text-right -mt-2">
               <button
                 type="button"
-                className="text-[11px] bg-transparent border-none cursor-pointer transition-colors duration-200"
+                onClick={() => router.push('/recuperarPassword')}
+                className="text-[11px] bg-transparent border-none cursor-pointer transition-colors duration-200 outline-none"
                 style={{ color: 'var(--accent-muted)', fontWeight: 300 }}
                 onMouseEnter={e => ((e.target as HTMLElement).style.color = 'var(--foreground)')}
                 onMouseLeave={e => ((e.target as HTMLElement).style.color = 'var(--accent-muted)')}
