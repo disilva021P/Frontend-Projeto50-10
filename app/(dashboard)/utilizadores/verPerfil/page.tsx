@@ -88,7 +88,7 @@ export default function PerfilPage() {
         const err = await res.json().catch(() => ({}));
         throw new Error(err.erro ?? "Erro ao alterar a palavra-passe.");
       }
-      setSuccessMsg("Palavra-passe alterada com sucesso!");
+      setSuccessMsg("Palavra-passe alteredo com sucesso!");
       setShowPasswordForm(false);
       setPasswordAtual(""); setNovaPassword(""); setConfirmarPassword("");
     } catch (err: any) {
@@ -97,12 +97,6 @@ export default function PerfilPage() {
       setLoadingPassword(false);
     }
   }
-
-  const handleLogout = () => {
-    localStorage.removeItem("token");
-    localStorage.removeItem("user");
-    router.push("/");
-  };
 
   return (
     <>
@@ -113,30 +107,10 @@ export default function PerfilPage() {
         input:focus { border-color: var(--panel-dark) !important; outline: none; }
       `}</style>
 
-      <div style={{ display: "flex", flexDirection: "column", minHeight: "100vh", background: "var(--background)", fontFamily: "var(--font-lato)" }}>
+      <div style={{ display: "flex", flexDirection: "column", minHeight: "100%", background: "transparent", fontFamily: "var(--font-lato)" }}>
 
-        {/* ── NAVBAR ── */}
-        <nav style={{ height: 52, borderBottom: "1px solid var(--border-warm)", background: "var(--background)", display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0 20px", flexShrink: 0 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-            <button onClick={() => router.push("/landingPage")} aria-label="Voltar"
-              style={{ width: 32, height: 32, border: "1px solid var(--border-warm)", borderRadius: 4, background: "#FFFCF8", color: "var(--panel-dark)", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>
-              <i className="ti ti-arrow-left" style={{ fontSize: 15 }} />
-            </button>
-            <div>
-              <span style={{ fontFamily: "var(--font-playfair)", fontSize: 16, letterSpacing: 4, color: "var(--panel-dark)", fontWeight: 400 }}>entartes</span>
-              <span style={{ fontSize: 9, letterSpacing: 3, textTransform: "uppercase", color: "var(--accent-muted)", fontWeight: 300, marginLeft: 4 }}>· o meu perfil</span>
-            </div>
-          </div>
-          <button onClick={handleLogout}
-            style={{ display: "flex", alignItems: "center", gap: 6, background: "none", border: "none", color: "var(--accent-muted)", cursor: "pointer", fontSize: 12, fontWeight: 300 }}
-            onMouseEnter={e => (e.currentTarget.style.color = "#c0392b")}
-            onMouseLeave={e => (e.currentTarget.style.color = "var(--accent-muted)")}>
-            <i className="ti ti-logout" style={{ fontSize: 14 }} /> Sair
-          </button>
-        </nav>
-
-        {/* ── CONTEÚDO ── */}
-        <main style={{ flex: 1, display: "flex", justifyContent: "center", padding: "40px 20px 60px", overflowY: "auto" }}>
+        {/* ── CONTEÚDO (Sem <nav> redundante nem <aside>) ── */}
+        <main style={{ flex: 1, display: "flex", justifyContent: "center", padding: "12px 0 20px" }}>
           <div style={{ width: "100%", maxWidth: 520, animation: "fadeUp .3s ease" }}>
 
             <div style={{ marginBottom: 28 }}>
@@ -224,11 +198,6 @@ export default function PerfilPage() {
             )}
           </div>
         </main>
-
-        <footer style={{ padding: "12px 24px", borderTop: "1px solid var(--border-warm)", display: "flex", alignItems: "center", justifyContent: "space-between", flexShrink: 0 }}>
-          <span style={{ fontFamily: "var(--font-playfair)", fontSize: 12, letterSpacing: 3, color: "var(--accent-muted)", fontWeight: 400 }}>entartes</span>
-          <span style={{ fontSize: 10, color: "var(--accent-muted)", fontWeight: 300 }}>© 2026 Entartes — Escola de Dança</span>
-        </footer>
       </div>
 
       {/* Toasts */}

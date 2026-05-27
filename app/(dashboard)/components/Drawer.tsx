@@ -59,13 +59,19 @@ const NAV_SECTIONS = [
         href: "/faltas",
         sub: "Presenças e justificações",
       },
+      {
+        icon: "ti-users",
+        label: "Gestão de Utilizadores",
+        href: "/utilizadores",
+        sub: "Controlo de contas e permissões",
+      },
     ],
   },
 ];
 
 export default function Drawer() {
   const router = useRouter();
-  const { drawerOpen, setDrawerOpen, pinnedHrefs, togglePin, handleLogout } =
+  const { drawerOpen, setDrawerOpen, pinnedHrefs, togglePin, handleLogout, role } =
     useDashboard();
 
   return (
@@ -157,6 +163,10 @@ export default function Drawer() {
                 </div>
 
                 {section.items.map((item) => {
+                  if (item.href === "/utilizadores" && role !== "COORDENACAO") {
+                    return null;
+                  }
+
                   const isPinned = pinnedHrefs.includes(item.href);
                   const canPin = item.href !== "/landingPage";
 
@@ -200,6 +210,7 @@ export default function Drawer() {
                         <button
                           onClick={() => togglePin(item.href)}
                           className={`pin-btn${isPinned ? " is-pinned" : ""}`}
+                          title={isPinned ? "Desafixar atalho" : "Afixar atalho"}
                           style={{
                             padding: "10px 20px 10px 0",
                             background: "none",
@@ -208,11 +219,19 @@ export default function Drawer() {
                             color: isPinned
                               ? "#F5D9A8"
                               : "rgba(245,217,168,0.30)",
+                            transition: "color 0.2s ease",
                           }}
                         >
+                          {/* Garantimos que a classe base 'ti' e o nome do ícone ficam perfeitamente separados */}
                           <i
                             className="ti ti-pin"
-                            style={{ fontSize: "13px" }}
+                            style={{ 
+                              fontSize: "13px", 
+                              // Se estiver fixado, o ícone roda 45 graus para simular que foi "espetado" ou solto
+                              transform: isPinned ? "rotate(-45deg)" : "none",
+                              transition: "transform 0.2s ease",
+                              display: "inline-block"
+                            }}
                           />
                         </button>
                       )}

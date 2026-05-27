@@ -90,43 +90,55 @@ const CARD_THEMES: Record<
   string,
   { localImage: string; tint: string; accent: string; pill: string }
 > = {
+  // ─── NÍVEL 1 ───
   "/horarios": {
     localImage: "/images/cardHorarios.jpg",
-    tint: "#402F1D",
-    accent: "#F5D9A8",
-    pill: "rgba(245,217,168,0.15)",
-  },
-  "/pagamentos": {
-    localImage: "/images/cardPagamentos.jpg",
-    tint: "#4E3923",
-    accent: "#E8C97A",
-    pill: "rgba(232,201,122,0.15)",
+    tint: "#5C442A",                  
+    accent: "#F0D4A4",                
+    pill: "rgba(240,212,164,0.15)",
   },
   "/mensagens": {
     localImage: "/images/cardMensagens.jpg",
-    tint: "#5C442A",
+    tint: "#5C442A",                 
     accent: "#F0D4A4",
     pill: "rgba(240,212,164,0.15)",
   },
-  "/eventos": {
-    localImage: "/images/cardEventos.jpg",
-    tint: "#6A4F31",
-    accent: "#ECC68A",
-    pill: "rgba(236,198,138,0.15)",
-  },
-  "/marketplace": {
-    localImage: "/images/cardMarketplace.jpg",
-    tint: "#775937",
-    accent: "#F2D09E",
-    pill: "rgba(242,208,158,0.15)",
-  },
   "/faltas": {
     localImage: "/images/cardFaltas.jpg",
-    tint: "#82613D",
-    accent: "#EDCA90",
-    pill: "rgba(237,202,144,0.15)",
+    tint: "#5C442A",                  
+    accent: "#F0D4A4",
+    pill: "rgba(240,212,164,0.15)",
+  },
+
+  // ─── NÍVEL 2 ───
+  "/pagamentos": {
+    localImage: "/images/cardPagamentos.jpg",
+    tint: "#6B5134",                  
+    accent: "#F4D9B0",               
+    pill: "rgba(244,217,176,0.15)",
+  },
+  "/eventos": {
+    localImage: "/images/cardEventos.jpg",
+    tint: "#6B5134",                  
+    accent: "#F4D9B0",
+    pill: "rgba(244,217,176,0.15)",
+  },
+  "/utilizadores": {
+    localImage: "/images/cardUtilizadores.jpg",
+    tint: "#6B5134",                  
+    accent: "#F4D9B0",
+    pill: "rgba(244,217,176,0.15)",
+  },
+
+  // ─── NÍVEL 3: ───
+  "/marketplace": {
+    localImage: "/images/cardMarketplace.jpg",
+    tint: "#7A5E3F",                  
+    accent: "#F7DEBC",               
+    pill: "rgba(247,222,188,0.15)",
   },
 };
+
 const DEFAULT_THEME = {
   localImage: "",
   tint: "#402F1D",
@@ -595,46 +607,72 @@ export default function LandingPage() {
   const { userName, role, pinnedHrefs, togglePin, setDrawerOpen } =
     useDashboard();
 
-  const todosItens = [
+  const NAV_SECTIONS = [
     {
-      icon: "ti-calendar",
-      label: "Horários",
-      href: "/horarios",
-      sub: "Aulas e sessões",
+      title: "Principal",
+      items: [
+        {
+          icon: "ti-calendar",
+          label: "Horários",
+          href: "/horarios",
+          sub: "Aulas e sessões",
+        },
+        {
+          icon: "ti-credit-card",
+          label: "Pagamentos",
+          href: "/pagamentos",
+          sub: "Recibos e mensalidades",
+        },
+      ],
     },
     {
-      icon: "ti-credit-card",
-      label: "Pagamentos",
-      href: "/pagamentos",
-      sub: "Recibos e mensalidades",
+      title: "Comunidade",
+      items: [
+        {
+          icon: "ti-mail",
+          label: "Mensagens",
+          href: "/mensagens",
+          sub: "Conversas entre utilizadores",
+        },
+        {
+          icon: "ti-star",
+          label: "Eventos",
+          href: "/eventos",
+          sub: "Espetáculos e datas especiais",
+        },
+        {
+          icon: "ti-shopping-bag",
+          label: "Marketplace",
+          href: "/marketplace",
+          sub: "Compra, venda e aluguer de artigos",
+        },
+      ],
     },
     {
-      icon: "ti-mail",
-      label: "Mensagens",
-      href: "/mensagens",
-      sub: "Conversas entre utilizadores",
-    },
-    {
-      icon: "ti-star",
-      label: "Eventos",
-      href: "/eventos",
-      sub: "Espetáculos e datas especiais",
-    },
-    {
-      icon: "ti-shopping-bag",
-      label: "Marketplace",
-      href: "/marketplace",
-      sub: "Compra, venda e aluguer de artigos",
-    },
-    {
-      icon: "ti-chart-bar",
-      label: "Gestão de Faltas",
-      href: "/faltas",
-      sub: "Presenças e justificações",
+      title: "Gestão",
+      items: [
+        {
+          icon: "ti-chart-bar",
+          label: "Gestão de Faltas",
+          href: "/faltas",
+          sub: "Presenças e justificações",
+        },
+        {
+          icon: "ti-users",
+          label: "Gestão de Utilizadores",
+          href: "/utilizadores",
+          sub: "Controlo de contas e permissões",
+        },
+      ],
     },
   ];
 
-  const itensPinned = todosItens.filter((i) => pinnedHrefs.includes(i.href));
+  // Contagem total de itens que estão realmente visíveis e afixados para este utilizador
+  // Serve para sabermos se mostramos o estado vazio (empty state)
+  const totalItensVisiveisEAlfinetados = NAV_SECTIONS.flatMap(s => s.items).filter(item => {
+    if (item.href === "/utilizadores" && role !== "COORDENACAO") return false;
+    return pinnedHrefs.includes(item.href);
+  }).length;
 
   return (
     <>
@@ -667,59 +705,80 @@ export default function LandingPage() {
       {/* Horário Semanal do utilizador logado */}
       {role && <HorarioResumo role={role} />}
 
-      {/* Atalhos Dinâmicos Afixados do Contexto */}
-      {itensPinned.length > 0 ? (
-        <div>
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: "6px",
-              marginBottom: "12px",
-            }}
-          >
-            <i
-              className="ti ti-pin"
-              style={{
-                fontSize: "12px",
-                color: "var(--accent-muted)",
-                display: "inline-block",
-                transform: "rotate(45deg)",
-              }}
-            />
-            <p
-              style={{
-                fontSize: "10px",
-                letterSpacing: "3px",
-                textTransform: "uppercase",
-                color: "var(--accent-muted)",
-                fontWeight: 300,
-              }}
-            >
-              Os teus atalhos
-            </p>
-          </div>
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns:
-                "repeat(auto-fit, minmax(min(100%, 300px), 1fr))",
-              maxWidth: "100%",
-              gap: "10px",
-            }}
-            className="grid-atalhos"
-          >
-            <style>{`@media (min-width: 1024px) { .grid-atalhos { grid-template-columns: repeat(3, 1fr) !important; } }`}</style>
-            {itensPinned.map((item) => (
-              <AtalhoAfixado
-                key={item.href}
-                item={item}
-                onDesafixar={() => togglePin(item.href)}
-              />
-            ))}
-          </div>
+      {/* Atalhos Dinâmicos Afixados por Secção */}
+      {totalItensVisiveisEAlfinetados > 0 ? (
+        <div style={{ display: "flex", flexDirection: "column", gap: "24px" }}>
+          
+          {NAV_SECTIONS.map((section) => {
+            // Filtrar os itens desta secção específica que estão fixados e permitidos
+            const itensFiltradosDaSeccao = section.items.filter((item) => {
+              if (item.href === "/utilizadores" && role !== "COORDENACAO") return false;
+              return pinnedHrefs.includes(item.href);
+            });
+
+            // Se o utilizador não tiver nenhum card fixado NESTA secção, saltamos a divisória
+            if (itensFiltradosDaSeccao.length === 0) return null;
+
+            return (
+              <div key={section.title}>
+                {/* Divisória Estilizada */}
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "10px",
+                    marginBottom: "14px",
+                    marginTop: "4px" 
+                  }}
+                >
+                  <span
+                    style={{
+                      fontSize: "11px", 
+                      letterSpacing: "2.5px", 
+                      textTransform: "uppercase",
+                      color: "var(--accent-muted)",
+                      fontWeight: 400,
+                      whiteSpace: "nowrap",
+                    }}
+                  >
+                    {section.title}
+                  </span>
+                  <div
+                    style={{
+                      flex: 1,
+                      borderBottom: "2px solid var(--border-warm)",
+                      opacity: 0.5,
+                    }}
+                  />
+                </div>
+
+                {/* Grelha de Cards desta Secção */}
+                <div
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "repeat(auto-fill, minmax(min(100%, 300px), 1fr))",
+                    maxWidth: "100%",
+                    gap: "12px",
+                  }}
+                  className="grid-atalhos"
+                >
+                  {/* Injeção de CSS para ecrãs grandes: Se houver 3 cards, ficam em 3 colunas, etc. */}
+                  <style>{`@media (min-width: 1024px) { .grid-atalhos { grid-template-columns: repeat(3, 1fr) !important; } }`}</style>
+                  
+                  {itensFiltradosDaSeccao.map((item) => (
+                    <AtalhoAfixado
+                      key={item.href}
+                      item={item}
+                      onDesafixar={() => togglePin(item.href)}
+                    />
+                  ))}
+                </div>
+              </div>
+            );
+          })}
         </div>
       ) : (
+        /* Estado Vazio (Caso não haja nenhum pin em lado nenhum) */
         <div
           style={{
             display: "flex",
@@ -792,7 +851,6 @@ export default function LandingPage() {
             Abrir menu
           </button>
         </div>
-        
       )}
     </>
   );
