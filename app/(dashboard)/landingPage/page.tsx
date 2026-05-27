@@ -11,48 +11,36 @@ interface ResumoDto {
   id: string;
   nome: string;
 }
-interface TurmaDto {
-  id: string;
-  nome: string;
-  modalidade?: ResumoDto;
-}
 interface EstudioDto {
   id: string;
   nome: string;
 }
-interface AulaDto {
+
+// Atualizado para a assinatura do teu AulaTituloDto do Java
+interface AulaTituloDto {
   id: string;
-  titulo?: string;
+  estudio?: EstudioDto;
+  duracaoMinutos?: number;
   dataAula?: string;
   horaInicio?: string;
   horaFim?: string;
-  turma?: TurmaDto;
-  estudio?: EstudioDto;
-  professor?: ResumoDto;
-  diaSemana?: string;
+  criadoPo?: string;
+  idHorario?: any; 
+  estado?: any;
+  titulo?: string; // <-- O novo campo processado no Backend
 }
 
 const BASE_URL = "http://localhost:8080";
 const DIAS_ABREV = ["Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
 
-function diaParaIdx(dia: string | undefined): number {
-  if (!dia) return -1;
-  const mapa: Record<string, number> = {
-    SEGUNDA: 0,
-    "SEGUNDA-FEIRA": 0,
-    TERÇA: 1,
-    TERCA: 1,
-    "TERÇA-FEIRA": 1,
-    QUARTA: 2,
-    "QUARTA-FEIRA": 2,
-    QUINTA: 3,
-    "QUINTA-FEIRA": 3,
-    SEXTA: 4,
-    "SEXTA-FEIRA": 4,
-    SÁBADO: 5,
-    SABADO: 5,
-  };
-  return mapa[dia.toUpperCase()] ?? -1;
+function diaParaIdx(dataStr: string | undefined): number {
+  if (!dataStr) return -1;
+  
+  const data = new Date(dataStr + "T00:00:00");
+  const diaSemana = data.getDay(); // 0 = Domingo, 1 = Segunda, 2 = Terça, etc.
+  
+  if (diaSemana === 0) return -1; 
+  return diaSemana - 1; 
 }
 
 function getIntervaloSemana(): string {
@@ -64,18 +52,8 @@ function getIntervaloSemana(): string {
   const sabado = new Date(segunda);
   sabado.setDate(segunda.getDate() + 5);
   const meses = [
-    "janeiro",
-    "fevereiro",
-    "março",
-    "abril",
-    "maio",
-    "junho",
-    "julho",
-    "agosto",
-    "setembro",
-    "outubro",
-    "novembro",
-    "dezembro",
+    "janeiro", "fevereiro", "março", "abril", "maio", "junho",
+    "julho", "agosto", "setembro", "outubro", "novembro", "dezembro",
   ];
   const diaSeg = segunda.getDate();
   const diaSab = sabado.getDate();
@@ -90,65 +68,20 @@ const CARD_THEMES: Record<
   string,
   { localImage: string; tint: string; accent: string; pill: string }
 > = {
-  // ─── NÍVEL 1 ───
-  "/horarios": {
-    localImage: "/images/cardHorarios.jpg",
-    tint: "#5C442A",                  
-    accent: "#F0D4A4",                
-    pill: "rgba(240,212,164,0.15)",
-  },
-  "/mensagens": {
-    localImage: "/images/cardMensagens.jpg",
-    tint: "#5C442A",                 
-    accent: "#F0D4A4",
-    pill: "rgba(240,212,164,0.15)",
-  },
-  "/faltas": {
-    localImage: "/images/cardFaltas.jpg",
-    tint: "#5C442A",                  
-    accent: "#F0D4A4",
-    pill: "rgba(240,212,164,0.15)",
-  },
-
-  // ─── NÍVEL 2 ───
-  "/pagamentos": {
-    localImage: "/images/cardPagamentos.jpg",
-    tint: "#6B5134",                  
-    accent: "#F4D9B0",               
-    pill: "rgba(244,217,176,0.15)",
-  },
-  "/eventos": {
-    localImage: "/images/cardEventos.jpg",
-    tint: "#6B5134",                  
-    accent: "#F4D9B0",
-    pill: "rgba(244,217,176,0.15)",
-  },
-  "/utilizadores": {
-    localImage: "/images/cardUtilizadores.jpg",
-    tint: "#6B5134",                  
-    accent: "#F4D9B0",
-    pill: "rgba(244,217,176,0.15)",
-  },
-
-  // ─── NÍVEL 3: ───
-  "/marketplace": {
-    localImage: "/images/cardMarketplace.jpg",
-    tint: "#7A5E3F",                  
-    accent: "#F7DEBC",               
-    pill: "rgba(247,222,188,0.15)",
-  },
+  "/horarios": { localImage: "/images/cardHorarios.jpg", tint: "#5C442A", accent: "#F0D4A4", pill: "rgba(240,212,164,0.15)" },
+  "/mensagens": { localImage: "/images/cardMensagens.jpg", tint: "#5C442A", accent: "#F0D4A4", pill: "rgba(240,212,164,0.15)" },
+  "/faltas": { localImage: "/images/cardFaltas.jpg", tint: "#5C442A", accent: "#F0D4A4", pill: "rgba(240,212,164,0.15)" },
+  "/pagamentos": { localImage: "/images/cardPagamentos.jpg", tint: "#6B5134", accent: "#F4D9B0", pill: "rgba(244,217,176,0.15)" },
+  "/eventos": { localImage: "/images/cardEventos.jpg", tint: "#6B5134", accent: "#F4D9B0", pill: "rgba(244,217,176,0.15)" },
+  "/utilizadores": { localImage: "/images/cardUtilizadores.jpg", tint: "#6B5134", accent: "#F4D9B0", pill: "rgba(244,217,176,0.15)" },
+  "/marketplace": { localImage: "/images/cardMarketplace.jpg", tint: "#7A5E3F", accent: "#F7DEBC", pill: "rgba(247,222,188,0.15)" },
 };
 
-const DEFAULT_THEME = {
-  localImage: "",
-  tint: "#402F1D",
-  accent: "#F0D0A0",
-  pill: "rgba(240,208,160,0.15)",
-};
+const DEFAULT_THEME = { localImage: "", tint: "#402F1D", accent: "#F0D0A0", pill: "rgba(240,208,160,0.15)" };
 
 // Componente do Horário Resumido obtendo dados da API
 function HorarioResumo({ role }: { role: Role }) {
-  const [aulas, setAulas] = useState<AulaDto[]>([]);
+  const [aulas, setAulas] = useState<AulaTituloDto[]>([]);
   const [loading, setLoading] = useState(true);
   const [erro, setErro] = useState("");
   const [intervaloTexto, setIntervaloTexto] = useState("");
@@ -161,23 +94,29 @@ function HorarioResumo({ role }: { role: Role }) {
       "Content-Type": "application/json",
       Authorization: `Bearer ${token}`,
     };
+    // Certifica-te que estes endpoints chamam a tua nova função 'buscarHorarioCompletoDoAluno' que junta as duas tabelas
     const endpoint =
       role === "PROFESSOR"
         ? `${BASE_URL}/api/horario/professor/horario?offset=0`
-        : `${BASE_URL}/api/horario/semana?offset=0`;
+        : `${BASE_URL}/api/horario/semanaCompleta?offset=0`;
+
     fetch(endpoint, { headers })
       .then((res) => {
         if (!res.ok) throw new Error("Erro");
         return res.json();
       })
-      .then((data: AulaDto[]) => setAulas(data ?? []))
+      .then((data: any[]) => {
+        console.log("DADOS VINDOS DA API (AULA_TITULO_DTO):", data);
+        // Os dados já vêm convertidos do Java, basta guardá-los diretamente no estado
+        setAulas(data ?? []);
+      })
       .catch((e) => setErro(e.message))
       .finally(() => setLoading(false));
   }, [role]);
 
-  const aulasPorDia: AulaDto[][] = Array.from({ length: 6 }, () => []);
+  const aulasPorDia: AulaTituloDto[][] = Array.from({ length: 6 }, () => []);
   aulas.forEach((a) => {
-    const idx = diaParaIdx(a.diaSemana);
+    const idx = diaParaIdx(a.dataAula);
     if (idx >= 0 && idx < 6) aulasPorDia[idx].push(a);
   });
 
@@ -225,9 +164,7 @@ function HorarioResumo({ role }: { role: Role }) {
       <div
         style={{
           position: "absolute",
-          top: 0,
-          left: 0,
-          bottom: 0,
+          top: 0, left: 0, bottom: 0,
           width: "3px",
           background: "#402F1D",
           borderRadius: "8px 0 0 8px",
@@ -257,35 +194,32 @@ function HorarioResumo({ role }: { role: Role }) {
         Os teus horários
       </h2>
       {erro ? (
-        <p
-          style={{
-            fontSize: "12px",
-            color: "var(--accent-muted)",
-            fontWeight: 300,
-          }}
-        >
+        <p style={{ fontSize: "12px", color: "var(--accent-muted)", fontWeight: 300 }}>
           Não foi possível carregar os horários.
         </p>
       ) : (
         <div
           style={{
             display: "grid",
-            gridTemplateColumns: "repeat(6, 1fr)",
-            gap: "8px",
+            gridTemplateColumns: "repeat(6, minmax(130px, 1fr))",
+            gap: "10px",
+            overflowX: "auto",
+            paddingBottom: "10px"
           }}
         >
           {[0, 1, 2, 3, 4, 5].map((idx) => (
-            <div key={idx}>
+            <div key={idx} style={{ display: "flex", flexDirection: "column", minWidth: "120px" }}>
               <div
                 style={{
                   fontSize: "9px",
                   letterSpacing: "2px",
                   textTransform: "uppercase",
                   color: "var(--accent-muted)",
-                  fontWeight: 400,
-                  marginBottom: "6px",
+                  fontWeight: 600,
+                  marginBottom: "8px",
                   paddingBottom: "5px",
-                  borderBottom: "1px solid var(--border-warm)",
+                  borderBottom: "2px solid var(--border-warm)",
+                  textAlign: "center"
                 }}
               >
                 {DIAS_ABREV[idx]}
@@ -293,7 +227,7 @@ function HorarioResumo({ role }: { role: Role }) {
               {aulasPorDia[idx].length === 0 ? (
                 <div
                   style={{
-                    background: "rgba(160,133,96,0.05)",
+                    background: "rgba(160,133,96,0.03)",
                     border: "1px dashed var(--border-warm)",
                     borderRadius: "6px",
                     padding: "10px",
@@ -301,23 +235,14 @@ function HorarioResumo({ role }: { role: Role }) {
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "center",
+                    flex: 1,
                     minHeight: "56px",
                   }}
                 >
-                  <div
-                    style={{ fontSize: "14px", color: "var(--border-warm)" }}
-                  >
-                    —
-                  </div>
+                  <div style={{ fontSize: "14px", color: "var(--border-warm)" }}>—</div>
                 </div>
               ) : (
-                <div
-                  style={{
-                    display: "flex",
-                    flexDirection: "column",
-                    gap: "6px",
-                  }}
-                >
+                <div style={{ display: "flex", flexDirection: "column", gap: "8px", height: "100%" }}>
                   {aulasPorDia[idx].map((a) => (
                     <div
                       key={a.id}
@@ -327,52 +252,40 @@ function HorarioResumo({ role }: { role: Role }) {
                         borderLeft: "3px solid var(--accent-gold)",
                         borderRadius: "6px",
                         padding: "8px 10px",
+                        boxShadow: "0 2px 4px rgba(0,0,0,0.02)",
                       }}
                     >
                       <div
                         style={{
                           fontSize: "11px",
                           color: "var(--accent-gold)",
-                          fontWeight: 400,
+                          fontWeight: 500,
                           letterSpacing: "0.3px",
                           marginBottom: "3px",
                         }}
                       >
-                        {a.horaInicio}
-                        {a.horaFim ? ` – ${a.horaFim}` : ""}
+                        {a.horaInicio ? a.horaInicio.substring(0, 5) : ""}
+                        {a.horaFim ? ` – ${a.horaFim.substring(0, 5)}` : ""}
                       </div>
                       <div
                         style={{
                           fontSize: "12px",
                           color: "var(--panel-dark)",
-                          fontWeight: 400,
+                          fontWeight: 500,
                           lineHeight: 1.3,
                         }}
                       >
-                        {a.turma?.nome ?? a.titulo ?? "Aula"}
+                        {/* 🔥 LÊ DIRETAMENTE O TITULO GERADO NO BACKEND (Ex: "Ballet Clássico" ou "Coaching Ballet") */}
+                        {a.titulo ?? "Aula"}
                       </div>
-                      {a.professor && (
-                        <div
-                          style={{
-                            fontSize: "10px",
-                            color: "var(--accent-muted)",
-                            marginTop: "3px",
-                            fontWeight: 300,
-                          }}
-                        >
-                          {a.professor.nome}
+                      {a.idHorario?.idcriatedPor && (
+                        <div style={{ fontSize: "10px", color: "var(--accent-muted)", marginTop: "4px", fontWeight: 300 }}>
+                          <i className="ti ti-user" style={{ marginRight: "2px" }} /> {a.idHorario.idcriatedPor.nome}
                         </div>
                       )}
                       {a.estudio && (
-                        <div
-                          style={{
-                            fontSize: "10px",
-                            color: "var(--accent-muted)",
-                            marginTop: "1px",
-                            fontWeight: 300,
-                          }}
-                        >
-                          {a.estudio.nome}
+                        <div style={{ fontSize: "10px", color: "var(--accent-muted)", marginTop: "2px", fontWeight: 300 }}>
+                          <i className="ti ti-map-pin" style={{ marginRight: "2px" }} /> {a.estudio.nome}
                         </div>
                       )}
                     </div>
@@ -393,13 +306,7 @@ function HorarioResumo({ role }: { role: Role }) {
           justifyContent: "space-between",
         }}
       >
-        <span
-          style={{
-            fontSize: "11px",
-            color: "var(--accent-muted)",
-            fontWeight: 300,
-          }}
-        >
+        <span style={{ fontSize: "11px", color: "var(--accent-muted)", fontWeight: 300 }}>
           {aulas.length} {aulas.length === 1 ? "aula" : "aulas"} esta semana
         </span>
         <button
@@ -448,8 +355,7 @@ function AtalhoAfixado({
           ? `0 12px 28px ${theme.tint}40, 0 4px 12px rgba(0,0,0,0.1)`
           : "0 2px 10px rgba(44,28,10,0.10)",
         transform: hovered ? "translateY(-4px)" : "translateY(0)",
-        transition:
-          "transform .3s cubic-bezier(.25,.8,.25,1), box-shadow .3s cubic-bezier(.25,.8,.25,1)",
+        transition: "transform .3s cubic-bezier(.25,.8,.25,1), box-shadow .3s cubic-bezier(.25,.8,.25,1)",
         border: `1px solid ${hovered ? "rgba(245,217,168,0.25)" : "rgba(180,140,80,0.12)"}`,
         background: theme.tint,
       }}
@@ -458,17 +364,13 @@ function AtalhoAfixado({
       <div
         style={{
           position: "absolute",
-          top: 0,
-          right: 0,
-          bottom: 0,
+          top: 0, right: 0, bottom: 0,
           width: "70%",
           opacity: imgLoaded ? (hovered ? 1 : 0.8) : 0,
           transition: "opacity .3s ease",
           pointerEvents: "none",
-          maskImage:
-            "linear-gradient(to left, rgba(0,0,0,1) 30%, rgba(0,0,0,0) 100%)",
-          WebkitMaskImage:
-            "linear-gradient(to left, rgba(0,0,0,1) 30%, rgba(0,0,0,0) 100%)",
+          maskImage: "linear-gradient(to left, rgba(0,0,0,1) 30%, rgba(0,0,0,0) 100%)",
+          WebkitMaskImage: "linear-gradient(to left, rgba(0,0,0,1) 30%, rgba(0,0,0,0) 100%)",
         }}
       >
         <img
@@ -486,114 +388,27 @@ function AtalhoAfixado({
           }}
         />
       </div>
-      <div
-        style={{
-          position: "absolute",
-          inset: 0,
-          background: `linear-gradient(to right, ${theme.tint} 35%, ${theme.tint}10 100%)`,
-          pointerEvents: "none",
-        }}
-      />
-      <div
-        style={{
-          position: "relative",
-          inset: 0,
-          height: "100%",
-          padding: "18px 16px",
-          display: "flex",
-          flexDirection: "column",
-          justifyContent: "space-between",
-          zIndex: 2,
-        }}
-      >
-        <div
-          style={{
-            display: "flex",
-            alignItems: "flex-start",
-            justifyContent: "space-between",
-          }}
-        >
-          <div
-            style={{
-              width: "36px",
-              height: "36px",
-              borderRadius: "8px",
-              background: theme.pill,
-              backdropFilter: "blur(6px)",
-              border: `1px solid ${theme.accent}28`,
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              color: theme.accent,
-            }}
-          >
+      <div style={{ position: "absolute", inset: 0, background: `linear-gradient(to right, ${theme.tint} 35%, ${theme.tint}10 100%)`, pointerEvents: "none" }} />
+      <div style={{ position: "relative", inset: 0, height: "100%", padding: "18px 16px", display: "flex", flexDirection: "column", justifyContent: "space-between", zIndex: 2 }}>
+        <div style={{ display: "flex", alignItems: "flex-start", justifyWith: "space-between", justifyContent: "space-between" }}>
+          <div style={{ width: "36px", height: "36px", borderRadius: "8px", background: theme.pill, backdropFilter: "blur(6px)", border: `1px solid ${theme.accent}28`, display: "flex", alignItems: "center", justifyContent: "center", color: theme.accent }}>
             <i className={`ti ${item.icon}`} style={{ fontSize: "17px" }} />
           </div>
           <button
-            onClick={(e) => {
-              e.stopPropagation();
-              onDesafixar();
-            }}
-            style={{
-              background: "none",
-              border: "none",
-              cursor: "pointer",
-              color: theme.accent,
-              padding: "4px",
-              opacity: 0.75,
-            }}
+            onClick={(e) => { e.stopPropagation(); onDesafixar(); }}
+            style={{ background: "none", border: "none", cursor: "pointer", color: theme.accent, padding: "4px", opacity: 0.75 }}
           >
-            <div
-              style={{
-                position: "relative",
-                width: "16px",
-                height: "16px",
-                display: "flex",
-                alignItems: "center",
-              }}
-            >
-              <i
-                className="ti ti-pin"
-                style={{ fontSize: "15px", fontWeight: "bold" }}
-              />
-              <div
-                style={{
-                  position: "absolute",
-                  top: "45%",
-                  left: "1px",
-                  right: "1px",
-                  height: "2px",
-                  background: theme.accent,
-                  transform: "translateY(-50%) rotate(45deg)",
-                  borderRadius: "2px",
-                }}
-              />
+            <div style={{ position: "relative", width: "16px", height: "16px", display: "flex", alignItems: "center" }}>
+              <i className="ti ti-pin" style={{ fontSize: "15px", fontWeight: "bold" }} />
+              <div style={{ position: "absolute", top: "45%", left: "1px", right: "1px", height: "2px", background: theme.accent, transform: "translateY(-50%) rotate(45deg)", borderRadius: "2px" }} />
             </div>
           </button>
         </div>
         <div style={{ marginTop: "auto" }}>
-          <div
-            style={{
-              fontSize: "15px",
-              color: "#FFF8EE",
-              fontWeight: 500,
-              letterSpacing: ".2px",
-              marginBottom: "4px",
-              textShadow: "0 1px 4px rgba(0,0,0,0.3)",
-            }}
-          >
+          <div style={{ fontSize: "15px", color: "#FFF8EE", fontWeight: 500, letterSpacing: ".2px", marginBottom: "4px", textShadow: "0 1px 4px rgba(0,0,0,0.3)" }}>
             {item.label}
           </div>
-          <div
-            style={{
-              fontSize: "11px",
-              color: theme.accent,
-              fontWeight: 300,
-              lineHeight: 1.4,
-              opacity: 0.9,
-              letterSpacing: ".2px",
-            }}
-          >
+          <div style={{ fontSize: "11px", color: theme.accent, fontWeight: 300, lineHeight: 1.4, opacity: 0.9, letterSpacing: ".2px" }}>
             {item.sub}
           </div>
         </div>
@@ -604,71 +419,33 @@ function AtalhoAfixado({
 
 // ─── COMPONENTE PRINCIPAL DA ROTA ───
 export default function LandingPage() {
-  const { userName, role, pinnedHrefs, togglePin, setDrawerOpen } =
-    useDashboard();
+  const { userName, role, pinnedHrefs, togglePin, setDrawerOpen } = useDashboard();
 
   const NAV_SECTIONS = [
     {
       title: "Principal",
       items: [
-        {
-          icon: "ti-calendar",
-          label: "Horários",
-          href: "/horarios",
-          sub: "Aulas e sessões",
-        },
-        {
-          icon: "ti-credit-card",
-          label: "Pagamentos",
-          href: "/pagamentos",
-          sub: "Recibos e mensalidades",
-        },
+        { icon: "ti-calendar", label: "Horários", href: "/horarios", sub: "Aulas e sessões" },
+        { icon: "ti-credit-card", label: "Pagamentos", href: "/pagamentos", sub: "Recibos e mensalidades" },
       ],
     },
     {
       title: "Comunidade",
       items: [
-        {
-          icon: "ti-mail",
-          label: "Mensagens",
-          href: "/mensagens",
-          sub: "Conversas entre utilizadores",
-        },
-        {
-          icon: "ti-star",
-          label: "Eventos",
-          href: "/eventos",
-          sub: "Espetáculos e datas especiais",
-        },
-        {
-          icon: "ti-shopping-bag",
-          label: "Marketplace",
-          href: "/marketplace",
-          sub: "Compra, venda e aluguer de artigos",
-        },
+        { icon: "ti-mail", label: "Mensagens", href: "/mensagens", sub: "Conversas entre utilizadores" },
+        { icon: "ti-star", label: "Eventos", href: "/eventos", sub: "Espetáculos e datas especiais" },
+        { icon: "ti-shopping-bag", label: "Marketplace", href: "/marketplace", sub: "Compra, venda e aluguer de artigos" },
       ],
     },
     {
       title: "Gestão",
       items: [
-        {
-          icon: "ti-chart-bar",
-          label: "Gestão de Faltas",
-          href: "/faltas",
-          sub: "Presenças e justificações",
-        },
-        {
-          icon: "ti-users",
-          label: "Gestão de Utilizadores",
-          href: "/utilizadores",
-          sub: "Controlo de contas e permissões",
-        },
+        { icon: "ti-chart-bar", label: "Gestão de Faltas", href: "/faltas", sub: "Presenças e justificações" },
+        { icon: "ti-users", label: "Gestão de Utilizadores", href: "/utilizadores", sub: "Controlo de contas e permissões" },
       ],
     },
   ];
 
-  // Contagem total de itens que estão realmente visíveis e afixados para este utilizador
-  // Serve para sabermos se mostramos o estado vazio (empty state)
   const totalItensVisiveisEAlfinetados = NAV_SECTIONS.flatMap(s => s.items).filter(item => {
     if (item.href === "/utilizadores" && role !== "COORDENACAO") return false;
     return pinnedHrefs.includes(item.href);
@@ -676,101 +453,40 @@ export default function LandingPage() {
 
   return (
     <>
-      {/* Título da Página */}
       <div style={{ marginBottom: "24px" }}>
-        <p
-          style={{
-            fontSize: "10px",
-            letterSpacing: "3px",
-            textTransform: "uppercase",
-            color: "var(--accent-muted)",
-            fontWeight: 300,
-            marginBottom: "4px",
-          }}
-        >
+        <p style={{ fontSize: "10px", letterSpacing: "3px", textTransform: "uppercase", color: "var(--accent-muted)", fontWeight: 300, marginBottom: "4px" }}>
           Painel geral
         </p>
-        <h1
-          style={{
-            fontFamily: "var(--font-playfair)",
-            fontSize: "24px",
-            color: "var(--panel-dark)",
-            fontWeight: 400,
-          }}
-        >
+        <h1 style={{ fontFamily: "var(--font-playfair)", fontSize: "24px", color: "var(--panel-dark)", fontWeight: 400 }}>
           Olá{userName ? `, ${userName.split(" ")[0]}` : ""}
         </h1>
       </div>
 
-      {/* Horário Semanal do utilizador logado */}
       {role && <HorarioResumo role={role} />}
 
-      {/* Atalhos Dinâmicos Afixados por Secção */}
       {totalItensVisiveisEAlfinetados > 0 ? (
         <div style={{ display: "flex", flexDirection: "column", gap: "24px" }}>
-          
           {NAV_SECTIONS.map((section) => {
-            // Filtrar os itens desta secção específica que estão fixados e permitidos
             const itensFiltradosDaSeccao = section.items.filter((item) => {
               if (item.href === "/utilizadores" && role !== "COORDENACAO") return false;
               return pinnedHrefs.includes(item.href);
             });
 
-            // Se o utilizador não tiver nenhum card fixado NESTA secção, saltamos a divisória
             if (itensFiltradosDaSeccao.length === 0) return null;
 
             return (
               <div key={section.title}>
-                {/* Divisória Estilizada */}
-                <div
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: "10px",
-                    marginBottom: "14px",
-                    marginTop: "4px" 
-                  }}
-                >
-                  <span
-                    style={{
-                      fontSize: "11px", 
-                      letterSpacing: "2.5px", 
-                      textTransform: "uppercase",
-                      color: "var(--accent-muted)",
-                      fontWeight: 400,
-                      whiteSpace: "nowrap",
-                    }}
-                  >
+                <div style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "14px", marginTop: "4px" }}>
+                  <span style={{ fontSize: "11px", letterSpacing: "2.5px", textTransform: "uppercase", color: "var(--accent-muted)", fontWeight: 400, whiteSpace: "nowrap" }}>
                     {section.title}
                   </span>
-                  <div
-                    style={{
-                      flex: 1,
-                      borderBottom: "2px solid var(--border-warm)",
-                      opacity: 0.5,
-                    }}
-                  />
+                  <div style={{ flex: 1, borderBottom: "2px solid var(--border-warm)", opacity: 0.5 }} />
                 </div>
 
-                {/* Grelha de Cards desta Secção */}
-                <div
-                  style={{
-                    display: "grid",
-                    gridTemplateColumns: "repeat(auto-fill, minmax(min(100%, 300px), 1fr))",
-                    maxWidth: "100%",
-                    gap: "12px",
-                  }}
-                  className="grid-atalhos"
-                >
-                  {/* Injeção de CSS para ecrãs grandes: Se houver 3 cards, ficam em 3 colunas, etc. */}
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(min(100%, 300px), 1fr))", maxWidth: "100%", gap: "12px" }} className="grid-atalhos">
                   <style>{`@media (min-width: 1024px) { .grid-atalhos { grid-template-columns: repeat(3, 1fr) !important; } }`}</style>
-                  
                   {itensFiltradosDaSeccao.map((item) => (
-                    <AtalhoAfixado
-                      key={item.href}
-                      item={item}
-                      onDesafixar={() => togglePin(item.href)}
-                    />
+                    <AtalhoAfixado key={item.href} item={item} onDesafixar={() => togglePin(item.href)} />
                   ))}
                 </div>
               </div>
@@ -778,76 +494,17 @@ export default function LandingPage() {
           })}
         </div>
       ) : (
-        /* Estado Vazio (Caso não haja nenhum pin em lado nenhum) */
-        <div
-          style={{
-            display: "flex",
-            flexDirection: "column",
-            alignItems: "center",
-            justifyContent: "center",
-            padding: "36px 24px",
-            textAlign: "center",
-            border: "1px dashed var(--border-warm)",
-            borderRadius: "8px",
-            background: "rgba(160,133,96,0.03)",
-          }}
-        >
-          <div
-            style={{
-              width: "40px",
-              height: "40px",
-              borderRadius: "50%",
-              background: "rgba(160,133,96,0.08)",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              marginBottom: "14px",
-            }}
-          >
-            <i
-              className="ti ti-pin"
-              style={{ fontSize: "20px", color: "var(--accent-muted)" }}
-            />
+        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "36px 24px", textAlign: "center", border: "1px dashed var(--border-warm)", borderRadius: "8px", background: "rgba(160,133,96,0.03)" }}>
+          <div style={{ width: "40px", height: "40px", borderRadius: "50%", background: "rgba(160,133,96,0.08)", display: "flex", alignItems: "center", justifyWith: "center", justifyContent: "center", marginBottom: "14px" }}>
+            <i className="ti ti-pin" style={{ fontSize: "20px", color: "var(--accent-muted)" }} />
           </div>
-          <p
-            style={{
-              fontSize: "14px",
-              color: "var(--panel-dark)",
-              fontWeight: 400,
-              fontFamily: "var(--font-playfair)",
-              marginBottom: "8px",
-            }}
-          >
+          <p style={{ fontSize: "14px", color: "var(--panel-dark)", fontWeight: 400, fontFamily: "var(--font-playfair)", marginBottom: "8px" }}>
             O teu espaço, à tua medida
           </p>
-          <p
-            style={{
-              fontSize: "12px",
-              color: "var(--accent-muted)",
-              fontWeight: 300,
-              lineHeight: 1.7,
-              maxWidth: "320px",
-            }}
-          >
-            Abre o menu lateral e clica no{" "}
-            <i className="ti ti-pin" style={{ fontSize: "12px" }} /> ao lado de
-            qualquer secção para a afixar aqui como atalho rápido.
+          <p style={{ fontSize: "12px", color: "var(--accent-muted)", fontWeight: 300, lineHeight: 1.7, maxWidth: "320px" }}>
+            Abre o menu lateral e clica no <i className="ti ti-pin" style={{ fontSize: "12px" }} /> ao lado de qualquer secção para a afixar aqui como atalho rápido.
           </p>
-          <button
-            onClick={() => setDrawerOpen(true)}
-            style={{
-              marginTop: "18px",
-              padding: "8px 18px",
-              background: "transparent",
-              border: "1px solid var(--border-warm)",
-              borderRadius: "6px",
-              cursor: "pointer",
-              fontSize: "11px",
-              color: "var(--panel-dark)",
-              letterSpacing: ".5px",
-              fontWeight: 300,
-            }}
-          >
+          <button onClick={() => setDrawerOpen(true)} style={{ marginTop: "18px", padding: "8px 18px", background: "transparent", border: "1px solid var(--border-warm)", borderRadius: "6px", cursor: "pointer", fontSize: "11px", color: "var(--panel-dark)", letterSpacing: ".5px", fontWeight: 300 }}>
             Abrir menu
           </button>
         </div>

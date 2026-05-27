@@ -198,6 +198,36 @@ function Tabs<T extends string>({ tabs, active, onChange }: { tabs: { key: T; la
   );
 }
 
+// ─── Modal genérico ───────────────────────────────────────────────────────────
+
+function Modal({ open, onClose, title, children }: { open: boolean; onClose: () => void; title: string; children: React.ReactNode }) {
+  useEffect(() => {
+    if (!open) return;
+    const handleEsc = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
+    window.addEventListener("keydown", handleEsc);
+    return () => window.removeEventListener("keydown", handleEsc);
+  }, [open, onClose]);
+
+  if (!open) return null;
+
+  return (
+    <div style={{ position: "fixed", inset: 0, zIndex: 100, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}>
+      <div style={{ position: "absolute", inset: 0, background: "rgba(44,31,20,0.40)", backdropFilter: "blur(2px)" }} onClick={onClose} />
+      <div style={{ position: "relative", background: "var(--background)", width: "100%", maxWidth: 540, maxHeight: "90vh", borderRadius: 12, boxShadow: "0 20px 25px -5px rgba(0,0,0,0.1), 0 10px 10px -5px rgba(0,0,0,0.04)", overflowY: "auto", display: "flex", flexDirection: "column", border: "1px solid var(--border-warm)" }}>
+        <div style={{ padding: "20px 24px", borderBottom: "1px solid var(--border-warm)", display: "flex", alignItems: "center", justifyContent: "space-between", background: "var(--background)" }}>
+          <h3 style={{ fontFamily: "var(--font-playfair)", fontSize: 18, color: "var(--panel-dark)", margin: 0 }}>{title}</h3>
+          <button onClick={onClose} style={{ background: "none", border: "none", color: "var(--accent-muted)", cursor: "pointer", fontSize: 16, display: "flex", alignItems: "center", justifyContent: "center", padding: 4 }} aria-label="Fechar modal">
+            <i className="ti ti-x" />
+          </button>
+        </div>
+        <div style={{ padding: "24px", flex: 1 }}>
+          {children}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ─── Grelha semanal ───────────────────────────────────────────────────────────
 
 function GrelhaHorario({ aulas, titulo, semanaOffset, onPrev, onNext }: { aulas: AulaDto[]; titulo: string; semanaOffset: number; onPrev: () => void; onNext: () => void }) {
@@ -418,7 +448,7 @@ function MarcarCoachingForm({
   const hojeString = new Date().toISOString().split('T')[0];
 
   return (
-    <FormCard>
+    <div>
       {err && <ErrMsg msg={err} />}
       {ok && <OkMsg msg={ok} />}
       {dataErro && <div style={{ color: "#721c24", padding: "10px 14px", background: "#f8d7da", borderRadius: 6, marginBottom: 12, fontSize: 13, border: "1px solid #f5c6cb" }}>⚠️ {dataErro}</div>}
@@ -561,7 +591,7 @@ function MarcarCoachingForm({
           />
         </>
       )}
-    </FormCard>
+    </div>
   );
 }
 
@@ -571,7 +601,8 @@ function AlunoView({ userName }: { userName: string }) {
   const [disponiveis, setDisp]      = useState<CoachingDto[]>([]);
   const [offset, setOffset]         = useState(0);
   const [loading, setLoading]       = useState(true);
-  const [tab, setTab]               = useState<"horario"|"coaching"|"disponiveis"|"marcar">("horario");
+  const [tab, setTab]               = useState<"horario"|"coaching"|"disponiveis">("horario");
+  const [isModalOpen, setIsModalOpen] = useState(false);
   const [err, setErr]               = useState("");
   const [ok, setOk]                 = useState("");
 
@@ -599,13 +630,17 @@ function AlunoView({ userName }: { userName: string }) {
   };
   const marcar = async (form: { professorId: string; modalidadeId: string; dataAula: string; horaInicio: string; horaFim: string; maxAlunos: number; descricao: string }) => {
     setErr(""); setOk("");
-    await apiFetch(`${API}/marcarcoaching`, { method:"POST", body:JSON.stringify(form) });
-    setOk("Coaching marcado! Aguarda confirmação.");
-    const upd = await apiFetch<{ content: CoachingDto[] }>(`${API}/coaching`);
-    setCoaching(upd?.content ?? []);
+    try {
+      const res = await apiFetch<any>(`${API}/marcarcoaching`, { method:"POST", body:JSON.stringify(form) });
+      const estudio = res?.aulaDto?.estudio?.nome || "um dos nossos estúdios";
+      setOk(`Coaching marcado com sucesso no estúdio [ ${estudio} ]! Aguarda confirmação.`);
+      const upd = await apiFetch<{ content: CoachingDto[] }>(`${API}/coaching`);
+      setCoaching(upd?.content ?? []);
+      setTimeout(() => setIsModalOpen(false), 2500);
+    } catch (e: any) { setErr(e.message || "Erro ao marcar coaching."); }
   };
 
-  const TABS = [{ key:"horario", label:"Aulas" },{ key:"coaching", label:"Coaching" },{ key:"disponiveis", label:"Disponíveis" },{ key:"marcar", label:"+ Marcar coaching" }] as const;
+  const TABS = [{ key:"horario", label:"Aulas" },{ key:"coaching", label:"Coaching" },{ key:"disponiveis", label:"Disponíveis" }] as const;
 
   return (
     <div>
@@ -615,7 +650,10 @@ function AlunoView({ userName }: { userName: string }) {
 
         {tab === "coaching" && (
           <div>
-            <SectionTitle>Os meus coachings</SectionTitle>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
+              <SectionTitle style={{ marginBottom: 0 }}>Os meus coachings</SectionTitle>
+              <BtnPrimario label="+ Marcar Sessão" onClick={() => { setErr(""); setOk(""); setIsModalOpen(true); }} small />
+            </div>
             {coaching.length === 0 && <Empty>Sem coachings marcados.</Empty>}
             <CoachingGrid items={coaching} onAction={(id) => cancelar(id)} actionLabel="Cancelar" actionPerigo />
           </div>
@@ -628,14 +666,11 @@ function AlunoView({ userName }: { userName: string }) {
             <CoachingGrid items={disponiveis} onAction={(id) => inscrever(id)} actionLabel="Inscrever" />
           </div>
         )}
-
-        {tab === "marcar" && (
-          <div style={{ maxWidth: 520 }}>
-            <SectionTitle>Marcar sessão de coaching</SectionTitle>
-            <MarcarCoachingForm onSubmit={marcar} err={err} ok={ok} />
-          </div>
-        )}
       </>}
+
+      <Modal open={isModalOpen} onClose={() => setIsModalOpen(false)} title="Marcar Sessão de Coaching">
+        <MarcarCoachingForm onSubmit={marcar} err={err} ok={ok} />
+      </Modal>
     </div>
   );
 }
@@ -647,8 +682,9 @@ function EncarregadoView({ userName }: { userName: string }) {
   const [coaching, setCoaching]     = useState<CoachingDto[]>([]);
   const [disponiveis, setDisp]      = useState<CoachingDto[]>([]);
   const [offset, setOffset]         = useState(0);
-  const [tab, setTab]               = useState<"horario"|"coaching"|"disponiveis"|"marcar">("horario");
+  const [tab, setTab]               = useState<"horario"|"coaching"|"disponiveis">("horario");
   const [loading, setLoading]       = useState(false);
+  const [isModalOpen, setIsModalOpen] = useState(false);
   const [err, setErr]               = useState("");
   const [ok, setOk]                 = useState("");
 
@@ -673,12 +709,16 @@ function EncarregadoView({ userName }: { userName: string }) {
   const cancelar   = async (id: string) => { if (!sel) return; await apiFetch(`${API}/cancelarCoaching/${id}/educando/${sel.id}`,{method:"DELETE"}); setCoaching(c=>c.filter(x=>x.aulaDto.id!==id)); };
   const marcar     = async (form: { professorId: string; modalidadeId: string; dataAula: string; horaInicio: string; horaFim: string; maxAlunos: number; descricao: string }) => {
     if (!sel) return; setErr(""); setOk("");
-    await apiFetch(`${API}/marcarcoaching/educando/${sel.id}`,{method:"POST",body:JSON.stringify(form)});
-    setOk("Coaching marcado! Aguarda confirmação.");
-    const u=await apiFetch<{content:CoachingDto[]}>(`${API}/coaching/educando/${sel.id}`); setCoaching(u?.content??[]);
+    try {
+      const res = await apiFetch<any>(`${API}/marcarcoaching/educando/${sel.id}`,{method:"POST",body:JSON.stringify(form)});
+      const estudio = res?.aulaDto?.estudio?.nome || "um dos nossos estúdios";
+      setOk(`Coaching marcado para ${sel.nome} no estúdio [ ${estudio} ]! Aguarda confirmação.`);
+      const u=await apiFetch<{content:CoachingDto[]}>(`${API}/coaching/educando/${sel.id}`); setCoaching(u?.content??[]);
+      setTimeout(() => setIsModalOpen(false), 2500);
+    } catch (e: any) { setErr(e.message || "Erro ao marcar coaching."); }
   };
 
-  const TABS = [{ key:"horario", label:"Aulas" },{ key:"coaching", label:"Coaching" },{ key:"disponiveis", label:"Disponíveis" },{ key:"marcar", label:"+ Marcar coaching" }] as const;
+  const TABS = [{ key:"horario", label:"Aulas" },{ key:"coaching", label:"Coaching" },{ key:"disponiveis", label:"Disponíveis" }] as const;
 
   return (
     <div>
@@ -699,15 +739,22 @@ function EncarregadoView({ userName }: { userName: string }) {
         <Tabs tabs={TABS as any} active={tab} onChange={setTab as any} />
         {loading ? <Loader /> : <>
           {tab==="horario"      && <GrelhaHorario aulas={semana} titulo={`Aulas de ${sel.nome}`} semanaOffset={offset} onPrev={()=>setOffset(o=>o-1)} onNext={()=>setOffset(o=>o+1)} />}
-          {tab==="coaching"     && <div><SectionTitle>Coachings de {sel.nome}</SectionTitle>{coaching.length===0&&<Empty>Sem coachings marcados.</Empty>}<CoachingGrid items={coaching} onAction={cancelar} actionLabel="Cancelar" actionPerigo /></div>}
-          {tab==="disponiveis"  && <div><SectionTitle>Coachings disponíveis</SectionTitle>{disponiveis.length===0&&<Empty>Sem coachings disponíveis.</Empty>}<CoachingGrid items={disponiveis} onAction={inscrever} actionLabel="Inscrever" /></div>}
-          {tab==="marcar"       && (
-            <div style={{ maxWidth: 520 }}>
-              <SectionTitle>Marcar coaching para {sel.nome}</SectionTitle>
-              <MarcarCoachingForm onSubmit={marcar} err={err} ok={ok} />
+          {tab==="coaching"     && (
+            <div>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
+                <SectionTitle style={{ marginBottom: 0 }}>Coachings de {sel.nome}</SectionTitle>
+                <BtnPrimario label="+ Marcar Sessão" onClick={() => { setErr(""); setOk(""); setIsModalOpen(true); }} small />
+              </div>
+              {coaching.length===0&&<Empty>Sem coachings marcados.</Empty>}
+              <CoachingGrid items={coaching} onAction={cancelar} actionLabel="Cancelar" actionPerigo />
             </div>
           )}
+          {tab==="disponiveis"  && <div><SectionTitle>Coachings disponíveis</SectionTitle>{disponiveis.length===0&&<Empty>Sem coachings disponíveis.</Empty>}<CoachingGrid items={disponiveis} onAction={inscrever} actionLabel="Inscrever" /></div>}
         </>}
+
+        <Modal open={isModalOpen} onClose={() => setIsModalOpen(false)} title={`Marcar Coaching para ${sel.nome}`}>
+          <MarcarCoachingForm onSubmit={marcar} err={err} ok={ok} />
+        </Modal>
       </>}
     </div>
   );
