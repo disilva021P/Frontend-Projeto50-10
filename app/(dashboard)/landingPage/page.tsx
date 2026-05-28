@@ -27,7 +27,7 @@ interface AulaTituloDto {
   criadoPo?: string;
   idHorario?: any; 
   estado?: any;
-  titulo?: string; // <-- O novo campo processado no Backend
+  titulo?: string; 
 }
 
 const BASE_URL = "http://localhost:8080";
@@ -37,7 +37,7 @@ function diaParaIdx(dataStr: string | undefined): number {
   if (!dataStr) return -1;
   
   const data = new Date(dataStr + "T00:00:00");
-  const diaSemana = data.getDay(); // 0 = Domingo, 1 = Segunda, 2 = Terça, etc.
+  const diaSemana = data.getDay(); 
   
   if (diaSemana === 0) return -1; 
   return diaSemana - 1; 

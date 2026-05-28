@@ -102,7 +102,7 @@ export default function LoginPage() {
           PAINEL DIREITO — Formulário (40%)
           ═══════════════════════════════════════ */}
       <div
-        className="flex flex-1 flex-col items-center justify-center px-8 md:px-10 lg:px-14"
+        className="flex flex-1 flex-col items-center justify-center px-8 md:px-12"
         style={{ background: 'var(--background)' }}
       >
 
@@ -122,7 +122,8 @@ export default function LoginPage() {
           </p>
         </div>
 
-        <div className="w-full max-w-[360px]">
+        {/* Ajustado subtilmente para max-w-[390px] (antes era 360px) */}
+        <div className="w-full max-w-[390px]">
 
           <p
             className="text-[9px] tracking-[3.5px] uppercase mb-2"
@@ -130,14 +131,16 @@ export default function LoginPage() {
           >
             Bem-vindo
           </p>
+          {/* Mantido text-[28px], apenas aumentei ligeiramente a margem inferior para mb-12 */}
           <h1
-            className="text-[28px] leading-tight mb-10"
+            className="text-[28px] leading-tight mb-12"
             style={{ fontFamily: 'var(--font-playfair)', color: 'var(--foreground)', fontWeight: 400 }}
           >
             Entre na<br />sua conta
           </h1>
 
-          <form onSubmit={handleLogin} className="space-y-6">
+          {/* Espaçamento ligeiramente maior entre os blocos (space-y-7) */}
+          <form onSubmit={handleLogin} className="space-y-7">
 
             {/* Email */}
             <div>
@@ -155,7 +158,7 @@ export default function LoginPage() {
                 placeholder="o.seu@email.com"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className="w-full bg-transparent border-0 border-b pb-2 text-sm outline-none transition-colors duration-200"
+                className="w-full bg-transparent border-0 border-b pb-2.5 text-sm outline-none transition-colors duration-200"
                 style={{
                   borderBottomColor: 'var(--border-warm)',
                   color: 'var(--foreground)',
@@ -183,7 +186,7 @@ export default function LoginPage() {
                 placeholder="••••••••"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="w-full bg-transparent border-0 border-b pb-2 text-sm outline-none transition-colors duration-200"
+                className="w-full bg-transparent border-0 border-b pb-2.5 text-sm outline-none transition-colors duration-200"
                 style={{
                   borderBottomColor: 'var(--border-warm)',
                   color: 'var(--foreground)',
@@ -196,11 +199,11 @@ export default function LoginPage() {
             </div>
 
             {/* Esqueceu a senha */}
-            <div className="text-right -mt-2">
+            <div className="text-right -mt-2.5">
               <button
                 type="button"
                 onClick={() => router.push('/recuperarPassword')}
-                className="text-[11px] bg-transparent border-none cursor-pointer transition-colors duration-200 outline-none"
+                className="text-[13px] bg-transparent border-none cursor-pointer transition-colors duration-200 outline-none"
                 style={{ color: 'var(--accent-muted)', fontWeight: 300 }}
                 onMouseEnter={e => ((e.target as HTMLElement).style.color = 'var(--foreground)')}
                 onMouseLeave={e => ((e.target as HTMLElement).style.color = 'var(--accent-muted)')}
@@ -212,7 +215,7 @@ export default function LoginPage() {
             {/* Botão entrar */}
             <button
               type="submit"
-              className="w-full py-4 text-[10px] tracking-[3.5px] uppercase transition-colors duration-200 cursor-pointer"
+              className="w-full py-[17px] text-[12px] tracking-[3.5px] uppercase transition-colors duration-200 cursor-pointer mt-1"
               style={{
                 background: 'var(--panel-dark)',
                 color: 'var(--accent-gold)',
