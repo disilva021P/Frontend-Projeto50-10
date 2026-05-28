@@ -11,8 +11,18 @@ interface UtilizadorResponseDto {
   id: string; nome: string; email: string; nif: string; telefone: string;
   tipoUtilizador: string; ativo: boolean; dataNascimento: string; criadoEm: string;
   valorHora?: number; professorExterno?: boolean;
-  turmas?: TurmaDto[]; modalidades?: ModalidadeDto[];
+  turmas?: TurmaDto[]; modalidades?: ModalidadeDto[]; educandos?: UtilizadoreResumoDto[]; 
+  encarregadoNome?: string;
 }
+
+
+interface UtilizadoreResumoDto {
+  id: string;
+  nome: string;
+  email: string;
+  tipoUtilizador?: string;
+}
+
 interface PageResponse {
   content: UtilizadorResponseDto[]; totalPages: number; number: number; totalElements: number;
 }
@@ -60,10 +70,14 @@ export default function UtilizadoresPage() {
   const [search, setSearch] = useState("");
   const [detalhe, setDetalhe] = useState<UtilizadorResponseDto | null>(null);
   const [isEditing, setIsEditing] = useState(false);
+  
+  // 🟢 [CORREÇÃO] Tipagem corrigida para idEducandosIniciais como array opcional de strings
   const [editForm, setEditForm] = useState<Partial<UtilizadorResponseDto> & {
-  idTurmasIniciais?: string[];
-  modalidadesIds?: string[];
-}>({});
+    idTurmasIniciais?: string[];
+    modalidadesIds?: string[];
+    idEducandosIniciais?: string[];
+  }>({});
+  
   const [reporTarget, setReporTarget] = useState<UtilizadorResponseDto | null>(null);
   const [novaPass, setNovaPass] = useState("");
   const [confirmarPass, setConfirmarPass] = useState("");
@@ -74,11 +88,23 @@ export default function UtilizadoresPage() {
   const [turmas, setTurmas] = useState<TurmaDto[]>([]);
   const [modalidadesSistema, setModalidadesSistema] = useState<ModalidadeDto[]>([]);
   const [hashesDiscobertas, setHashesDiscobertas] = useState<Record<string, string>>({ ALUNO: "", PROFESSOR: "", ENCARREGADO: "" });
+  
+  // 🟢 [NOVO] Estados para controlo e pesquisa de Alunos Menores para o Encarregado
+  const [alunosMenores, setAlunosMenores] = useState<UtilizadoreResumoDto[]>([]);
+  const [pesquisaAluno, setPesquisaAluno] = useState("");
+  const [loadingAlunosMenores, setLoadingAlunosMenores] = useState(false);
+
+  // 🟢 [NOVO] Inclusão do campo idEducandosIniciais no estado do formulário de criação
   const [form, setForm] = useState<{
     nome: string; email: string; telefone: string; nif: string; dataNascimento: string;
     id_tipoUtilizador: string; valorHora: string; professorExterno: boolean;
     idTurmasIniciais: string[]; modalidadesIds: string[];
-  }>({ nome: "", email: "", telefone: "", nif: "", dataNascimento: "", id_tipoUtilizador: "", valorHora: "36", professorExterno: false, idTurmasIniciais: [], modalidadesIds: [] });
+    idEducandosIniciais: string[];
+  }>({ 
+    nome: "", email: "", telefone: "", nif: "", dataNascimento: "", id_tipoUtilizador: "", 
+    valorHora: "36", professorExterno: false, idTurmasIniciais: [], modalidadesIds: [], idEducandosIniciais: [] 
+  });
+  
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
@@ -91,6 +117,23 @@ export default function UtilizadoresPage() {
     document.addEventListener("keydown", handleKey);
     return () => document.removeEventListener("keydown", handleKey);
   }, [router]);
+
+  // 🟢 [NOVO] Função para pesquisar dinamicamente os Alunos Menores na API do Backend
+  const carregarAlunosMenores = useCallback(async (termo: string) => {
+    setLoadingAlunosMenores(true);
+    try {
+      const res = await fetch(`${BASE_URL}/api/utilizadores/alunos-menores?pesquisa=${encodeURIComponent(termo)}`, {
+        headers: authHeaders()
+      });
+      if (res.ok) {
+        setAlunosMenores(await res.json());
+      }
+    } catch (err) {
+      console.error("Erro ao carregar alunos menores:", err);
+    } finally {
+      setLoadingAlunosMenores(false);
+    }
+  }, []);
 
   const carregarDadosConfiguracao = async () => {
     try {
@@ -113,6 +156,14 @@ export default function UtilizadoresPage() {
   };
 
   useEffect(() => { carregarDadosConfiguracao(); }, []);
+
+  // Recarrega a listagem de alunos menores sempre que um modal de alteração/criação for acionado
+  useEffect(() => {
+    if (modalAberto || isEditing) {
+      carregarAlunosMenores("");
+      setPesquisaAluno("");
+    }
+  }, [modalAberto, isEditing, carregarAlunosMenores]);
 
   const carregar = useCallback(async (pagina: number) => {
     setLoading(true);
@@ -183,9 +234,12 @@ export default function UtilizadoresPage() {
         idTurmasIniciais: form.id_tipoUtilizador === hashesDiscobertas.ALUNO
           ? form.idTurmasIniciais
           : [],
-        // ✅ Adicionar esta linha:
         modalidadesIds: form.id_tipoUtilizador === hashesDiscobertas.PROFESSOR
           ? form.modalidadesIds
+          : [],
+        // 🟢 [NOVO] Adicionado o envio de idEducandosIniciais no payload se for ENCARREGADO
+        idEducandosIniciais: form.id_tipoUtilizador === hashesDiscobertas.ENCARREGADO
+          ? form.idEducandosIniciais
           : [],
       };
       const res = await fetch(`${BASE_URL}/api/utilizadores`, { method: "POST", headers: authHeaders(), body: JSON.stringify(payload) });
@@ -195,7 +249,8 @@ export default function UtilizadoresPage() {
       }
       setSuccessMsg("Utilizador criado com sucesso!");
       setModalAberto(false);
-      setForm({ nome: "", email: "", telefone: "", nif: "", dataNascimento: "", id_tipoUtilizador: hashesDiscobertas.ALUNO || "", valorHora: "36", professorExterno: false, idTurmasIniciais: [], modalidadesIds: [] });
+      // Limpeza total incluindo a nova propriedade
+      setForm({ nome: "", email: "", telefone: "", nif: "", dataNascimento: "", id_tipoUtilizador: hashesDiscobertas.ALUNO || "", valorHora: "36", professorExterno: false, idTurmasIniciais: [], modalidadesIds: [], idEducandosIniciais: [] });
       carregar(0);
     } catch (err: any) { setErrorMsg(err.message || "Ocorreu um erro ao guardar o utilizador."); }
     finally { setLoadingInserir(false); }
@@ -208,7 +263,7 @@ export default function UtilizadoresPage() {
         method: "PUT", headers: authHeaders(), body: JSON.stringify(editForm),
       });
       if (!res.ok) throw new Error("Erro ao atualizar utilizador.");
-      setSuccessMsg("Utilizador atualizado com sucesso!");
+      setSuccessMsg("Utilizador updated com sucesso!");
       setIsEditing(false);
       setDetalhe({ ...detalhe, ...editForm } as UtilizadorResponseDto);
       carregar(paginaAtual);
@@ -416,7 +471,6 @@ export default function UtilizadoresPage() {
                 )}
               </div>
               
-              {/* 🏛️ DATA DE NASCIMENTO CORRIGIDA (AGORA EDITÁVEL) */}
               <div>
                 <span style={{ display: "block", fontSize: 9, letterSpacing: 1.5, textTransform: "uppercase", color: "var(--accent-muted)", marginBottom: 4 }}>Nascimento</span>
                 {isEditing ? (
@@ -440,7 +494,7 @@ export default function UtilizadoresPage() {
               </div>
             </div>
 
-            {/* 🎒 TURMAS (ALUNO) CORRIGIDO PARA EDIÇÃO */}
+            {/* TURMAS (ALUNO) */}
             {(detalhe.tipoUtilizador === "ROLE_ALUNO" || detalhe.tipoUtilizador === "ALUNO") && (
               <div style={{ paddingLeft: 8, marginBottom: 16 }}>
                 <span style={{ display: "block", fontSize: 9, letterSpacing: 1.5, textTransform: "uppercase", color: "var(--accent-muted)", marginBottom: 6 }}>Turmas Inscritas</span>
@@ -473,8 +527,29 @@ export default function UtilizadoresPage() {
                 )}
               </div>
             )}
+              {/*VISUALIZAÇÃO DO ENCARREGADO DE EDUCAÇÃO NOS DETALHES DO ALUNO */}
+            {(detalhe.tipoUtilizador === "ROLE_ALUNO" || detalhe.tipoUtilizador === "ALUNO") && (
+              <div style={{ paddingLeft: 8, marginBottom: 16 }}>
+                <span style={{ display: "block", fontSize: 9, letterSpacing: 1.5, textTransform: "uppercase", color: "var(--accent-muted)", marginBottom: 6 }}>
+                  Encarregado de Educação
+                </span>
+                
+                {detalhe.encarregadoNome ? (
+                  <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                    <span style={{ fontSize: 13, padding: "4px 10px", background: "rgba(218,165,32,0.08)", color: "#B8860B", borderRadius: 4, border: "1px solid rgba(218,165,32,0.18)", fontWeight: 500 }}>
+                      <i className="ti ti-user-shield" style={{ marginRight: 6, fontSize: 12 }} />
+                      {detalhe.encarregadoNome}
+                    </span>
+                  </div>
+                ) : (
+                  <span style={{ fontSize: 12, color: "var(--accent-muted)", fontStyle: "italic" }}>
+                    Nenhum encarregado associado a este aluno.
+                  </span>
+                )}
+              </div>
+            )}
 
-            {/* 🩰 MODALIDADES (PROFESSOR) CORRIGIDO PARA EDIÇÃO */}
+            {/* MODALIDADES (PROFESSOR) */}
             {(detalhe.tipoUtilizador === "ROLE_PROFESSOR" || detalhe.tipoUtilizador === "PROFESSOR") && (
               <div style={{ paddingLeft: 8, marginBottom: 16 }}>
                 <span style={{ display: "block", fontSize: 9, letterSpacing: 1.5, textTransform: "uppercase", color: "var(--accent-muted)", marginBottom: 6 }}>Modalidades Habilitadas</span>
@@ -502,6 +577,96 @@ export default function UtilizadoresPage() {
                       </span>
                     )) : (
                       <span style={{ fontSize: 12, color: "var(--accent-muted)" }}>Nenhuma modalidade associada</span>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+            {/* MODALIDADES (PROFESSOR) */}
+            {(detalhe.tipoUtilizador === "ROLE_PROFESSOR" || detalhe.tipoUtilizador === "PROFESSOR") && (
+              <div style={{ paddingLeft: 8, marginBottom: 16 }}>
+                <span style={{ display: "block", fontSize: 9, letterSpacing: 1.5, textTransform: "uppercase", color: "var(--accent-muted)", marginBottom: 6 }}>Modalidades Habilitadas</span>
+                {isEditing ? (
+                  <div style={{ display: "flex", flexDirection: "column", gap: 6, maxHeight: 150, overflowY: "auto", background: "#fff", padding: 8, borderRadius: 6, border: "1px solid var(--border-warm)" }}>
+                    {modalidadesSistema.map(m => {
+                      const modalidadesIds = (editForm as any).modalidadesIds || [];
+                      const checked = modalidadesIds.includes(m.id);
+                      return (
+                        <label key={m.id} style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, cursor: "pointer" }}>
+                          <input type="checkbox" checked={checked} onChange={() => {
+                            const novasMod = checked ? modalidadesIds.filter((id: string) => id !== m.id) : [...modalidadesIds, m.id];
+                            setEditForm({ ...editForm, modalidadesIds: novasMod } as any);
+                          }} />
+                          {m.nome}
+                        </label>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                    {detalhe.modalidades && detalhe.modalidades.length > 0 ? detalhe.modalidades.map(m => (
+                      <span key={m.id} style={{ fontSize: 12, padding: "3px 8px", background: "rgba(160,133,96,0.10)", color: "#7A5020", borderRadius: 4, border: "1px solid rgba(160,133,96,0.20)" }}>
+                        {m.nome}
+                      </span>
+                    )) : (
+                      <span style={{ fontSize: 12, color: "var(--accent-muted)" }}>Nenhuma modalidade associada</span>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* 🟢 [NOVO] SECÇÃO VISUAL DOS EDUCANDOS (ENCARREGADO DE EDUCAÇÃO) NO MODAL DETALHE/EDIÇÃO */}
+           {/* 🟢 [ATUALIZADO] SECÇÃO DE EDUCANDOS (ENCARREGADO DE EDUCAÇÃO) NO MODAL DETALHE */}
+            {(detalhe.tipoUtilizador === "ROLE_ENCARREGADO" || detalhe.tipoUtilizador === "ENCARREGADO") && (
+              <div style={{ paddingLeft: 8, marginBottom: 16 }}>
+                <span style={{ display: "block", fontSize: 9, letterSpacing: 1.5, textTransform: "uppercase", color: "var(--accent-muted)", marginBottom: 6 }}>Educandos Associados</span>
+                {isEditing ? (
+                  <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                    <input 
+                      type="text" 
+                      placeholder="Filtrar alunos por nome..." 
+                      value={pesquisaAluno}
+                      onChange={(e) => {
+                        setPesquisaAluno(e.target.value);
+                        carregarAlunosMenores(e.target.value);
+                      }}
+                      style={{ width: "100%", padding: "6px 10px", borderRadius: 4, border: "1px solid var(--border-warm)", fontSize: 12, background: "#fff" }}
+                    />
+                    <div style={{ display: "flex", flexDirection: "column", gap: 6, maxHeight: 150, overflowY: "auto", background: "#fff", padding: 8, borderRadius: 6, border: "1px solid var(--border-warm)" }}>
+                      {loadingAlunosMenores ? (
+                        <span style={{ fontSize: 12, color: "var(--accent-muted)", fontStyle: "italic" }}>A carregar alunos...</span>
+                      ) : alunosMenores.length === 0 ? (
+                        <span style={{ fontSize: 12, color: "var(--accent-muted)", fontStyle: "italic" }}>Nenhum aluno menor encontrado.</span>
+                      ) : alunosMenores.map(aluno => {
+                        const idEducandos = editForm.idEducandosIniciais || [];
+                        const checked = idEducandos.includes(aluno.id);
+                        return (
+                          <label key={aluno.id} style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, cursor: "pointer" }}>
+                            <input type="checkbox" checked={checked} onChange={() => {
+                              const novosEducandos = checked ? idEducandos.filter((id: string) => id !== aluno.id) : [...idEducandos, aluno.id];
+                              setEditForm({ ...editForm, idEducandosIniciais: novosEducandos });
+                            }} />
+                            {aluno.nome}
+                          </label>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ) : (
+                  // 🟢 Exibição direta nos Detalhes (Modo de Leitura)
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                    {detalhe.educandos && detalhe.educandos.length > 0 ? (
+                      detalhe.educandos.map(educando => (
+                        <span key={educando.id} style={{ fontSize: 12, padding: "3px 8px", background: "rgba(74,143,89,0.08)", color: "#2D6A3F", borderRadius: 4, border: "1px solid rgba(74,143,89,0.18)" }}>
+                          <i className="ti ti-school" style={{ marginRight: 4, fontSize: 11 }} />
+                          {educando.nome}
+                        </span>
+                      ))
+                    ) : (
+                      <span style={{ fontSize: 12, color: "var(--accent-muted)", fontStyle: "italic" }}>
+                        Nenhum educando associado a este encarregado.
+                      </span>
                     )}
                   </div>
                 )}
@@ -539,11 +704,12 @@ export default function UtilizadoresPage() {
                   <button onClick={() => { 
                     console.log("=== DADOS DO UTILIZADOR SELECIONADO ===", detalhe);
                     setIsEditing(true); 
-                    // Mapeamos os objetos atuais para os arrays de IDs de Strings esperados pelo DTO de edição
+                    // Mapeamento expandido para injetar também o array vazio inicial de idEducandosIniciais
                     setEditForm({ 
                       ...detalhe,
                       idTurmasIniciais: detalhe.turmas ? detalhe.turmas.map(t => t.id) : [],
-                      modalidadesIds: detalhe.modalidades ? detalhe.modalidades.map(m => m.id) : []
+                      modalidadesIds: detalhe.modalidades ? detalhe.modalidades.map(m => m.id) : [],
+                     idEducandosIniciais: detalhe.educandos ? detalhe.educandos.map(e => e.id) : []
                     }); 
                   }}
                     style={{ padding: "10px", borderRadius: 8, background: "rgba(230,126,34,0.08)", border: "1px solid rgba(230,126,34,0.25)", color: "#e67e22", fontSize: 12, cursor: "pointer" }}>
@@ -686,6 +852,43 @@ export default function UtilizadoresPage() {
                         })}>
                         <input type="checkbox" checked={form.modalidadesIds.includes(mod.id)} onChange={() => {}} style={{ cursor: "pointer", width: 15, height: 15 }} />
                         <label style={{ fontSize: 13, color: "var(--panel-dark)", cursor: "pointer", userSelect: "none" }}>{mod.nome}</label>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* 🟢 [NOVO] SECÇÃO VISUAL DE SELEÇÃO DE EDUCANDOS NO FORMULÁRIO DE CRIAÇÃO DO ENCARREGADO */}
+              {form.id_tipoUtilizador === hashesDiscobertas.ENCARREGADO && hashesDiscobertas.ENCARREGADO !== "" && (
+                <div>
+                  <label style={{ display: "block", fontSize: 10, letterSpacing: 2, textTransform: "uppercase", color: "#2D6A3F", marginBottom: 6, fontWeight: "bold" }}>
+                    Associar Educandos (Alunos Menores)
+                  </label>
+                  
+                  <input 
+                    type="text" 
+                    placeholder="Filtrar alunos por nome..." 
+                    value={pesquisaAluno}
+                    onChange={(e) => {
+                      setPesquisaAluno(e.target.value);
+                      carregarAlunosMenores(e.target.value);
+                    }}
+                    style={{ width: "100%", padding: "6px 10px", borderRadius: 4, border: "1px solid var(--border-warm)", marginBottom: 8, fontSize: 12, background: "#fff" }}
+                  />
+
+                  <div style={{ maxHeight: 120, overflowY: "auto", border: "1px solid var(--border-warm)", borderRadius: 6, background: "#FFFCF8", padding: "8px 12px", display: "flex", flexDirection: "column", gap: 8 }}>
+                    {loadingAlunosMenores ? (
+                      <span style={{ fontSize: 12, color: "var(--accent-muted)", fontStyle: "italic" }}>A pesquisar...</span>
+                    ) : alunosMenores.length === 0 ? (
+                      <span style={{ fontSize: 12, color: "var(--accent-muted)", fontStyle: "italic" }}>Nenhum aluno menor encontrado.</span>
+                    ) : alunosMenores.map(aluno => (
+                      <div key={aluno.id} style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer" }}
+                        onClick={() => setForm(prev => {
+                          const exists = prev.idEducandosIniciais.includes(aluno.id);
+                          return { ...prev, idEducandosIniciais: exists ? prev.idEducandosIniciais.filter(id => id !== aluno.id) : [...prev.idEducandosIniciais, aluno.id] };
+                        })}>
+                        <input type="checkbox" checked={form.idEducandosIniciais.includes(aluno.id)} onChange={() => {}} style={{ cursor: "pointer", width: 15, height: 15 }} />
+                        <label style={{ fontSize: 13, color: "var(--panel-dark)", cursor: "pointer", userSelect: "none" }}>{aluno.nome}</label>
                       </div>
                     ))}
                   </div>
