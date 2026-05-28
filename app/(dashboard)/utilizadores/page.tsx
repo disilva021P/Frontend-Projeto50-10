@@ -60,7 +60,10 @@ export default function UtilizadoresPage() {
   const [search, setSearch] = useState("");
   const [detalhe, setDetalhe] = useState<UtilizadorResponseDto | null>(null);
   const [isEditing, setIsEditing] = useState(false);
-  const [editForm, setEditForm] = useState<Partial<UtilizadorResponseDto>>({});
+  const [editForm, setEditForm] = useState<Partial<UtilizadorResponseDto> & {
+  idTurmasIniciais?: string[];
+  modalidadesIds?: string[];
+}>({});
   const [reporTarget, setReporTarget] = useState<UtilizadorResponseDto | null>(null);
   const [novaPass, setNovaPass] = useState("");
   const [confirmarPass, setConfirmarPass] = useState("");
@@ -412,10 +415,19 @@ export default function UtilizadoresPage() {
                   <span style={{ fontSize: 13, color: "var(--panel-dark)" }}>{detalhe.nif || "—"}</span>
                 )}
               </div>
+              
+              {/* 🏛️ DATA DE NASCIMENTO CORRIGIDA (AGORA EDITÁVEL) */}
               <div>
                 <span style={{ display: "block", fontSize: 9, letterSpacing: 1.5, textTransform: "uppercase", color: "var(--accent-muted)", marginBottom: 4 }}>Nascimento</span>
-                <span style={{ fontSize: 13, color: "var(--panel-dark)" }}>{formatDate(detalhe.dataNascimento)}</span>
+                {isEditing ? (
+                  <input type="date" value={editForm.dataNascimento ? editForm.dataNascimento.split("T")[0] : ""} 
+                    onChange={e => setEditForm({ ...editForm, dataNascimento: e.target.value })}
+                    style={{ background: "#FFF", border: "1px solid var(--border-warm)", borderRadius: 4, padding: "4px 8px", fontSize: 13, width: "100%" }} />
+                ) : (
+                  <span style={{ fontSize: 13, color: "var(--panel-dark)" }}>{formatDate(detalhe.dataNascimento)}</span>
+                )}
               </div>
+
               <div>
                 <span style={{ display: "block", fontSize: 9, letterSpacing: 1.5, textTransform: "uppercase", color: "var(--accent-muted)", marginBottom: 4 }}>Membro desde</span>
                 <span style={{ fontSize: 13, color: "var(--panel-dark)" }}>{formatDate(detalhe.criadoEm)}</span>
@@ -428,44 +440,80 @@ export default function UtilizadoresPage() {
               </div>
             </div>
 
-            {/* Turmas (Aluno) */}
+            {/* 🎒 TURMAS (ALUNO) CORRIGIDO PARA EDIÇÃO */}
             {(detalhe.tipoUtilizador === "ROLE_ALUNO" || detalhe.tipoUtilizador === "ALUNO") && (
               <div style={{ paddingLeft: 8, marginBottom: 16 }}>
-                <span style={{ display: "block", fontSize: 9, letterSpacing: 1.5, textTransform: "uppercase", color: "var(--accent-muted)", marginBottom: 6 }}>Turmas Associadas</span>
-                <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
-                  {detalhe.turmas && detalhe.turmas.length > 0 ? detalhe.turmas.map(t => (
-                    <span key={t.id} style={{ fontSize: 12, padding: "3px 8px", background: "rgba(78,114,169,0.08)", color: "#2D4E7A", borderRadius: 4, border: "1px solid rgba(78,114,169,0.18)" }}>
-                      {t.nome}
-                    </span>
-                  )) : (
-                    <span style={{ fontSize: 12, color: "var(--accent-muted)", fontStyle: "italic" }}>Nenhuma turma inscrita</span>
-                  )}
-                </div>
+                <span style={{ display: "block", fontSize: 9, letterSpacing: 1.5, textTransform: "uppercase", color: "var(--accent-muted)", marginBottom: 6 }}>Turmas Inscritas</span>
+                {isEditing ? (
+                  <div style={{ display: "flex", flexDirection: "column", gap: 6, maxHeight: 150, overflowY: "auto", background: "#fff", padding: 8, borderRadius: 6, border: "1px solid var(--border-warm)" }}>
+                    {turmas.map(t => {
+                      const idTurmasIniciais = (editForm as any).idTurmasIniciais || [];
+                      const checked = idTurmasIniciais.includes(t.id);
+                      return (
+                        <label key={t.id} style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, cursor: "pointer" }}>
+                          <input type="checkbox" checked={checked} onChange={() => {
+                            const novasTurmas = checked ? idTurmasIniciais.filter((id: string) => id !== t.id) : [...idTurmasIniciais, t.id];
+                            setEditForm({ ...editForm, idTurmasIniciais: novasTurmas } as any);
+                          }} />
+                          {t.nome}
+                        </label>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                    {detalhe.turmas && detalhe.turmas.length > 0 ? detalhe.turmas.map(t => (
+                      <span key={t.id} style={{ fontSize: 12, padding: "3px 8px", background: "rgba(78,114,169,0.08)", color: "#2D4E7A", borderRadius: 4, border: "1px solid rgba(78,114,169,0.18)" }}>
+                        {t.nome}
+                      </span>
+                    )) : (
+                      <span style={{ fontSize: 12, color: "var(--accent-muted)", fontStyle: "italic" }}>Nenhuma turma inscrita</span>
+                    )}
+                  </div>
+                )}
               </div>
             )}
 
-            {/* Modalidades (Professor) */}
+            {/* 🩰 MODALIDADES (PROFESSOR) CORRIGIDO PARA EDIÇÃO */}
             {(detalhe.tipoUtilizador === "ROLE_PROFESSOR" || detalhe.tipoUtilizador === "PROFESSOR") && (
               <div style={{ paddingLeft: 8, marginBottom: 16 }}>
                 <span style={{ display: "block", fontSize: 9, letterSpacing: 1.5, textTransform: "uppercase", color: "var(--accent-muted)", marginBottom: 6 }}>Modalidades Habilitadas</span>
-                <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
-                  {detalhe.modalidades && detalhe.modalidades.length > 0 ? detalhe.modalidades.map(m => (
-                    <span key={m.id} style={{ fontSize: 12, padding: "3px 8px", background: "rgba(160,133,96,0.10)", color: "#7A5020", borderRadius: 4, border: "1px solid rgba(160,133,96,0.20)" }}>
-                      {m.nome}
-                    </span>
-                  )) : (
-                    <span style={{ fontSize: 12, color: "var(--accent-muted)" }}>Nenhuma modalidade associada</span>
-                  )}
-                </div>
+                {isEditing ? (
+                  <div style={{ display: "flex", flexDirection: "column", gap: 6, maxHeight: 150, overflowY: "auto", background: "#fff", padding: 8, borderRadius: 6, border: "1px solid var(--border-warm)" }}>
+                    {modalidadesSistema.map(m => {
+                      const modalidadesIds = (editForm as any).modalidadesIds || [];
+                      const checked = modalidadesIds.includes(m.id);
+                      return (
+                        <label key={m.id} style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, cursor: "pointer" }}>
+                          <input type="checkbox" checked={checked} onChange={() => {
+                            const novasMod = checked ? modalidadesIds.filter((id: string) => id !== m.id) : [...modalidadesIds, m.id];
+                            setEditForm({ ...editForm, modalidadesIds: novasMod } as any);
+                          }} />
+                          {m.nome}
+                        </label>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                    {detalhe.modalidades && detalhe.modalidades.length > 0 ? detalhe.modalidades.map(m => (
+                      <span key={m.id} style={{ fontSize: 12, padding: "3px 8px", background: "rgba(160,133,96,0.10)", color: "#7A5020", borderRadius: 4, border: "1px solid rgba(160,133,96,0.20)" }}>
+                        {m.nome}
+                      </span>
+                    )) : (
+                      <span style={{ fontSize: 12, color: "var(--accent-muted)" }}>Nenhuma modalidade associada</span>
+                    )}
+                  </div>
+                )}
               </div>
             )}
 
-            {/* Campos edição professor */}
+            {/* Campos edição valores professor */}
             {(detalhe.tipoUtilizador === "ROLE_PROFESSOR" || detalhe.tipoUtilizador === "PROFESSOR") && isEditing && (
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, paddingLeft: 8, marginBottom: 16 }}>
                 <div>
                   <span style={{ display: "block", fontSize: 9, letterSpacing: 1.5, textTransform: "uppercase", color: "var(--accent-muted)", marginBottom: 4 }}>Valor por Hora</span>
-                  <input type="number" value={editForm.valorHora !== undefined ? editForm.valorHora : ""}
+                  <input type="number" value={editForm.valorHora ?? ""}
                     onChange={e => setEditForm({ ...editForm, valorHora: parseFloat(e.target.value) || 0 })}
                     style={{ background: "#FFF", border: "1px solid var(--border-warm)", borderRadius: 4, padding: "4px 8px", fontSize: 13, width: "100%" }} />
                 </div>
@@ -480,7 +528,7 @@ export default function UtilizadoresPage() {
               </div>
             )}
 
-            {/* Ações */}
+            {/* Botões de Ações */}
             <div style={{ display: "flex", flexDirection: "column", gap: 8, paddingLeft: 8 }}>
               {!isEditing ? (
                 <>
@@ -488,7 +536,16 @@ export default function UtilizadoresPage() {
                     style={{ padding: "10px", borderRadius: 8, background: "rgba(78,114,169,0.08)", border: "1px solid rgba(78,114,169,0.25)", color: "#2D4E7A", fontSize: 12, cursor: "pointer" }}>
                     <i className="ti ti-key" style={{ marginRight: 8 }} />Repor palavra-passe
                   </button>
-                  <button onClick={() => { setIsEditing(true); setEditForm({ ...detalhe }); }}
+                  <button onClick={() => { 
+                    console.log("=== DADOS DO UTILIZADOR SELECIONADO ===", detalhe);
+                    setIsEditing(true); 
+                    // Mapeamos os objetos atuais para os arrays de IDs de Strings esperados pelo DTO de edição
+                    setEditForm({ 
+                      ...detalhe,
+                      idTurmasIniciais: detalhe.turmas ? detalhe.turmas.map(t => t.id) : [],
+                      modalidadesIds: detalhe.modalidades ? detalhe.modalidades.map(m => m.id) : []
+                    }); 
+                  }}
                     style={{ padding: "10px", borderRadius: 8, background: "rgba(230,126,34,0.08)", border: "1px solid rgba(230,126,34,0.25)", color: "#e67e22", fontSize: 12, cursor: "pointer" }}>
                     <i className="ti ti-edit" style={{ marginRight: 8 }} />Editar dados
                   </button>
