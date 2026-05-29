@@ -315,18 +315,27 @@ export default function PagamentosPage() {
     }
 
     const token = localStorage.getItem('token') ?? '';
-    const payload = {
-      id: modalModo === 'EDITAR' ? editId : undefined,
-      valorPagamento: Number(formValor),
-      pago: formPago,
-      descricao: formDescricao,
-      dataPagamento: formDataPagamento,
-      idTipoPagamento: formIdTipoPagamento,
-      utilizadoreResumoDto: {
-        id: utilizadorSelecionado.id,
-        nome: utilizadorSelecionado.nome
+    const payload = modalModo === 'CRIAR'
+    ? {
+        valorPagamento: Number(formValor),
+        descricao: formDescricao,
+        dataPagamento: formDataPagamento,
+        idTipoPagamento: formIdTipoPagamento,
+        idUtilizador: utilizadorSelecionado.id,
+        idAula: null
       }
-    };
+    : {
+        id: editId,
+        valorPagamento: Number(formValor),
+        pago: formPago,
+        descricao: formDescricao,
+        dataPagamento: formDataPagamento,
+        idTipoPagamento: formIdTipoPagamento,
+        utilizadoreResumoDto: {
+          id: utilizadorSelecionado.id,
+          nome: utilizadorSelecionado.nome
+        }
+      };
 
     const url = modalModo === 'CRIAR' ? `${BASE_URL}/api/pagamentos` : `${BASE_URL}/api/pagamentos/${editId}`;
     const method = modalModo === 'CRIAR' ? 'POST' : 'PUT';
