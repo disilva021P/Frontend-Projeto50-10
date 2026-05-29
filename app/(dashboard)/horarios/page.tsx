@@ -8,7 +8,7 @@ type Role = "ALUNO" | "COORDENACAO" | "PROFESSOR" | "ENCARREGADO";
 
 interface ResumoDto { id: string; nome: string }
 interface TurmaDto   { id: string; nome: string; mensalidade?: number; ativo?: boolean; modalidade?: ResumoDto }
-interface EstudioDto { id: string; nome: string }
+interface EstudioDto { id: string; nome: string; capacidade?: number; notas?: string }
 interface AulaDto    {
   id: string; titulo?: string; dataAula?: string; horaInicio?: string; horaFim?: string;
   turma?: TurmaDto; estudio?: EstudioDto; professor?: ResumoDto; diaSemana?: string | number;
@@ -19,6 +19,7 @@ interface CoachingDto {
   estadoAulaDto: { id: string; estado: string };
   max_alunos: number;
   professorDto?: any;
+  solicitadoPor?: { id: string; nome: string };
 }
 interface HorarioFixoDto {
   id: string; diaSemana: string; horaInicio: string; horaFim: string;
@@ -29,7 +30,7 @@ interface DisponibilidadeDto {
   id: string; diaSemana: number; horaInicio: string; horaFim: string;
   validoDe?: string; validoAte?: string; professor?: ResumoDto;
 }
-interface ModalidadeDto { id: string; nome: string }
+interface ModalidadeDto { id: string; nome: string; descricao?: string }
 
 const BASE = "http://localhost:8080";
 const API  = `${BASE}/api/horario`;
@@ -114,7 +115,7 @@ function normalizeAula(a: any): AulaDto {
     horaFim:    trimHora(a.horaFim    ?? h.horaFim),
     diaSemana:  diaDerived,
     turma:      a.turma      ?? h.idturmaId,
-    estudio:    a.estudio    ?? h.estudioId,
+    estudio:    a.estudio    ?? h.estudioId ?? a.estudioId,
     professor:  a.professor  ?? h.professor ?? (h.idcriadoPor && h.professor ? h.idcriadoPor : undefined),
   };
 }
@@ -134,9 +135,9 @@ function obterIntervaloSemanas(offset: number): string {
 
 function eFuturo(dataStr: string, horaFimStr?: string): boolean {
   if (!dataStr) return true;
-  const hoje = new Date();
-  const dataAula = new Date(`${dataStr}T${horaFimStr || "23:59"}:00`);
-  return dataAula >= hoje;
+  const horaLimpa = horaFimStr ? horaFimStr.substring(0, 5) : "23:59";
+  const dataAula = new Date(`${dataStr}T${horaLimpa}:00`);
+  return dataAula >= new Date();
 }
 
 // ─── Componentes UI internos ──────────────────────────────────────────────────
@@ -170,13 +171,13 @@ function EstadoBadge({ estado }: { estado: string }) {
 }
 
 const btnBase: React.CSSProperties = { borderRadius: 6, fontWeight: 700, cursor: "pointer", letterSpacing: .3, fontFamily: "Lato, sans-serif", transition: "opacity .15s" };
-function BtnPrimario({ label, onClick, small }: { label: string; onClick: () => void; small?: boolean }) {
+function BtnPrimario({ label, onClick, small }: { label: string; onClick: (e: React.MouseEvent<HTMLButtonElement>) => void; small?: boolean }) {
   return <button onClick={onClick} style={{ ...btnBase, background: "var(--panel-dark)", border: "none", color: "var(--accent-gold)", fontSize: small ? 11 : 13, padding: small ? "6px 14px" : "10px 22px" }}>{label}</button>;
 }
 function BtnSecundario({ label, onClick, small }: { label: string; onClick: () => void; small?: boolean }) {
   return <button onClick={onClick} style={{ ...btnBase, background: "transparent", border: "1px solid var(--panel-dark)", color: "var(--panel-dark)", fontSize: small ? 11 : 13, padding: small ? "5px 13px" : "9px 21px" }}>{label}</button>;
 }
-function BtnPerigo({ label, onClick, small }: { label: string; onClick: () => void; small?: boolean }) {
+function BtnPerigo({ label, onClick, small }: { label: string; onClick: (e: React.MouseEvent<HTMLButtonElement>) => void; small?: boolean }) {
   return <button onClick={onClick} style={{ ...btnBase, background: "transparent", border: "1px solid #c0392b", color: "#c0392b", fontSize: small ? 11 : 13, padding: small ? "5px 13px" : "8px 20px" }}>{label}</button>;
 }
 
@@ -186,6 +187,15 @@ function InputField({ label, type = "text", value, onChange, min }: { label: str
       <label style={{ display: "block", fontSize: 10, fontWeight: 400, letterSpacing: 2, color: "var(--accent-muted)", marginBottom: 5, textTransform: "uppercase" as const }}>{label}</label>
       <input type={type} value={value} onChange={e => onChange(e.target.value)} min={min}
         style={{ width: "100%", background: "#fff", border: "1px solid var(--border-warm)", borderRadius: 6, color: "var(--panel-dark)", padding: "9px 12px", fontSize: 13, outline: "none", boxSizing: "border-box" as const }} />
+    </div>
+  );
+}
+function TextareaField({ label, value, onChange, rows = 3 }: { label: string; value: string; onChange: (v: string) => void; rows?: number }) {
+  return (
+    <div style={{ marginBottom: 14 }}>
+      <label style={{ display: "block", fontSize: 10, fontWeight: 400, letterSpacing: 2, color: "var(--accent-muted)", marginBottom: 5, textTransform: "uppercase" as const }}>{label}</label>
+      <textarea value={value} onChange={e => onChange(e.target.value)} rows={rows}
+        style={{ width: "100%", background: "#fff", border: "1px solid var(--border-warm)", borderRadius: 6, color: "var(--panel-dark)", padding: "9px 12px", fontSize: 13, outline: "none", boxSizing: "border-box" as const, resize: "vertical" as const, fontFamily: "inherit" }} />
     </div>
   );
 }
@@ -806,8 +816,10 @@ function AlunoView({ userName, educandoId }: { userName: string; educandoId?: st
     setLoading(true);
     const urlSemana = educandoId ? `${API}/semana/educando/${educandoId}?offset=${offset}` : `${API}/semana?offset=${offset}`;
     const urlCoaching = educandoId ? `${API}/coaching/educando/${educandoId}` : `${API}/coaching`;
-    const urlDisp = educandoId ? `${API}/coachingsdisponiveis/educando/${educandoId}?offset=${offset}` : `${API}/coachingsdisponiveis?offset=${offset}`;
-
+    const urlDisp = educandoId 
+      ? `${API}/coachingsdisponiveis/educando/${educandoId}` 
+      : `${API}/coachingsdisponiveis`;
+      
     Promise.all([
       apiFetch<AulaDto[]>(urlSemana),
       apiFetch<{ content: CoachingDto[] }>(urlCoaching),
@@ -841,7 +853,7 @@ function AlunoView({ userName, educandoId }: { userName: string; educandoId?: st
       const url = educandoId ? `${API}/marcarcoaching/educando/${educandoId}` : `${API}/marcarcoaching`;
       const res = await apiFetch<any>(url, { method:"POST", body:JSON.stringify(form) });
       const estudio = res?.aulaDto?.estudio?.nome || "um dos nossos estúdios";
-      setOk(`Coaching marcado com sucesso no estúdio [ ${estudio} ]!`);
+      setOk(`Pedido de coaching enviado com sucesso no estúdio [ ${estudio} ]!`);
       carregarDados();
       setTimeout(() => setIsModalOpen(false), 2200);
     } catch (e: any) { setErr(e.message || "Erro ao marcar coaching."); }
@@ -966,8 +978,16 @@ function ProfessorView({ userName }: { userName: string }) {
 
   useEffect(() => { load(); }, [load]);
 
-  const confirmar = async (id: string) => { await apiFetch(`${API}/professor/coaching/${id}/confirmar`,{method:"PUT"}); load(); };
-  const rejeitar  = async (id: string) => { await apiFetch(`${API}/professor/coaching/rejeitar/${id}`,{method:"PUT"}); load(); };
+  const confirmar = async (id: string) => {
+    await apiFetch(`${API}/professor/coaching/${id}/confirmar`, { method: "PUT" });
+    setPend(prev => prev.filter(c => c.aulaDto.id !== id));
+    load();
+  };
+  const rejeitar = async (id: string) => {
+    await apiFetch(`${API}/professor/coaching/rejeitar/${id}`, { method: "PUT" });
+    setPend(prev => prev.filter(c => c.aulaDto.id !== id));
+    load();
+  };
   
   const openCriar = () => {
     setDispForm({ diaSemana:1, horaInicio:"", horaFim:"", validoDe:"", validoAte:"" });
@@ -1019,23 +1039,57 @@ function ProfessorView({ userName }: { userName: string }) {
             </div>
             {pendentes.length===0 && <Empty>Sem solicitações pendentes de aprovação.</Empty>}
             <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill, minmax(320px, 1fr))", gap:16 }}>
-              {pendentes.map(c => (
+              {pendentes.map(c => {
+                const diaSemana = c.aulaDto.dataAula
+                  ? (() => { const d = new Date(c.aulaDto.dataAula + "T00:00:00"); return DIAS[d.getDay() === 0 ? 6 : d.getDay() - 1]; })()
+                  : "—";
+                return (
                 <div key={c.aulaDto.id} style={{ background:"#fff", border:"1px solid var(--border-warm)", borderRadius:12, padding:"20px", display:"flex", flexDirection:"column", justifyContent:"space-between", boxShadow:"0 2px 4px rgba(0,0,0,0.01)" }}>
                   <div>
-                    <div style={{ display:"flex", justifyContent:"space-between", marginBottom:8 }}>
-                      <span style={{ fontWeight:600, fontSize:15, color:"var(--panel-dark)" }}>{c.modalidadeDto?.nome}</span>
+                    <div style={{ display:"flex", justifyContent:"space-between", marginBottom:10 }}>
+                      <span style={{ fontWeight:600, fontSize:15, color:"var(--panel-dark)", fontFamily:"var(--font-playfair)" }}>{c.modalidadeDto?.nome}</span>
                       <EstadoBadge estado={c.estadoAulaDto.estado} />
                     </div>
-                    <div style={{ fontSize:13, color:"var(--accent-muted)", marginBottom:14 }}>
-                      Data: {c.aulaDto.dataAula} <br />Horário: {trimHora(c.aulaDto.horaInicio)} – {trimHora(c.aulaDto.horaFim)}
+                    <div style={{ display:"flex", flexDirection:"column", gap:6, fontSize:13, color:"var(--panel-dark)", borderTop:"1px solid #FAF8F5", paddingTop:10 }}>
+                      {c.solicitadoPor && (
+                        <div style={{ display:"flex", alignItems:"center", gap:6 }}>
+                          <i className="ti ti-user" style={{ color:"var(--accent-muted)", fontSize:13 }} />
+                          <span style={{ color:"var(--accent-muted)" }}>Pedido por:</span>
+                          <strong>{c.solicitadoPor.nome}</strong>
+                        </div>
+                      )}
+                      <div style={{ display:"flex", alignItems:"center", gap:6 }}>
+                        <i className="ti ti-calendar" style={{ color:"var(--accent-muted)", fontSize:13 }} />
+                        <span style={{ color:"var(--accent-muted)" }}>Data:</span>
+                        <strong>{c.aulaDto.dataAula}</strong>
+                        <span style={{ background:"#f0ede8", color:"var(--panel-dark)", borderRadius:4, padding:"1px 8px", fontSize:11, fontWeight:600, marginLeft:4 }}>{diaSemana}</span>
+                      </div>
+                      <div style={{ display:"flex", alignItems:"center", gap:6 }}>
+                        <i className="ti ti-clock" style={{ color:"var(--accent-muted)", fontSize:13 }} />
+                        <span style={{ color:"var(--accent-muted)" }}>Horário:</span>
+                        <strong>{trimHora(c.aulaDto.horaInicio)} – {trimHora(c.aulaDto.horaFim)}</strong>
+                      </div>
+                      <div style={{ display:"flex", alignItems:"center", gap:6 }}>
+                        <i className="ti ti-users" style={{ color:"var(--accent-muted)", fontSize:13 }} />
+                        <span style={{ color:"var(--accent-muted)" }}>Máx. alunos:</span>
+                        <strong>{c.max_alunos}</strong>
+                      </div>
+                      {c.aulaDto.estudio && (
+                        <div style={{ display:"flex", alignItems:"center", gap:6 }}>
+                          <i className="ti ti-building" style={{ color:"var(--accent-muted)", fontSize:13 }} />
+                          <span style={{ color:"var(--accent-muted)" }}>Estúdio:</span>
+                          <strong>{c.aulaDto.estudio.nome}</strong>
+                        </div>
+                      )}
                     </div>
                   </div>
-                  <div style={{ display:"flex", gap:8, justifyContent:"flex-end", borderTop:"1px solid #FAF8F5", paddingTop:12 }}>
+                  <div style={{ display:"flex", gap:8, justifyContent:"flex-end", borderTop:"1px solid #FAF8F5", paddingTop:12, marginTop:14 }}>
                     <BtnSecundario label="Rejeitar" onClick={()=>rejeitar(c.aulaDto.id)} small />
                     <BtnPrimario   label="Confirmar" onClick={()=>confirmar(c.aulaDto.id)} small />
                   </div>
                 </div>
-              ))}
+                );
+              })}
             </div>
           </div>
         )}
@@ -1183,6 +1237,7 @@ function CoordenacaoView() {
   const [modModalOpen, setModModalOpen] = useState(false);
   const [modErr, setModErr]             = useState("");
   const [modNome, setModNome]           = useState("");
+  const [modDescricao, setModDescricao] = useState("");
 
   // ── Estúdio modal (criar/editar) ──────────────────────────────────────────
   const [estModalOpen, setEstModalOpen]       = useState(false);
@@ -1190,6 +1245,7 @@ function CoordenacaoView() {
   const [estErr, setEstErr]                   = useState("");
   const [estNome, setEstNome]                 = useState("");
   const [estCapacidade, setEstCapacidade]     = useState<number|"">("");
+  const [estNotas, setEstNotas]               = useState("");
 
   // ── Estúdio: modal de associações ─────────────────────────────────────────
   const [assocModalOpen, setAssocModalOpen]           = useState(false);
@@ -1262,11 +1318,11 @@ function CoordenacaoView() {
   };
 
   // ── Modalidade CRUD ───────────────────────────────────────────────────────
-  const openCriarMod = () => { setModNome(""); setModErr(""); setModModalOpen(true); };
+  const openCriarMod = () => { setModNome(""); setModDescricao(""); setModErr(""); setModModalOpen(true); };
   const submitMod = async () => {
     setModErr("");
     try {
-      await apiFetch(`/api/modalidades`,{method:"POST",body:JSON.stringify({ nome: modNome })});
+      await apiFetch(`/api/modalidades`,{method:"POST",body:JSON.stringify({ nome: modNome, descricao: modDescricao })});
       setModModalOpen(false); load();
     } catch(e:unknown) { setModErr(String(e)); }
   };
@@ -1277,6 +1333,7 @@ function CoordenacaoView() {
     setEditEstId(null);
     setEstNome("");
     setEstCapacidade("");
+    setEstNotas("");
     setEstErr("");
     setEstModalOpen(true);
   };
@@ -1284,6 +1341,7 @@ function CoordenacaoView() {
     setEditEstId(e.id);
     setEstNome(e.nome);
     setEstCapacidade(e.capacidade ?? "");
+    setEstNotas(e.notas ?? "");
     setEstErr("");
     setEstModalOpen(true);
   };
@@ -1291,7 +1349,7 @@ function CoordenacaoView() {
     setEstErr("");
     if (!estNome.trim()) { setEstErr("O nome é obrigatório."); return; }
     const capacidadeVal = estCapacidade === "" ? null : Number(estCapacidade);
-    const payload = { nome: estNome, capacidade: capacidadeVal };
+    const payload = { nome: estNome, capacidade: capacidadeVal, notas: estNotas || null };
     try {
       if (editEstId) {
         await apiFetch(`/api/estudios/${editEstId}`, { method: "PUT", body: JSON.stringify(payload) });
@@ -1302,7 +1360,20 @@ function CoordenacaoView() {
       load();
     } catch(e:unknown) { setEstErr(String(e)); }
   };
-  const delEst = async (id: string) => { if (!confirm("Remover este estúdio?")) return; await apiFetch(`/api/estudios/${id}`,{method:"DELETE"}); load(); };
+  const delEst = async (id: string) => {
+    if (!confirm("Remover este estúdio?")) return;
+    try {
+      await apiFetch(`/api/estudios/${id}`, { method: "DELETE" });
+      load();
+    } catch (e: unknown) {
+      const msg = String(e);
+      if (msg.toLowerCase().includes("constraint") || msg.toLowerCase().includes("foreign") || msg.toLowerCase().includes("integrity")) {
+        alert("Não é possível remover este estúdio porque tem modalidades associadas.\nRemove primeiro as modalidades associadas e depois tenta novamente.");
+      } else {
+        alert("Erro ao remover estúdio: " + msg);
+      }
+    }
+  };
 
   // ── Associar Estúdio ↔ Modalidade ─────────────────────────────────────────
   const carregarRelacoesEstudio = async (id: string) => {
@@ -1753,7 +1824,24 @@ function CoordenacaoView() {
       <Modal open={horModalOpen} onClose={() => setHorModalOpen(false)} title={editHorId ? "Editar Horário Fixo" : "Novo Horário Fixo"}>
         {horErr && <ErrMsg msg={horErr} />}
         <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12 }}>
-          <SelectField label="Turma"         value={horForm.idturma}     onChange={v=>setHorForm(p=>({...p,idturma:v}))}      options={turmas.map(t=>({value:t.id,label:t.nome}))}     placeholder="Escolher turma..." />
+          <div style={{ marginBottom: 14 }}>
+            <label style={{ display:"block", fontSize:10, fontWeight:400, letterSpacing:2, color:"var(--accent-muted)", marginBottom:5, textTransform:"uppercase" as const }}>Turma</label>
+            <select
+              key={`turma-select-${editHorId ?? "novo"}`}
+              value={horForm.idturma}
+              onChange={e => setHorForm(p => ({ ...p, idturma: e.target.value }))}
+              style={{ width:"100%", background:"#fff", border:"1px solid var(--border-warm)", borderRadius:6, color:"var(--panel-dark)", padding:"9px 12px", fontSize:13, outline:"none", cursor:"pointer" }}
+            >
+              <option value="">Escolher turma...</option>
+              {turmas.map(t => <option key={t.id} value={t.id}>{t.nome}{t.ativo===false?" (inativa)":""}</option>)}
+              {horForm.idturma && !turmas.some(t => t.id === horForm.idturma) && (() => {
+                const horAtual = horarios.find(h => h.id === editHorId);
+                return horAtual?.idturmaId
+                  ? <option key={horAtual.idturmaId.id} value={horAtual.idturmaId.id}>{horAtual.idturmaId.nome} (atual)</option>
+                  : null;
+              })()}
+            </select>
+          </div>
           <SelectField label="Estúdio"       value={horForm.estudioId}   onChange={v=>setHorForm(p=>({...p,estudioId:v}))}    options={estudios.map(e=>({value:e.id,label:e.nome}))}   placeholder="Escolher estúdio..." />
           <SelectField label="Professor"     value={horForm.idProfessor} onChange={v=>setHorForm(p=>({...p,idProfessor:v}))}  options={professores.map(p=>({value:p.id,label:p.nome}))} placeholder="Escolher professor..." />
           <SelectField label="Dia da semana" value={horForm.diaSemana?.toString()||""} onChange={v=>setHorForm(p=>({...p,diaSemana:v}))} options={DIAS_OPTIONS.map(d=>({value:d.value.toString(),label:d.label}))} placeholder="Escolher dia..." />
@@ -1797,6 +1885,7 @@ function CoordenacaoView() {
       <Modal open={modModalOpen} onClose={() => setModModalOpen(false)} title="Nova Modalidade">
         {modErr && <ErrMsg msg={modErr} />}
         <InputField label="Nome da modalidade" value={modNome} onChange={setModNome} />
+        <TextareaField label="Descrição" value={modDescricao} onChange={setModDescricao} />
         <div style={{ display:"flex", gap:10, marginTop:20, justifyContent:"flex-end" }}>
           <BtnSecundario label="Cancelar" onClick={()=>setModModalOpen(false)} />
           <BtnPrimario label="Criar Modalidade" onClick={submitMod} />
@@ -1821,6 +1910,7 @@ function CoordenacaoView() {
               style={{ width:"100%", padding:"8px 12px", borderRadius:6, border:"1px solid var(--border-warm)", fontSize:14, outline:"none", boxSizing:"border-box" }}
             />
           </div>
+          <TextareaField label="Notas" value={estNotas} onChange={setEstNotas} />
         </div>
         <div style={{ display:"flex", gap:10, marginTop:24, justifyContent:"flex-end" }}>
           <BtnSecundario label="Cancelar" onClick={()=>setEstModalOpen(false)} />
@@ -1881,15 +1971,6 @@ function CoordenacaoView() {
 
 function Empty({ children }: { children: React.ReactNode }) {
   return <p style={{ color:"var(--accent-muted)", fontSize:14, fontWeight:400, margin:"12px 0 24px", fontStyle:"italic" }}>{children}</p>;
-}
-function TextareaField({ label, value, onChange }: { label: string; value: string; onChange: (v: string) => void }) {
-  return (
-    <div style={{ marginBottom:14 }}>
-      <label style={{ display:"block", fontSize:10, fontWeight:400, letterSpacing:2, color:"var(--accent-muted)", marginBottom:5, textTransform:"uppercase" as const }}>{label}</label>
-      <textarea value={value} onChange={e=>onChange(e.target.value)} rows={3}
-        style={{ width:"100%", background:"#fff", border:"1px solid var(--border-warm)", borderRadius:6, color:"var(--panel-dark)", padding:"9px 12px", fontSize:13, outline:"none", resize:"vertical", boxSizing:"border-box", fontFamily:"Lato, sans-serif" }} />
-    </div>
-  );
 }
 
 // ─── Página Principal ─────────────────────────────────────────────────────────
