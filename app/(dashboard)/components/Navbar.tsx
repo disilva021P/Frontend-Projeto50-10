@@ -28,6 +28,12 @@ const NAV_SECTIONS = [
       { label: "Inventário", href: "/inventario" },
     ],
   },
+  {
+    title: "OutrasPaginas",
+    items: [
+      { label: "Ver Perfil", href: "/utilizadores/verPerfil" },
+    ],
+  },
 ];
 
 export default function Navbar() {

@@ -25,6 +25,16 @@ interface Artigo {
   imagemIds: string[];
 }
 
+// Interface para mapear os itens vindos do Inventário Escolar (conforme o teu ficheiro do inventário)
+interface ItemInventario {
+  id: string;
+  nomeArtigo: string; // no teu inventário chama-se nomeArtigo
+  descricao: string;
+  tamanho: string;
+  cor: string;
+  condicao: string;
+}
+
 interface PaginaResponse {
   content: Artigo[];
   totalPages: number;
@@ -122,20 +132,27 @@ function GaleriaImagens({ ids }: { ids: string[] }) {
 export default function MarketplacePage() {
   const router = useRouter();
 
-  // Estados mantidos apenas para controlo interno e Marketplace
   const [userName, setUserName] = useState("");
   const [role, setRole] = useState<Role | null>(null);
 
-  // Estados do Marketplace
   const [artigos, setArtigos] = useState<Artigo[]>([]);
   const [paginaAtual, setPaginaAtual] = useState(0);
   const [totalPaginas, setTotalPaginas] = useState(0);
   const [loading, setLoading] = useState(true);
 
-  // Estados de Coordenação / Doações Pendentes
   const [pendentes, setPendentes] = useState<Artigo[]>([]);
   const [mostrarPendentes, setMostrarPendentes] = useState(false);
   const [loadingPendentes, setLoadingPendentes] = useState(false);
+
+  // Estados para Exportação do Inventário
+  const [inventarioItems, setInventarioItems] = useState<ItemInventario[]>([]);
+  const [modalInventarioAberto, setModalInventarioAberto] = useState(false);
+  const [loadingInventario, setLoadingInventario] = useState(false);
+  const [pesquisaInventario, setPesquisaInventario] = useState("");
+  // NOVO ESTADO: Guarda o ID do item original do inventário para remoção pós-sucesso
+  const [idOrigemInventario, setIdOrigemInventario] = useState<string | null>(
+    null,
+  );
 
   const [pesquisa, setPesquisa] = useState("");
   const [filtroTipo, setFiltroTipo] = useState<number | null>(null);
@@ -189,14 +206,22 @@ export default function MarketplacePage() {
         setRole((parsed.tipoUtilizadorId as Role) ?? null);
         idFinal = parsed.id ?? parsed.sub;
         nomeUsuario = parsed.nome ?? "Utilizador";
-      } catch { /* ignora */ }
+      } catch {
+        /* ignora */
+      }
     }
 
     if (!idFinal && token) {
       try {
-        const payload = JSON.parse(window.atob(token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/')));
+        const payload = JSON.parse(
+          window.atob(
+            token.split(".")[1].replace(/-/g, "+").replace(/_/g, "/"),
+          ),
+        );
         idFinal = payload.sub ?? payload.id;
-      } catch { /* ignora */ }
+      } catch {
+        /* ignora */
+      }
     }
 
     if (idFinal) {
@@ -226,13 +251,13 @@ export default function MarketplacePage() {
   const carregarArtigos = async (pagina: number) => {
     setLoading(true);
     try {
-      const params: any = { 
-        page: pagina, 
+      const params: any = {
+        page: pagina,
         size: 12,
-        sortBy: 'criadoEm',
-        direction: 'desc'
+        sortBy: "criadoEm",
+        direction: "desc",
       };
-      
+
       if (pesquisa) params.nome = pesquisa;
       if (filtroTipo !== null) params.tipoId = filtroTipo;
       if (filtroTamanho) params.tamanho = filtroTamanho;
@@ -247,36 +272,36 @@ export default function MarketplacePage() {
 
         if (!meuIdReal && token) {
           try {
-            const base64Url = token.split('.')[1];
-            const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+            const base64Url = token.split(".")[1];
+            const base64 = base64Url.replace(/-/g, "+").replace(/_/g, "/");
             const payload = JSON.parse(window.atob(base64));
-            meuIdReal = payload.sub; 
+            meuIdReal = payload.sub;
           } catch (e) {
             console.error("Erro ao extrair ID para o filtro:", e);
           }
         }
 
-        if (meuIdReal) {
-          params.donoId = meuIdReal;
-        }
+        if (meuIdReal) params.donoId = meuIdReal;
       }
 
-      const response = await api.get<PaginaResponse>('/marketplace', { params });
+      const response = await api.get<PaginaResponse>("/marketplace", {
+        params,
+      });
       setArtigos(response.data.content);
       setTotalPaginas(response.data.totalPages);
       setPaginaAtual(response.data.number);
     } catch (error) {
-      console.error('Erro ao carregar:', error);
-    } finally {
+      console.error("Erro ao carregar:", error);
+    }
+    {
       setLoading(false);
     }
   };
 
-  // Carrega as Doações Pendentes (Exclusivo Coordenação)
   const carregarPendentes = async () => {
     setLoadingPendentes(true);
     try {
-      const response = await api.get<Artigo[]>('/coordenacao/pendentes');
+      const response = await api.get<Artigo[]>("/coordenacao/pendentes");
       setPendentes(response.data);
     } catch (error) {
       console.error("Erro ao carregar doações pendentes:", error);
@@ -285,21 +310,74 @@ export default function MarketplacePage() {
     }
   };
 
-  // Executa a ação de triagem (Aprovar=2, Recusar=5, Inventário=9)
+  const carregarInventarioParaExportar = async () => {
+    setLoadingInventario(true);
+    try {
+      const params: any = {
+        page: 0,
+        size: 50,
+        sortBy: 'criadoEm',
+        direction: 'desc'
+      };
+      
+      // MUDANÇA AQUI: O teu Controller espera 'nome', não 'pesquisa'
+      if (pesquisaInventario.trim()) {
+        params.nome = pesquisaInventario.trim();
+      }
+      
+      const response = await api.get<any>('/inventario', { params });
+      
+      // Como o teu backend retorna um Page<InventarioDto>, os dados estão em response.data.content
+      const dados = response.data.content ? response.data.content : response.data;
+      setInventarioItems(dados);
+    } catch (error) {
+      console.error("Erro ao carregar itens do inventário:", error);
+    } finally {
+      setLoadingInventario(false);
+    }
+  };
+
+  const handleSelecionarItemInventario = (item: ItemInventario) => {
+    setForm({
+      nome: item.nomeArtigo || "", // mapeando nomeArtigo vindo do inventário
+      descricao: item.descricao || "",
+      tamanho: item.tamanho || "",
+      cor: item.cor || "",
+      condicao:
+        item.condicao && CONDICOES.includes(item.condicao)
+          ? item.condicao
+          : "Novo",
+      isVenda: false,
+      isAluguer: false,
+      isDoacao: false,
+      precoVenda: "",
+      precoAluguer: "",
+    });
+    setImagens([]);
+    setPreviews([]);
+    setErro(null);
+    setIdSendoEditado(null);
+
+    // Vincula o ID de origem para sabermos que este artigo veio do inventário escolar
+    setIdOrigemInventario(item.id);
+
+    setModalInventarioAberto(false);
+    setModalAberto(true);
+  };
+
   const handleDecisao = async (id: string, novoEstado: number) => {
     let acaoTexto = "alterar o estado deste artigo";
     if (novoEstado === 2) acaoTexto = "aceitar e publicar esta doação";
     if (novoEstado === 5) acaoTexto = "recusar esta doação";
-    if (novoEstado === 9) acaoTexto = "adicionar este artigo diretamente ao inventário escolar";
+    if (novoEstado === 9)
+      acaoTexto = "adicionar este artigo diretamente ao inventário escolar";
 
     if (!confirm(`Tem a certeza que deseja ${acaoTexto}?`)) return;
 
     try {
       await api.put(`/marketplace/artigos/${id}/estado/${novoEstado}`);
       alert("Operação realizada com sucesso!");
-      // Atualiza o estado local removendo o item processado de forma instantânea
       setPendentes((prev) => prev.filter((artigo) => artigo.id !== id));
-      // Recarrega a montra principal caso o item tenha sido publicado
       if (novoEstado === 2) carregarArtigos(0);
     } catch (error) {
       console.error("Erro ao processar decisão:", error);
@@ -323,14 +401,24 @@ export default function MarketplacePage() {
     precoMax,
     apenasMeus,
     usuarioLogado?.id,
-    mostrarPendentes
+    mostrarPendentes,
   ]);
 
   useEffect(() => {
-  if (role === "COORDENACAO") {
-    carregarPendentes(); // carrega a contagem em background
-  }
-}, [role]);
+    if (role === "COORDENACAO") {
+      carregarPendentes();
+    }
+  }, [role]);
+
+  useEffect(() => {
+    if (modalInventarioAberto) {
+      const delayDebounce = setTimeout(() => {
+        carregarInventarioParaExportar();
+      }, 300);
+
+      return () => clearTimeout(delayDebounce);
+    }
+  }, [modalInventarioAberto, pesquisaInventario]);
 
   const handleChange = (
     e: React.ChangeEvent<
@@ -386,7 +474,6 @@ export default function MarketplacePage() {
     const totalImagensRestantes = previews.length;
     const temOpcaoNegocio = form.isVenda || form.isAluguer || form.isDoacao;
 
-    // ─── VALIDAÇÕES DOS CAMPOS TEXTO OBRIGATÓRIOS ───
     if (!form.nome.trim()) {
       setErro("Por favor, introduza o nome do artigo.");
       return;
@@ -396,31 +483,33 @@ export default function MarketplacePage() {
       return;
     }
     if (!form.tamanho.trim()) {
-      setErro("Por favor, introduza o tamanho do artigo (ex: S, M, L, 38).");
+      setErro("Por favor, introduza o tamanho do artigo.");
       return;
     }
     if (!form.cor.trim()) {
       setErro("Por favor, especifique a cor do artigo.");
       return;
     }
-
-    // Validação das Opções de Negócio
     if (!temOpcaoNegocio) {
-      setErro("Escolha pelo menos uma opção de negócio (Doação, Venda ou Aluguer).");
+      setErro(
+        "Escolha pelo menos uma opção de negócio (Doação, Venda ou Aluguer).",
+      );
       return;
     }
-
-    // Validação condicional dos preços com base no tipo de negócio ativo
-    if (form.isVenda && (!form.precoVenda || parseFloat(form.precoVenda) <= 0)) {
-      setErro("Por favor, insira um preço de venda válido e superior a 0€.");
+    if (
+      form.isVenda &&
+      (!form.precoVenda || parseFloat(form.precoVenda) <= 0)
+    ) {
+      setErro("Por favor, insira um preço de venda válido superior a 0€.");
       return;
     }
-    if (form.isAluguer && (!form.precoAluguer || parseFloat(form.precoAluguer) <= 0)) {
-      setErro("Por favor, insira um preço de aluguer válido e superior a 0€.");
+    if (
+      form.isAluguer &&
+      (!form.precoAluguer || parseFloat(form.precoAluguer) <= 0)
+    ) {
+      setErro("Por favor, insira um preço de aluguer válido superior a 0€.");
       return;
     }
-
-    // Validação das Imagens
     if (totalImagensRestantes === 0) {
       setErro("O artigo deve conter pelo menos uma imagem descritiva.");
       return;
@@ -450,13 +539,33 @@ export default function MarketplacePage() {
           headers: { "Content-Type": "multipart/form-data" },
         });
       } else {
+        // Criação regular do anúncio no Marketplace
         await api.post("/marketplace", formData, {
           headers: { "Content-Type": "multipart/form-data" },
         });
+
+        // MODIFICAÇÃO AQUI: Se veio do inventário escolar, removemos após o sucesso da criação
+        if (idOrigemInventario) {
+          try {
+            await api.delete(`/inventario/${idOrigemInventario}`);
+            console.log(
+              `Item ${idOrigemInventario} removido com sucesso do inventário.`,
+            );
+          } catch (delErr) {
+            console.error(
+              "Anúncio criado, mas falhou ao apagar o item original do inventário:",
+              delErr,
+            );
+            alert(
+              "O anúncio foi publicado, mas ocorreu um problema ao dar baixa automática no inventário escolar.",
+            );
+          }
+        }
       }
 
       setModalAberto(false);
       setIdSendoEditado(null);
+      setIdOrigemInventario(null); // reseta o estado de controle de origem
       setForm({
         nome: "",
         descricao: "",
@@ -474,7 +583,7 @@ export default function MarketplacePage() {
       carregarArtigos(0);
     } catch (err: any) {
       setErro(
-        "Ocorreu um erro ao guardar o artigo. Por favor, verifique os dados e tente novamente.",
+        "Ocorreu um erro ao guardar o artigo. Por favor, tente novamente.",
       );
     } finally {
       setLoadingInserir(false);
@@ -498,6 +607,7 @@ export default function MarketplacePage() {
 
   const prepararEdicao = (artigo: Artigo) => {
     setIdSendoEditado(artigo.id);
+    setIdOrigemInventario(null); // Garante que edição de anúncios não dispare remoções
     setForm({
       nome: artigo.nome,
       descricao: artigo.descricao || "",
@@ -587,15 +697,15 @@ export default function MarketplacePage() {
   };
 
   const handleDevolver = async (transacaoId: string) => {
-      if (!confirm("Confirma a devolução deste artigo?")) return;
-      try {
-          await api.put(`/transacoes/${transacaoId}/devolver`);
-          alert("Artigo devolvido com sucesso!");
-          carregarAlugueresAtivos();
-          carregarArtigos(0);
-      } catch (err) {
-          alert("Erro ao devolver artigo.");
-      }
+    if (!confirm("Confirma a devolução deste artigo?")) return;
+    try {
+      await api.put(`/transacoes/${transacaoId}/devolver`);
+      alert("Artigo devolvido com sucesso!");
+      carregarAlugueresAtivos();
+      carregarArtigos(0);
+    } catch (err) {
+      alert("Erro ao devolver artigo.");
+    }
   };
 
   const carregarAlugueresAtivos = async () => {
@@ -632,7 +742,6 @@ export default function MarketplacePage() {
             </div>
 
             <div className="flex items-center gap-3 self-end sm:self-auto flex-wrap">
-              {/* 1. Botão Administrativo: Doações Pendentes (Apenas Visível para COORDENACAO) */}
               {role === "COORDENACAO" && (
                 <button
                   onClick={() => {
@@ -648,16 +757,31 @@ export default function MarketplacePage() {
                 >
                   <i className="ti ti-gavel" /> Doações Pendentes
                   {pendentes.length > 0 && (
-                    <span className={`ml-1 inline-flex items-center justify-center w-4 h-4 rounded-full text-[10px] font-semibold leading-none ${
-                      mostrarPendentes ? "bg-white text-[#3A6A3A]" : "bg-[#3A6A3A] text-white"
-                    }`}>
+                    <span
+                      className={`ml-1 inline-flex items-center justify-center w-4 h-4 rounded-full text-[10px] font-semibold leading-none ${
+                        mostrarPendentes
+                          ? "bg-white text-[#3A6A3A]"
+                          : "bg-[#3A6A3A] text-white"
+                      }`}
+                    >
                       {pendentes.length}
                     </span>
                   )}
                 </button>
               )}
 
-              {/* 2. Botão Recompras/Alugueres */}
+              {role === "COORDENACAO" && (
+                <button
+                  onClick={() => {
+                    setPesquisaInventario("");
+                    setModalInventarioAberto(true);
+                  }}
+                  className="px-4 py-2 bg-[#FFFCF8] border border-border-warm hover:border-accent-muted text-panel-dark rounded-sm text-xs tracking-wide uppercase flex items-center gap-1.5 transition-all"
+                >
+                  <i className="ti ti-download" /> Exportar do Inventário
+                </button>
+              )}
+
               {apenasMeus && !mostrarPendentes && (
                 <button
                   onClick={() => setMostrarAlugueres(!mostrarAlugueres)}
@@ -667,11 +791,11 @@ export default function MarketplacePage() {
                       : "bg-[#FFFCF8] text-panel-dark border-border-warm hover:border-accent-muted"
                   }`}
                 >
-                  <i className="ti ti-package mr-1" /> Alugueres ({alugueresAtivos.length})
+                  <i className="ti ti-package mr-1" /> Alugueres (
+                  {alugueresAtivos.length})
                 </button>
               )}
 
-              {/* 3. Botão Ver os meus anúncios */}
               {!mostrarPendentes && (
                 <button
                   onClick={() => {
@@ -684,14 +808,16 @@ export default function MarketplacePage() {
                       : "bg-[#FFFCF8] text-accent-muted border-border-warm hover:border-accent-muted"
                   }`}
                 >
-                  {apenasMeus ? "• Ver todos os artigos" : "Ver os meus anúncios"}
+                  {apenasMeus
+                    ? "• Ver todos os artigos"
+                    : "Ver os meus anúncios"}
                 </button>
               )}
 
-              {/* 4. Botão Criar Anúncio */}
               <button
                 onClick={() => {
                   setIdSendoEditado(null);
+                  setIdOrigemInventario(null); // limpa controle
                   setForm({
                     nome: "",
                     descricao: "",
@@ -715,10 +841,8 @@ export default function MarketplacePage() {
             </div>
           </header>
 
-          {/* Oculta filtros e pesquisa se estiver no painel de moderação de pendentes */}
           {!mostrarPendentes && (
             <>
-              {/* PESQUISA */}
               <div className="relative mb-5">
                 <i className="ti ti-search absolute inset-y-0 left-3 flex items-center text-accent-muted text-sm" />
                 <input
@@ -730,7 +854,6 @@ export default function MarketplacePage() {
                 />
               </div>
 
-              {/* FILTROS */}
               <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 mb-6 bg-[#FBF7F2] p-4 border border-border-warm rounded-sm">
                 <div>
                   <label className="text-[9px] uppercase tracking-wider font-normal text-accent-muted block mb-1">
@@ -738,7 +861,9 @@ export default function MarketplacePage() {
                   </label>
                   <select
                     onChange={(e) =>
-                      setFiltroTipo(e.target.value ? Number(e.target.value) : null)
+                      setFiltroTipo(
+                        e.target.value ? Number(e.target.value) : null,
+                      )
                     }
                     className="w-full bg-[#FFFCF8] border border-border-warm rounded-sm p-1.5 text-xs text-panel-dark outline-none focus:border-panel-dark transition-colors"
                   >
@@ -813,7 +938,6 @@ export default function MarketplacePage() {
             </>
           )}
 
-          {/* SEÇÃO RECOMPRAS / ALUGUERES ATIVOS */}
           {apenasMeus && mostrarAlugueres && !mostrarPendentes && (
             <div className="mb-6 space-y-3">
               <h2
@@ -821,7 +945,7 @@ export default function MarketplacePage() {
                 className="text-sm text-panel-dark flex items-center gap-1"
               >
                 <i className="ti ti-package text-accent-muted" /> Artigos
-                requisitados por ti
+                requisados por ti
               </h2>
               {alugueresAtivos.length === 0 ? (
                 <div className="text-center py-6 text-xs text-accent-muted bg-[#FBF7F2] rounded-sm border border-dashed border-border-warm">
@@ -866,7 +990,6 @@ export default function MarketplacePage() {
             </div>
           )}
 
-          {/* ── VISÃO DO COORDENADOR: LISTA DE DOAÇÕES PENDENTES ── */}
           {mostrarPendentes ? (
             loadingPendentes ? (
               <div className="flex flex-col items-center justify-center py-20 text-accent-muted gap-3">
@@ -927,12 +1050,13 @@ export default function MarketplacePage() {
                           {artigo.descricao || "Sem descrição informada."}
                         </p>
                         <p className="text-[11px] text-panel-dark bg-[#FBF7F2] px-2 py-1 rounded-xs inline-block font-light">
-                          {[artigo.tamanho, artigo.cor, artigo.condicao].filter(Boolean).join(" · ")}
+                          {[artigo.tamanho, artigo.cor, artigo.condicao]
+                            .filter(Boolean)
+                            .join(" · ")}
                         </p>
                       </div>
                     </div>
 
-                    {/* Botões de Ação para a Triagem */}
                     <div className="p-3 pt-0 border-t border-[#FBF7F2] mt-2 grid grid-cols-3 gap-1.5">
                       <button
                         onClick={() => handleDecisao(artigo.id, 2)}
@@ -960,93 +1084,146 @@ export default function MarketplacePage() {
                 ))}
               </div>
             )
+          ) : loading ? (
+            <div className="flex flex-col items-center justify-center py-20 text-accent-muted gap-3">
+              <div
+                style={{ borderTopColor: "var(--accent-gold)" }}
+                className="w-5 h-5 border-2 border-border-warm rounded-full animate-spin"
+              ></div>
+              <p className="text-[11px] font-light uppercase tracking-wider animate-pulse">
+                A atualizar montra...
+              </p>
+            </div>
+          ) : mostrarAlugueres ? null : artigos.length === 0 ? (
+            <div className="text-center py-20 text-accent-muted bg-[#FBF7F2] rounded-sm border border-dashed border-border-warm max-w-md mx-auto px-4">
+              <i className="ti ti-box text-2xl block mb-2 text-border-warm" />
+              <h3
+                style={{ fontFamily: "var(--font-playfair)" }}
+                className="text-sm text-panel-dark font-normal"
+              >
+                Nenhum artigo encontrado
+              </h3>
+              <p className="text-xs text-accent-muted mt-1 font-light">
+                Experimenta ajustar os filtros aplicados.
+              </p>
+            </div>
           ) : (
-            /* MONTRA DE ARTIGOS REGULARES DO MARKETPLACE */
-            loading ? (
-              <div className="flex flex-col items-center justify-center py-20 text-accent-muted gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+              {artigos.map((artigo) => (
                 <div
-                  style={{ borderTopColor: "var(--accent-gold)" }}
-                  className="w-5 h-5 border-2 border-border-warm rounded-full animate-spin"
-                ></div>
-                <p className="text-[11px] font-light uppercase tracking-wider animate-pulse">
-                  A atualizar montra...
-                </p>
-              </div>
-            ) : mostrarAlugueres ? (
-              null
-            ) : artigos.length === 0 ? (
-              <div className="text-center py-20 text-accent-muted bg-[#FBF7F2] rounded-sm border border-dashed border-border-warm max-w-md mx-auto px-4">
-                <i className="ti ti-box text-2xl block mb-2 text-border-warm" />
-                <h3
-                  style={{ fontFamily: "var(--font-playfair)" }}
-                  className="text-sm text-panel-dark font-normal"
+                  key={artigo.id}
+                  onClick={() => setArtigoSelecionado(artigo)}
+                  className="bg-[#FFFCF8] rounded-sm border border-border-warm overflow-hidden flex flex-col hover:border-accent-muted hover:shadow-xs transition-all duration-200 group cursor-pointer"
                 >
-                  Nenhum artigo encontrado
-                </h3>
-                <p className="text-xs text-accent-muted mt-1 font-light">
-                  Experimenta ajustar os filtros aplicados.
-                </p>
-              </div>
-            ) : (
-              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-                {artigos.map((artigo) => (
                   <div
-                    key={artigo.id}
-                    onClick={() => setArtigoSelecionado(artigo)}
-                    className="bg-[#FFFCF8] rounded-sm border border-border-warm overflow-hidden flex flex-col hover:border-accent-muted hover:shadow-xs transition-all duration-200 group cursor-pointer"
+                    className="w-full bg-[#FBF7F2] overflow-hidden relative"
+                    style={{ aspectRatio: "3/4" }}
                   >
-                    <div className="w-full bg-[#FBF7F2] overflow-hidden relative" style={{ aspectRatio: "3/4" }}>
-                      {artigo.imagemId ? (
-                        <img
-                          src={`http://localhost:8080/api/marketplace/imagem/${artigo.imagemId}`}
-                          className="w-full h-full object-cover group-hover:scale-102 transition-transform duration-300"
-                          alt={artigo.nome}
-                        />
-                      ) : (
-                        <div className="w-full h-full flex flex-col items-center justify-center text-accent-muted text-[10px] uppercase tracking-wider font-light gap-1">
-                          <i className="ti ti-photo" /> Sem foto
-                        </div>
-                      )}
-                    </div>
-
-                    <div className="px-3 py-3 flex flex-col gap-1.5">
-                      <div className="flex items-baseline justify-between gap-2">
-                        <h3
-                          style={{ fontFamily: "var(--font-playfair)" }}
-                          className="text-base text-panel-dark font-normal leading-snug flex-1 min-w-0"
-                        >
-                          {artigo.nome.length > 27 ? artigo.nome.slice(0, 27) + "…" : artigo.nome}
-                        </h3>
-                        <span style={{ whiteSpace: "nowrap", flexShrink: 0, display: "flex", alignItems: "baseline", gap: "4px" }}>
-                          {artigo.isVenda && artigo.precoVenda !== null && (
-                            <span style={{ fontFamily: "var(--font-playfair)", fontSize: "16px", color: "var(--panel-dark)", fontWeight: 400 }}>
-                              {artigo.precoVenda}€
-                            </span>
-                          )}
-                          {artigo.isVenda && artigo.isAluguer && artigo.precoAluguer !== null && (
-                            <span style={{ fontSize: "12px", color: "var(--accent-muted)", fontWeight: 300 }}>/</span>
-                          )}
-                          {artigo.isAluguer && artigo.precoAluguer !== null && (
-                            <span style={{ fontFamily: "var(--font-playfair)", fontSize: "15px", color: "#7A5FA0", fontWeight: 400 }}>
-                              {artigo.precoAluguer}€<span style={{ fontSize: "11px", color: "var(--accent-muted)", fontWeight: 300 }}> dia</span>
-                            </span>
-                          )}
-                          {!artigo.isVenda && !artigo.isAluguer && artigo.isDoacao && (
-                            <span style={{ fontSize: "14px", color: "#3A6A3A", fontWeight: 400 }}>Grátis</span>
-                          )}
-                        </span>
+                    {artigo.imagemId ? (
+                      <img
+                        src={`http://localhost:8080/api/marketplace/imagem/${artigo.imagemId}`}
+                        className="w-full h-full object-cover group-hover:scale-102 transition-transform duration-300"
+                        alt={artigo.nome}
+                      />
+                    ) : (
+                      <div className="w-full h-full flex flex-col items-center justify-center text-accent-muted text-[10px] uppercase tracking-wider font-light gap-1">
+                        <i className="ti ti-photo" /> Sem foto
                       </div>
-                      <p className="text-xs text-accent-muted font-light">
-                        {[artigo.tamanho, artigo.condicao].filter(Boolean).join(" · ") || "—"}
-                      </p>
-                    </div>
+                    )}
                   </div>
-                ))}
-              </div>
-            )
+
+                  <div className="px-3 py-3 flex flex-col gap-1.5">
+                    <div className="flex items-baseline justify-between gap-2">
+                      <h3
+                        style={{ fontFamily: "var(--font-playfair)" }}
+                        className="text-base text-panel-dark font-normal leading-snug flex-1 min-w-0"
+                      >
+                        {artigo.nome.length > 27
+                          ? artigo.nome.slice(0, 27) + "…"
+                          : artigo.nome}
+                      </h3>
+                      <span
+                        style={{
+                          whiteSpace: "nowrap",
+                          flexShrink: 0,
+                          display: "flex",
+                          alignItems: "baseline",
+                          gap: "4px",
+                        }}
+                      >
+                        {artigo.isVenda && artigo.precoVenda !== null && (
+                          <span
+                            style={{
+                              fontFamily: "var(--font-playfair)",
+                              fontSize: "16px",
+                              color: "var(--panel-dark)",
+                              fontWeight: 400,
+                            }}
+                          >
+                            {artigo.precoVenda}€
+                          </span>
+                        )}
+                        {artigo.isVenda &&
+                          artigo.isAluguer &&
+                          artigo.precoAluguer !== null && (
+                            <span
+                              style={{
+                                fontSize: "12px",
+                                color: "var(--accent-muted)",
+                                fontWeight: 300,
+                              }}
+                            >
+                              /
+                            </span>
+                          )}
+                        {artigo.isAluguer && artigo.precoAluguer !== null && (
+                          <span
+                            style={{
+                              fontFamily: "var(--font-playfair)",
+                              fontSize: "15px",
+                              color: "#7A5FA0",
+                              fontWeight: 400,
+                            }}
+                          >
+                            {artigo.precoAluguer}€
+                            <span
+                              style={{
+                                fontSize: "11px",
+                                color: "var(--accent-muted)",
+                                fontWeight: 300,
+                              }}
+                            >
+                              {" "}
+                              dia
+                            </span>
+                          </span>
+                        )}
+                        {!artigo.isVenda &&
+                          !artigo.isAluguer &&
+                          artigo.isDoacao && (
+                            <span
+                              style={{
+                                fontSize: "14px",
+                                color: "#3A6A3A",
+                                fontWeight: 400,
+                              }}
+                            >
+                              Grátis
+                            </span>
+                          )}
+                      </span>
+                    </div>
+                    <p className="text-xs text-accent-muted font-light">
+                      {[artigo.tamanho, artigo.condicao]
+                        .filter(Boolean)
+                        .join(" · ") || "—"}
+                    </p>
+                  </div>
+                </div>
+              ))}
+            </div>
           )}
 
-          {/* PAGINAÇÃO (Ocultada se estiver a ver doações pendentes) */}
           {!mostrarPendentes && totalPaginas > 1 && (
             <div className="mt-8 flex justify-center items-center gap-4">
               <button
@@ -1071,7 +1248,96 @@ export default function MarketplacePage() {
         </main>
       </div>
 
-      {/* MODAL: CRIAR / EDITAR ANÚNCIO */}
+      {/* SELECIONAR ITEM DO INVENTÁRIO */}
+      {modalInventarioAberto && (
+        <div
+          className="fixed inset-0 bg-panel-dark/40 flex items-center justify-center z-50 p-4 backdrop-blur-xs"
+          onClick={() => setModalInventarioAberto(false)}
+        >
+          <div
+            className="bg-[#FBF7F2] rounded-sm border border-border-warm w-full max-w-lg p-5 max-h-[85vh] overflow-y-auto shadow-xl relative"
+            onClick={(e) => e.stopPropagation()}
+          >
+          <div className="absolute top-0 left-0 bottom-0 w-1 bg-panel-dark" />
+            <div className="flex justify-between items-center mb-4 pl-2">
+              <h2
+                style={{ fontFamily: "var(--font-playfair)" }}
+                className="text-lg font-normal text-panel-dark"
+              >
+                Selecionar Artigo do Inventário Escolar
+              </h2>
+              <button
+                onClick={() => setModalInventarioAberto(false)}
+                className="text-accent-muted hover:text-panel-dark text-lg"
+              >
+                &times;
+              </button>
+            </div>
+
+            <div className="relative mb-4 pl-2">
+              <i className="ti ti-search absolute inset-y-0 left-5 flex items-center text-accent-muted text-xs" />
+              <input
+                type="text"
+                placeholder="Filtrar por nome do artigo do inventário..."
+                value={pesquisaInventario}
+                onChange={(e) => setPesquisaInventario(e.target.value)}
+                className="w-full bg-[#FFFCF8] border border-border-warm rounded-sm py-1.5 pl-8 pr-4 text-xs text-panel-dark placeholder-accent-muted/60 outline-none focus:border-panel-dark"
+              />
+            </div>
+
+            <div className="space-y-2 pl-2">
+              {loadingInventario ? (
+                <div className="text-center py-8 text-xs text-accent-muted">
+                  A carregar inventário...
+                </div>
+              ) : inventarioItems.length === 0 ? (
+                <div className="text-center py-8 text-xs text-accent-muted bg-[#FFFCF8] border border-dashed rounded-sm border-border-warm">
+                  Nenhum item disponível no inventário escolar.
+                </div>
+              ) : (
+                <div className="divide-y divide-border-warm/30 bg-[#FFFCF8] border border-border-warm rounded-sm max-h-[50vh] overflow-y-auto">
+                  {inventarioItems.map((item) => (
+                    <div
+                      key={item.id}
+                      onClick={() => handleSelecionarItemInventario(item)}
+                      className="p-3 hover:bg-[#FBF7F2] cursor-pointer flex justify-between items-center transition-colors group"
+                    >
+                      <div className="pr-4 min-w-0 flex-1">
+                        <p className="text-xs font-medium text-panel-dark group-hover:text-accent-gold transition-colors truncate">
+                          {item.nomeArtigo}
+                        </p>
+                        <p className="text-[11px] text-accent-muted truncate font-light mt-0.5">
+                          {item.descricao || "Sem descrição registada."}
+                        </p>
+                        {(item.tamanho || item.cor) && (
+                          <span className="text-[10px] bg-[#FBF7F2] text-accent-muted border border-border-warm/50 px-1.5 py-0.5 rounded-xs mt-1 inline-block">
+                            {[item.tamanho, item.cor]
+                              .filter(Boolean)
+                              .join(" · ")}
+                          </span>
+                        )}
+                      </div>
+                      <i className="ti ti-chevron-right text-accent-muted group-hover:translate-x-0.5 transition-transform text-xs" />
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              <div className="pt-3 flex justify-end">
+                <button
+                  type="button"
+                  onClick={() => setModalInventarioAberto(false)}
+                  className="px-4 py-1.5 border border-border-warm text-accent-muted text-xs rounded-sm hover:text-panel-dark transition-colors"
+                >
+                  Fechar
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* CRIAR / EDITAR ANÚNCIO */}
       {modalAberto && (
         <div
           className="fixed inset-0 bg-panel-dark/40 flex items-center justify-center z-50 p-4 backdrop-blur-xs"
@@ -1152,7 +1418,9 @@ export default function MarketplacePage() {
                   <label className="text-[9px] uppercase font-normal tracking-wider text-accent-muted">
                     Título do Anúncio
                   </label>
-                  <span className={`text-[9px] font-light ${form.nome.length >= 50 ? "text-red-400" : "text-accent-muted"}`}>
+                  <span
+                    className={`text-[9px] font-light ${form.nome.length >= 50 ? "text-red-400" : "text-accent-muted"}`}
+                  >
                     {form.nome.length}/50
                   </span>
                 </div>
@@ -1170,7 +1438,9 @@ export default function MarketplacePage() {
                   <label className="text-[9px] uppercase font-normal tracking-wider text-accent-muted">
                     Descrição
                   </label>
-                  <span className={`text-[9px] font-light ${(form.descricao?.length || 0) >= 100 ? "text-red-400" : "text-accent-muted"}`}>
+                  <span
+                    className={`text-[9px] font-light ${(form.descricao?.length || 0) >= 100 ? "text-red-400" : "text-accent-muted"}`}
+                  >
                     {form.descricao?.length || 0}/100
                   </span>
                 </div>
@@ -1326,7 +1596,7 @@ export default function MarketplacePage() {
         </div>
       )}
 
-      {/* MODAL: DETALHE DO ARTIGO */}
+      {/* DETALHE DO ARTIGO */}
       {artigoSelecionado && (
         <div
           className="fixed inset-0 bg-panel-dark/40 flex items-center justify-center z-50 p-4 backdrop-blur-xs"
@@ -1346,7 +1616,9 @@ export default function MarketplacePage() {
                   style={{ fontFamily: "var(--font-playfair)" }}
                   className="text-xl font-normal text-panel-dark"
                 >
-                  {artigoSelecionado.nome.length > 50 ? artigoSelecionado.nome.slice(0, 50) + "…" : artigoSelecionado.nome}
+                  {artigoSelecionado.nome.length > 50
+                    ? artigoSelecionado.nome.slice(0, 50) + "…"
+                    : artigoSelecionado.nome}
                 </h2>
               </div>
               <button
@@ -1372,8 +1644,11 @@ export default function MarketplacePage() {
                     </h3>
                     <p className="text-panel-dark text-xs leading-relaxed mb-3 font-light break-words whitespace-pre-line">
                       {(() => {
-                        const desc = artigoSelecionado.descricao || "Sem descrição.";
-                        return desc.length > 100 ? desc.slice(0, 100) + "…" : desc;
+                        const desc =
+                          artigoSelecionado.descricao || "Sem descrição.";
+                        return desc.length > 100
+                          ? desc.slice(0, 100) + "…"
+                          : desc;
                       })()}
                     </p>
                     <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-xs border-t border-[#FBF7F2] pt-2 text-accent-muted font-light">
@@ -1416,7 +1691,7 @@ export default function MarketplacePage() {
                         </span>
                       </p>
                     )}
-                    
+
                     {artigoSelecionado.isAluguer && (
                       <div className="bg-[#FBF7F2]/60 p-2 rounded-sm border border-border-warm/30 space-y-2">
                         <p className="text-sm text-panel-dark font-light flex justify-between items-center">
@@ -1428,8 +1703,11 @@ export default function MarketplacePage() {
                             </span>
                           </span>
                         </p>
-                        
-                        {(!usuarioLogado?.id || !artigoSelecionado?.donoId || String(usuarioLogado.id) !== String(artigoSelecionado.donoId)) && (
+
+                        {(!usuarioLogado?.id ||
+                          !artigoSelecionado?.donoId ||
+                          String(usuarioLogado.id) !==
+                            String(artigoSelecionado.donoId)) && (
                           <div className="pt-2 border-t border-border-warm/40">
                             <label className="text-[9px] font-normal text-accent-muted uppercase tracking-wider block mb-0.5">
                               Previsão de Devolução
@@ -1438,14 +1716,16 @@ export default function MarketplacePage() {
                               type="date"
                               min={new Date().toISOString().split("T")[0]}
                               value={dataFimAluguer}
-                              onChange={(e) => setDataFimAluguer(e.target.value)}
+                              onChange={(e) =>
+                                setDataFimAluguer(e.target.value)
+                              }
                               className="w-full bg-[#FFFCF8] border border-border-warm rounded-sm px-2 py-1 text-xs text-panel-dark outline-none"
                             />
                           </div>
                         )}
                       </div>
                     )}
-                    
+
                     {artigoSelecionado.isDoacao && (
                       <p className="text-xs text-panel-dark bg-[#FBF7F2] p-2 rounded-sm border border-border-warm/40 text-center font-light">
                         Disponível para Doação Gratuita
@@ -1457,7 +1737,8 @@ export default function MarketplacePage() {
                 <div className="pt-4 mt-4 border-t border-border-warm/40">
                   {usuarioLogado?.id &&
                   artigoSelecionado?.donoId &&
-                  String(usuarioLogado.id) === String(artigoSelecionado.donoId) ? (
+                  String(usuarioLogado.id) ===
+                    String(artigoSelecionado.donoId) ? (
                     <div className="space-y-2">
                       <p className="text-accent-muted text-[9px] text-center uppercase tracking-wider font-light">
                         Gestão do teu artigo

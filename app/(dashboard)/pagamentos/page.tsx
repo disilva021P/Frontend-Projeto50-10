@@ -5,11 +5,6 @@ import { useRouter } from 'next/navigation';
 
 type Role = 'ALUNO' | 'COORDENACAO' | 'PROFESSOR' | 'ENCARREGADO';
 
-interface AulaDto {
-  id: string;
-  titulo?: string;
-}
-
 interface UtilizadoreResumoDto {
   id: string;
   nome: string;
@@ -27,9 +22,7 @@ interface PagamentoDto {
   descricao: string;
   idTipoPagamento?: string;
   tipoPagamentoNome?: string;
-  aula?: AulaDto;
   dataPagamento?: string;
-  dataConfirmado?: string;
   utilizadoreResumoDto?: UtilizadoreResumoDto;
 }
 
@@ -45,73 +38,62 @@ interface AlunoEstatisticaDto {
 
 const BASE_URL = 'http://localhost:8080';
 
-const NAV_SECTIONS = [
-  {
-    title: 'Principal',
-    items: [
-      { icon: 'ti-home', label: 'Início', href: '/landingPage' },
-      { icon: 'ti-calendar', label: 'Horários', href: '/horarios' },
-      { icon: 'ti-credit-card', label: 'Pagamentos', href: '/pagamentos' },
-    ],
-  },
-  {
-    title: 'Comunidade',
-    items: [
-      { icon: 'ti-mail', label: 'Mensagens', href: '/mensagens' },
-      { icon: 'ti-star', label: 'Eventos', href: '/eventos' },
-      { icon: 'ti-shopping-bag', label: 'Marketplace', href: '/marketplace' },
-    ],
-  },
-  {
-    title: 'Gestão',
-    items: [
-      { icon: 'ti-chart-bar', label: 'Gestão de Faltas', href: '/faltas' },
-    ],
-  },
+const CATEGORIAS_PADRAO: TipoPagamentoDto[] = [
+  { id: "eyJDcmVhdGVkQXQiOjE3MTU4OTIzNDYsImkiOjF9", tipoPagamento: "Mensalidade" },
+  { id: "eyJDcmVhdGVkQXQiOjE3MTU4OTIzNDYsImkiOjJ9", tipoPagamento: "Aula Avulso" },
+  { id: "eyJDcmVhdGVkQXQiOjE3MTU4OTIzNDYsImkiOjN9", tipoPagamento: "Inscrição" },
+  { id: "eyJDcmVhdGVkQXQiOjE3MTU4OTIzNDYsImkiOjR9", tipoPagamento: "Seguro" },
+  { id: "eyJDcmVhdGVkQXQiOjE3MTU4OTIzNDYsImkiOjV9", tipoPagamento: "Material" },
+  { id: "eyJDcmVhdGVkQXQiOjE3MTU4OTIzNDYsImkiOjZ9", tipoPagamento: "Outro" },
+  { id: "eyJDcmVhdGVkQXQiOjE3MTU4OTIzNDYsImkiOjd9", tipoPagamento: "Pagamento" }
 ];
+
+function formatarDataBR(dataStr: string | undefined): string {
+  if (!dataStr) return '—';
+  if (dataStr.includes('-')) {
+    const partes = dataStr.split('-');
+    if (partes.length === 3 && partes[0].length === 4) {
+      return `${partes[2]}-${partes[1]}-${partes[0]}`;
+    }
+  }
+  return dataStr;
+}
 
 export default function PagamentosPage() {
   const router = useRouter();
-  const [drawerOpen, setDrawerOpen] = useState(false);
-  const [userName, setUserName] = useState('');
   const [role, setRole] = useState<Role | null>(null);
   const [isMounted, setIsMounted] = useState(false);
 
-  // Dados
+  // Estados de Dados
   const [pagamentos, setPagamentos] = useState<PagamentoDto[]>([]);
+  const [todosOsPagamentos, setTodosOsPagamentos] = useState<PagamentoDto[]>([]); 
   const [estatisticasCoord, setEstatisticasCoord] = useState<PagamentosEstatisticaCoordenacao | null>(null);
   const [estatisticasAluno, setEstatisticasAluno] = useState<AlunoEstatisticaDto | null>(null);
   const [loading, setLoading] = useState(true);
-  const [tiposPagamento, setTiposPagamento] = useState<TipoPagamentoDto[]>([]);
+  const [tiposPagamento, setTiposPagamento] = useState<TipoPagamentoDto[]>(CATEGORIAS_PADRAO);
 
   // Filtros
-  const [pesquisaAlunoId, setPesquisaAlunoId] = useState('');
-  const [mesFiltro, setMesFiltro] = useState(() => {
-    const d = new Date();
-    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
-  });
+  const [pesquisaNome, setPesquisaNome] = useState('');
+  const [mesFiltro, setMesFiltro] = useState('');
 
-  // Modal
+  // Modal e Formulários
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalModo, setModalModo] = useState<'CRIAR' | 'EDITAR'>('CRIAR');
   const [editId, setEditId] = useState<string>('');
 
-  // Campos do formulário
   const [formDescricao, setFormDescricao] = useState('');
   const [formValor, setFormValor] = useState(0);
   const [formPago, setFormPago] = useState(false);
   const [formDataPagamento, setFormDataPagamento] = useState('');
   const [formIdTipoPagamento, setFormIdTipoPagamento] = useState('');
 
-  // Autocomplete de utilizadores
+  // Sugestões de Utilizadores (Modal)
   const [formUtilizadorNome, setFormUtilizadorNome] = useState('');
   const [utilizadorSelecionado, setUtilizadorSelecionado] = useState<UtilizadoreResumoDto | null>(null);
+  const [utilizadoresLista, setUtilizadoresLista] = useState<UtilizadoreResumoDto[]>([]);
   const [utilizadoresSugestoes, setUtilizadoresSugestoes] = useState<UtilizadoreResumoDto[]>([]);
-  const [pesquisandoUtilizadores, setPesquisandoUtilizadores] = useState(false);
-  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  
   const sugestoesRef = useRef<HTMLUListElement>(null);
-
-  // ── Init ──────────────────────────────────────────────────────────────────
 
   useEffect(() => {
     setIsMounted(true);
@@ -119,34 +101,11 @@ export default function PagamentosPage() {
     if (raw) {
       try {
         const parsed = JSON.parse(raw);
-        setUserName(parsed.nome ?? '');
         setRole((parsed.tipoUtilizadorId as Role) ?? null);
-      } catch { /* erro no parse */ }
+      } catch { }
     }
-
-    // Carregar tipos de pagamento
-    const token = localStorage.getItem('token') ?? '';
-    fetch(`${BASE_URL}/api/tipospagamento`, {
-      headers: { Authorization: `Bearer ${token}` },
-    })
-      .then(res => res.json())
-      .then(dados => {
-        // Tenta as estruturas mais comuns do Spring
-        const lista: TipoPagamentoDto[] = Array.isArray(dados)
-          ? dados
-          : Array.isArray(dados?.content)
-          ? dados.content
-          : Array.isArray(dados?._embedded?.tipoPagamentoDtoes)
-          ? dados._embedded.tipoPagamentoDtoes
-          : [];
-      
-        setTiposPagamento(lista);
-        if (lista.length > 0) setFormIdTipoPagamento(lista[0].id);
-      })
-      .catch(() => {});
   }, []);
 
-  // Fecha sugestões ao clicar fora
   useEffect(() => {
     const handleClickFora = (e: MouseEvent) => {
       if (sugestoesRef.current && !sugestoesRef.current.contains(e.target as Node)) {
@@ -157,105 +116,160 @@ export default function PagamentosPage() {
     return () => document.removeEventListener('mousedown', handleClickFora);
   }, []);
 
-  // ── Dados financeiros ─────────────────────────────────────────────────────
-
   const calcularOffsetMes = (dataSelecao: string): number => {
+    if (!dataSelecao) return 0;
     const [anoSel, mesSel] = dataSelecao.split('-').map(Number);
     const agora = new Date();
     return (anoSel - agora.getFullYear()) * 12 + (mesSel - (agora.getMonth() + 1));
   };
 
-  const carregarDadosFinanceiros = () => {
-    if (!role || !isMounted) return;
-
+  const carregarDadosFinanceiros = async () => {
+    if (!isMounted) return;
     const token = localStorage.getItem('token') ?? '';
     const headers = { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` };
-    const offset = calcularOffsetMes(mesFiltro);
+    
+    const offsetCalculado = calcularOffsetMes(mesFiltro);
 
-    let endpointLista = `${BASE_URL}/api/pagamentos`;
+    let endpointLista = `${BASE_URL}/api/pagamentos`; 
     let endpointStats = `${BASE_URL}/api/pagamentos/estatisticas/coordenacao`;
 
     if (role === 'ALUNO') {
-      endpointLista = `${BASE_URL}/api/pagamentos/meus?offset=${offset}`;
-      endpointStats = `${BASE_URL}/api/pagamentos/meus/estatisticas?offset=${offset}`;
-    } else if (role === 'COORDENACAO' && pesquisaAlunoId.trim() !== '') {
-      endpointLista = `${BASE_URL}/api/pagamentos/utilizador/${pesquisaAlunoId.trim()}?offset=${offset}`;
-      endpointStats = `${BASE_URL}/api/pagamentos/utilizador/${pesquisaAlunoId.trim()}/estatisticas?offset=${offset}`;
+      endpointLista = `${BASE_URL}/api/pagamentos/meus?offset=${offsetCalculado}`;
+      endpointStats = `${BASE_URL}/api/pagamentos/meus/estatisticas?offset=${offsetCalculado}`;
     }
 
     setLoading(true);
-    Promise.all([
-      fetch(endpointLista, { headers }).then(res => res.json()),
-      fetch(endpointStats, { headers }).then(res => res.json()),
-    ])
-      .then(([dadosLista, dadosStats]) => {
-        setPagamentos(dadosLista ?? []);
-        if (role === 'COORDENACAO' && pesquisaAlunoId.trim() === '') {
-          setEstatisticasCoord(dadosStats);
+    try {
+      const [resLista, resStats] = await Promise.all([
+        fetch(endpointLista, { headers }),
+        fetch(endpointStats, { headers }).catch(() => null)
+      ]);
+
+      let listaTratada: PagamentoDto[] = [];
+      if (resLista.ok) {
+        const dadosLista = await resLista.json();
+        listaTratada = Array.isArray(dadosLista) ? dadosLista : dadosLista?.content || [];
+      }
+
+      setTodosOsPagamentos(listaTratada);
+
+      const mapaCategorias = new Map<string, string>();
+      CATEGORIAS_PADRAO.forEach(c => mapaCategorias.set(c.tipoPagamento.toLowerCase(), c.id));
+
+      listaTratada.forEach(p => {
+        if (p.idTipoPagamento && p.tipoPagamentoNome) {
+          mapaCategorias.set(p.tipoPagamentoNome.toLowerCase(), p.idTipoPagamento);
+        }
+      });
+
+      const listaFinalCategorias: TipoPagamentoDto[] = [];
+      mapaCategorias.forEach((id, nomeFormatado) => {
+        const original = CATEGORIAS_PADRAO.find(c => c.tipoPagamento.toLowerCase() === nomeFormatado)?.tipoPagamento 
+                         || (nomeFormatado.charAt(0).toUpperCase() + nomeFormatado.slice(1));
+        
+        listaFinalCategorias.push({ id, tipoPagamento: original });
+      });
+
+      setTiposPagamento(listaFinalCategorias);
+
+      if (resStats && resStats.ok) {
+        const dadosStats = await resStats.json();
+        if (role === 'COORDENACAO') {
+          setEstatisticasCoord({
+            getTotalPago: dadosStats?.getTotalPago ?? dadosStats?.totalPago ?? 0,
+            getTotalPorPagar: dadosStats?.getTotalPorPagar ?? dadosStats?.totalPorPagar ?? 0
+          });
           setEstatisticasAluno(null);
         } else {
           setEstatisticasCoord(null);
           setEstatisticasAluno({
-            totalPago: dadosStats.totalPago ?? 0,
-            totalPendente: dadosStats.totalPendente ?? 0,
+            totalPago: dadosStats?.totalPago ?? 0,
+            totalPendente: dadosStats?.totalPendente ?? 0,
           });
         }
-      })
-      .catch(() => console.error('Erro ao carregar dados'))
-      .finally(() => setLoading(false));
+      }
+    } catch (err) {
+      console.error('Erro ao processar dados financeiros:', err);
+    } finally {
+      setLoading(false);
+    }
   };
 
   useEffect(() => {
-    if (isMounted) carregarDadosFinanceiros();
-  }, [role, mesFiltro, isMounted]);
+    if (!isMounted) return;
 
-  const limparPesquisa = () => {
-    setPesquisaAlunoId('');
-    setLoading(true);
+    if (role === 'COORDENACAO') {
+      let dadosFiltrados = [...todosOsPagamentos];
+
+      if (mesFiltro) {
+        dadosFiltrados = dadosFiltrados.filter(p => p.dataPagamento?.startsWith(mesFiltro));
+      }
+
+      if (pesquisaNome.trim() !== '') {
+        const termo = pesquisaNome.toLowerCase().trim();
+        dadosFiltrados = dadosFiltrados.filter(p => 
+          p.utilizadoreResumoDto?.nome?.toLowerCase().includes(termo) ||
+          p.descricao?.toLowerCase().includes(termo)
+        );
+      }
+
+      setPagamentos(dadosFiltrados);
+    } else {
+      setPagamentos(todosOsPagamentos);
+    }
+  }, [todosOsPagamentos, mesFiltro, pesquisaNome, isMounted, role]);
+
+  useEffect(() => {
+    if (isMounted && role) {
+      carregarDadosFinanceiros();
+    }
+  }, [mesFiltro, role, isMounted]);
+
+  const carregarDadosModal = async () => {
     const token = localStorage.getItem('token') ?? '';
-    const headers = { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` };
-    Promise.all([
-      fetch(`${BASE_URL}/api/pagamentos`, { headers }).then(res => res.json()),
-      fetch(`${BASE_URL}/api/pagamentos/estatisticas/coordenacao`, { headers }).then(res => res.json()),
-    ])
-      .then(([dadosLista, dadosStats]) => {
-        setPagamentos(dadosLista ?? []);
-        setEstatisticasCoord(dadosStats);
-        setEstatisticasAluno(null);
-      })
-      .finally(() => setLoading(false));
+    try {
+      const [resUtilizadores, resTipos] = await Promise.all([
+        fetch(`${BASE_URL}/api/utilizadores?size=200`, {
+          headers: { Authorization: `Bearer ${token}` }
+        }),
+        fetch(`${BASE_URL}/api/tipos-pagamento`, {
+          headers: { Authorization: `Bearer ${token}` }
+        })
+      ]);
+
+      if (resUtilizadores.ok) {
+        const dados = await resUtilizadores.json();
+        const lista = dados?.content || (Array.isArray(dados) ? dados : []);
+        const listaFormatada = lista.map((u: any) => ({
+          id: u.id,
+          nome: u.nome || u.username || 'Utilizador sem nome'
+        }));
+        setUtilizadoresLista(listaFormatada);
+        setUtilizadoresSugestoes(listaFormatada);
+      }
+
+      if (resTipos.ok) {
+        const tipos = await resTipos.json();
+        setTiposPagamento(tipos);
+      }
+
+    } catch (err) {
+      console.error("Erro ao carregar dados do modal:", err);
+    }
   };
 
-  // ── Autocomplete ──────────────────────────────────────────────────────────
-
-  const pesquisarUtilizadores = (nome: string) => {
-    setFormUtilizadorNome(nome);
+  const filtrarUtilizadoresModal = (nomeDigitado: string) => {
+    setFormUtilizadorNome(nomeDigitado);
     setUtilizadorSelecionado(null);
 
-    if (debounceRef.current) clearTimeout(debounceRef.current);
-
-    if (nome.length < 3) {
-      setUtilizadoresSugestoes([]);
-      return;
+    if (nomeDigitado.trim() === '') {
+      setUtilizadoresSugestoes(utilizadoresLista);
+    } else {
+      const termo = nomeDigitado.toLowerCase();
+      setUtilizadoresSugestoes(
+        utilizadoresLista.filter(u => u.nome.toLowerCase().includes(termo))
+      );
     }
-
-    debounceRef.current = setTimeout(async () => {
-      setPesquisandoUtilizadores(true);
-      const token = localStorage.getItem('token') ?? '';
-      try {
-        const res = await fetch(
-          `${BASE_URL}/api/utilizadores/pesquisar?nome=${encodeURIComponent(nome)}`,
-          { headers: { Authorization: `Bearer ${token}` } }
-        );
-        if (!res.ok) throw new Error();
-        const dados: UtilizadoreResumoDto[] = await res.json();
-        setUtilizadoresSugestoes(dados ?? []);
-      } catch {
-        setUtilizadoresSugestoes([]);
-      } finally {
-        setPesquisandoUtilizadores(false);
-      }
-    }, 300);
   };
 
   const selecionarUtilizador = (u: UtilizadoreResumoDto) => {
@@ -264,24 +278,17 @@ export default function PagamentosPage() {
     setUtilizadoresSugestoes([]);
   };
 
-  // ── Modal ─────────────────────────────────────────────────────────────────
-
-  const limparModal = () => {
+  const abrirModalCriar = () => {
+    setModalModo('CRIAR');
     setFormDescricao('');
     setFormValor(0);
     setFormPago(false);
     setFormDataPagamento(new Date().toISOString().split('T')[0]);
     setFormUtilizadorNome('');
     setUtilizadorSelecionado(null);
-    setUtilizadoresSugestoes([]);
-    // Reset ao primeiro tipo disponível
     setFormIdTipoPagamento(tiposPagamento.length > 0 ? tiposPagamento[0].id : '');
-  };
-
-  const abrirModalCriar = () => {
-    setModalModo('CRIAR');
-    limparModal();
     setIsModalOpen(true);
+    carregarDadosModal(); 
   };
 
   const abrirModalEditar = (pag: PagamentoDto) => {
@@ -292,107 +299,54 @@ export default function PagamentosPage() {
     setFormPago(pag.pago);
     setFormDataPagamento(pag.dataPagamento || new Date().toISOString().split('T')[0]);
     setFormIdTipoPagamento(pag.idTipoPagamento || (tiposPagamento.length > 0 ? tiposPagamento[0].id : ''));
-    setUtilizadoresSugestoes([]);
     if (pag.utilizadoreResumoDto) {
       setUtilizadorSelecionado(pag.utilizadoreResumoDto);
       setFormUtilizadorNome(pag.utilizadoreResumoDto.nome);
-    } else {
-      setUtilizadorSelecionado(null);
-      setFormUtilizadorNome('');
     }
     setIsModalOpen(true);
+    carregarDadosModal();
   };
-
-  const fecharModal = () => {
-    setIsModalOpen(false);
-    limparModal();
-  };
-
-  // ── Gravar ────────────────────────────────────────────────────────────────
 
   const handleGravarPagamento = async (e: React.FormEvent) => {
     e.preventDefault();
-
     if (!utilizadorSelecionado) {
-      alert('Tens de selecionar um utilizador da lista de sugestões.');
-      return;
-    }
-    if (!formIdTipoPagamento) {
-      alert('Tens de selecionar um tipo de pagamento.');
+      alert('Por favor, escolhe um utilizador da lista flutuante.');
       return;
     }
 
     const token = localStorage.getItem('token') ?? '';
+    const payload = {
+      id: modalModo === 'EDITAR' ? editId : undefined,
+      valorPagamento: Number(formValor),
+      pago: formPago,
+      descricao: formDescricao,
+      dataPagamento: formDataPagamento,
+      idTipoPagamento: formIdTipoPagamento,
+      utilizadoreResumoDto: {
+        id: utilizadorSelecionado.id,
+        nome: utilizadorSelecionado.nome
+      }
+    };
 
-    // CRIAR → CriarPagamentoDto (campos simples)
-    // EDITAR → PagamentoDto (compatível com o atualizar existente)
-    const payload =
-      modalModo === 'CRIAR'
-        ? {
-            valorPagamento: Number(formValor),
-            descricao: formDescricao,
-            idUtilizador: utilizadorSelecionado.id,
-            idTipoPagamento: formIdTipoPagamento,
-            idAula: null,
-            dataPagamento: formDataPagamento,
-          }
-        : {
-            id: editId,
-            valorPagamento: Number(formValor),
-            pago: formPago,
-            descricao: formDescricao,
-            dataPagamento: formDataPagamento,
-            idTipoPagamento: formIdTipoPagamento,
-            utilizadoreResumoDto: {
-              id: utilizadorSelecionado.id,
-              nome: utilizadorSelecionado.nome,
-            },
-            aula: null,
-          };
-
-    const url =
-      modalModo === 'CRIAR'
-        ? `${BASE_URL}/api/pagamentos`
-        : `${BASE_URL}/api/pagamentos/${editId}`;
+    const url = modalModo === 'CRIAR' ? `${BASE_URL}/api/pagamentos` : `${BASE_URL}/api/pagamentos/${editId}`;
     const method = modalModo === 'CRIAR' ? 'POST' : 'PUT';
 
     try {
       const res = await fetch(url, {
         method,
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify(payload),
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify(payload)
       });
 
       if (res.ok) {
-        fecharModal();
+        setIsModalOpen(false);
         carregarDadosFinanceiros();
-        alert(modalModo === 'CRIAR' ? 'Pagamento registado com sucesso!' : 'Registo atualizado!');
+        alert('Registo guardado com sucesso!');
       } else {
-        const erro = await res.text();
-        alert(`Erro (${res.status}): ${erro}`);
+        alert('Erro ao guardar lançamento.');
       }
     } catch {
-      alert('Erro de rede. Verifica a ligação ao servidor.');
-    }
-  };
-
-  // ── Ações de tabela ───────────────────────────────────────────────────────
-
-  const handleEliminarPagamento = async (id: string) => {
-    if (!confirm('Eliminar este registo de pagamento?')) return;
-    const token = localStorage.getItem('token') ?? '';
-    try {
-      const res = await fetch(`${BASE_URL}/api/pagamentos/${id}`, {
-        method: 'DELETE',
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (res.ok) carregarDadosFinanceiros();
-      else alert('Erro ao eliminar.');
-    } catch {
-      alert('Erro de rede.');
+      alert('Falha na ligação com o servidor.');
     }
   };
 
@@ -401,646 +355,271 @@ export default function PagamentosPage() {
     try {
       const res = await fetch(`${BASE_URL}/api/pagamentos/${id}/confirmar`, {
         method: 'PATCH',
-        headers: { Authorization: `Bearer ${token}` },
+        headers: { Authorization: `Bearer ${token}` }
       });
       if (res.ok) carregarDadosFinanceiros();
-      else alert('Erro ao confirmar pagamento.');
     } catch {
       alert('Erro de rede.');
     }
   };
 
-  // ── Render ────────────────────────────────────────────────────────────────
+  const handleEliminarPagamento = async (id: string) => {
+    if (!confirm('Eliminar permanentemente este registo?')) return;
+    const token = localStorage.getItem('token') ?? '';
+    try {
+      const res = await fetch(`${BASE_URL}/api/pagamentos/${id}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (res.ok) carregarDadosFinanceiros();
+    } catch {
+      alert('Erro ao eliminar.');
+    }
+  };
 
-  if (!isMounted) return <p className="p-8">A inicializar aplicação...</p>;
+  if (!isMounted) return <p className="p-8 text-sm">A ler configurações do servidor...</p>;
 
-  const initials = userName
-    ? userName.split(' ').map((n: string) => n[0]).slice(0, 2).join('').toUpperCase()
-    : 'U';
+  // Estilo comum para Inputs/Selects elegantes
+  const estiloCampoElegante = {
+    width: '100%',
+    padding: '10px 14px',
+    border: '1px solid var(--border-warm)',
+    borderRadius: '6px',
+    fontSize: '13px',
+    outline: 'none',
+    backgroundColor: '#FFF',
+    color: 'var(--panel-dark)',
+    fontFamily: 'inherit',
+    boxShadow: 'rgba(0, 0, 0, 0.02) 0px 1px 3px 0px, rgba(27, 31, 35, 0.15) 0px 0px 0px 1px inset',
+    transition: 'border-color 0.2s, box-shadow 0.2s'
+  };
 
   return (
-    <div
-      className="flex flex-col min-h-screen"
-      style={{ background: 'var(--background)', fontFamily: 'var(--font-lato)' }}
-    >
-      {/* NAVBAR */}
-      <nav
-        className="flex items-center justify-between px-5"
-        style={{
-          height: '52px',
-          borderBottom: '1px solid var(--border-warm)',
-          background: 'var(--background)',
-        }}
-      >
-        <div className="flex items-center gap-3">
-          <button
-            onClick={() => setDrawerOpen(true)}
-            className="flex items-center justify-center"
-            style={{
-              width: '32px',
-              height: '32px',
-              border: '1px solid var(--border-warm)',
-              borderRadius: '4px',
-              background: '#FFFCF8',
-              cursor: 'pointer',
-            }}
-          >
-            <i className="ti ti-menu-2" />
-          </button>
-          <span style={{ fontFamily: 'var(--font-playfair)', fontSize: '16px', letterSpacing: '4px' }}>
-            entartes
-          </span>
+    <div style={{ paddingBottom: '40px' }}>
+      
+      {/* SECTOR DE FILTROS */}
+      <div className="flex justify-between items-end mb-6">
+        <div>
+          <p style={{ fontSize: '10px', letterSpacing: '2px', color: 'var(--accent-muted)' }}>PAINEL FINANCEIRO</p>
+          <h1 style={{ fontFamily: 'var(--font-playfair)', fontSize: '24px', margin: 0, fontWeight: 400 }}>Histórico de Pagamentos</h1>
         </div>
-        <div className="flex items-center gap-3">
-          <span style={{ fontSize: '12px', color: 'var(--accent-muted)' }}>{userName}</span>
-          <div
-            style={{
-              width: '30px',
-              height: '30px',
-              borderRadius: '50%',
-              background: 'var(--panel-dark)',
-              color: 'var(--accent-gold)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              fontSize: '11px',
-            }}
-          >
-            {initials}
-          </div>
-        </div>
-      </nav>
 
-      <div className="flex flex-1 relative overflow-hidden">
-        {/* Overlay drawer */}
-        {drawerOpen && (
-          <div
-            className="absolute inset-0 z-10"
-            style={{ background: 'rgba(44,31,20,0.3)' }}
-            onClick={() => setDrawerOpen(false)}
-          />
-        )}
-
-        {/* DRAWER */}
-        <aside
-          className="absolute top-0 bottom-0 left-0 z-20"
-          style={{
-            width: '220px',
-            background: 'var(--panel-dark)',
-            transform: drawerOpen ? 'translateX(0)' : 'translateX(-100%)',
-            transition: 'transform .3s',
-          }}
-        >
-          <div className="p-5 overflow-y-auto">
-            {NAV_SECTIONS.map(s => (
-              <div key={s.title} className="mb-4">
-                <p
-                  style={{
-                    fontSize: '9px',
-                    color: 'rgba(212,178,136,0.3)',
-                    letterSpacing: '2px',
-                    textTransform: 'uppercase',
-                  }}
-                >
-                  {s.title}
-                </p>
-                {s.items.map(i => (
-                  <button
-                    key={i.href}
-                    onClick={() => router.push(i.href)}
-                    className="block w-full text-left py-2"
-                    style={{
-                      background: 'none',
-                      border: 'none',
-                      color: 'rgba(212,178,136,0.7)',
-                      fontSize: '12px',
-                      cursor: 'pointer',
-                    }}
-                  >
-                    <i className={`ti ${i.icon} mr-2`} /> {i.label}
-                  </button>
-                ))}
-              </div>
-            ))}
-          </div>
-        </aside>
-
-        {/* MAIN */}
-        <main className="flex-1 p-8 overflow-y-auto">
-          {/* Cabeçalho + Filtros */}
-          <div className="flex justify-between items-end mb-6">
-            <div>
-              <p style={{ fontSize: '10px', letterSpacing: '2px', color: 'var(--accent-muted)' }}>
-                GESTÃO
-              </p>
-              <h1 style={{ fontFamily: 'var(--font-playfair)', fontSize: '24px' }}>Pagamentos</h1>
+        <div className="flex items-center gap-4">
+          {role === 'COORDENACAO' && (
+            <div className="flex flex-col">
+              <label style={{ fontSize: '10px', color: 'var(--accent-muted)', marginBottom: '4px', fontWeight: 500 }}>PESQUISAR UTILIZADOR / CONTEÚDO</label>
+              <input
+                type="text"
+                placeholder="Digita o nome do aluno..."
+                value={pesquisaNome}
+                onChange={e => setPesquisaNome(e.target.value)}
+                style={{ padding: '7px 12px', border: '1px solid var(--border-warm)', borderRadius: '4px', fontSize: '13px', width: '220px', outline: 'none' }}
+              />
             </div>
-
-            <div className="flex items-center gap-3">
-              {/* Filtro por mês */}
-              <div className="flex flex-col">
-                <label style={{ fontSize: '10px', color: 'var(--accent-muted)', marginBottom: '2px' }}>
-                  FILTRAR POR MÊS
-                </label>
-                <input
-                  type="month"
-                  value={mesFiltro}
-                  onChange={e => setMesFiltro(e.target.value)}
-                  style={{
-                    padding: '6px 12px',
-                    border: '1px solid var(--border-warm)',
-                    borderRadius: '4px',
-                    fontSize: '13px',
-                    background: '#FFF',
-                  }}
-                />
-              </div>
-
-              {/* Filtro por hash (coordenação) */}
-              {role === 'COORDENACAO' && (
-                <div className="flex flex-col">
-                  <label style={{ fontSize: '10px', color: 'var(--accent-muted)', marginBottom: '2px' }}>
-                    FILTRAR POR UTILIZADOR HASH
-                  </label>
-                  <div className="flex gap-1">
-                    <input
-                      type="text"
-                      placeholder="Colar hash do aluno..."
-                      value={pesquisaAlunoId}
-                      onChange={e => setPesquisaAlunoId(e.target.value)}
-                      style={{
-                        padding: '6px 12px',
-                        border: '1px solid var(--border-warm)',
-                        borderRadius: '4px',
-                        fontSize: '13px',
-                        background: '#FFF',
-                        fontFamily: 'monospace',
-                      }}
-                    />
-                    {pesquisaAlunoId && (
-                      <button
-                        onClick={limparPesquisa}
-                        style={{
-                          padding: '6px 10px',
-                          background: '#E0E0E0',
-                          border: 'none',
-                          borderRadius: '4px',
-                          cursor: 'pointer',
-                          fontSize: '12px',
-                          fontWeight: 'bold',
-                        }}
-                      >
-                        X
-                      </button>
-                    )}
-                    <button
-                      onClick={carregarDadosFinanceiros}
-                      style={{
-                        padding: '6px 12px',
-                        background: 'var(--panel-dark)',
-                        color: '#FFF',
-                        border: 'none',
-                        borderRadius: '4px',
-                        cursor: 'pointer',
-                      }}
-                    >
-                      <i className="ti ti-search" />
-                    </button>
-                  </div>
-                </div>
-              )}
-
-              {/* Botão novo registo */}
-              {role === 'COORDENACAO' && (
-                <button
-                  onClick={abrirModalCriar}
-                  style={{
-                    background: 'var(--panel-dark)',
-                    color: 'var(--accent-gold)',
-                    border: 'none',
-                    padding: '8px 16px',
-                    borderRadius: '4px',
-                    cursor: 'pointer',
-                    fontSize: '12px',
-                    height: 'fit-content',
-                    alignSelf: 'flex-end',
-                  }}
-                >
-                  <i className="ti ti-plus" /> Novo Registo
-                </button>
-              )}
-            </div>
-          </div>
-
-          {loading ? (
-            <p>A carregar dados...</p>
-          ) : (
-            <>
-              {/* Cartões estatísticas */}
-              <div className="grid grid-cols-2 gap-4 mb-8">
-                <div
-                  className="p-4 rounded-lg"
-                  style={{ background: '#FBF7F2', border: '1px solid var(--border-warm)' }}
-                >
-                  <p style={{ fontSize: '10px', color: 'var(--accent-muted)' }}>TOTAL LIQUIDADO</p>
-                  <p style={{ fontSize: '20px' }}>
-                    {estatisticasCoord
-                      ? estatisticasCoord.getTotalPago?.toFixed(2)
-                      : estatisticasAluno?.totalPago?.toFixed(2)}
-                    €
-                  </p>
-                </div>
-                <div
-                  className="p-4 rounded-lg"
-                  style={{ background: '#FBF7F2', border: '1px solid var(--border-warm)' }}
-                >
-                  <p style={{ fontSize: '10px', color: 'var(--accent-muted)' }}>PENDENTE</p>
-                  <p style={{ fontSize: '20px', color: '#C62828' }}>
-                    {estatisticasCoord
-                      ? estatisticasCoord.getTotalPorPagar?.toFixed(2)
-                      : estatisticasAluno?.totalPendente?.toFixed(2)}
-                    €
-                  </p>
-                </div>
-              </div>
-
-              {/* Tabela */}
-              <div
-                style={{
-                  background: '#FFF',
-                  border: '1px solid var(--border-warm)',
-                  borderRadius: '8px',
-                }}
-              >
-                <table className="w-full text-left text-sm border-collapse">
-                  <thead style={{ background: '#FAF6F0', color: 'var(--accent-muted)' }}>
-                    <tr>
-                      <th className="p-3">ID Seguro Aluno</th>
-                      <th className="p-3">Utilizador</th>
-                      <th className="p-3">Descrição</th>
-                      <th className="p-3">Tipo</th>
-                      <th className="p-3">Data</th>
-                      <th className="p-3">Valor</th>
-                      <th className="p-3">Estado</th>
-                      <th className="p-3 text-right">Ações</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {pagamentos.length === 0 ? (
-                      <tr>
-                        <td
-                          colSpan={8}
-                          className="p-6 text-center"
-                          style={{ color: 'var(--accent-muted)', fontSize: '13px' }}
-                        >
-                          Nenhum pagamento encontrado.
-                        </td>
-                      </tr>
-                    ) : (
-                      pagamentos.map(p => (
-                        <tr key={p.id} className="border-t border-gray-100">
-                          <td className="p-3">
-                            <code
-                              style={{
-                                background: '#F4EFEA',
-                                padding: '2px 4px',
-                                borderRadius: '4px',
-                                fontSize: '11px',
-                                fontFamily: 'monospace',
-                              }}
-                            >
-                              {p.utilizadoreResumoDto?.id || '—'}
-                            </code>
-                          </td>
-                          <td className="p-3 font-medium">{p.utilizadoreResumoDto?.nome || '—'}</td>
-                          <td className="p-3">{p.descricao}</td>
-                          <td className="p-3" style={{ fontSize: '12px', color: '#5c4d3c' }}>
-                            {p.tipoPagamentoNome || '—'}
-                          </td>
-                          <td className="p-3" style={{ fontSize: '12px', color: '#5c4d3c' }}>
-                            {p.dataPagamento || '—'}
-                          </td>
-                          <td className="p-3 font-bold">{p.valorPagamento?.toFixed(2)}€</td>
-                          <td className="p-3">
-                            <span
-                              style={{
-                                color: p.pago ? '#2E7D32' : '#B58100',
-                                fontSize: '11px',
-                                fontWeight: 600,
-                              }}
-                            >
-                              {p.pago ? 'Liquidado' : 'Pendente'}
-                            </span>
-                          </td>
-                          <td className="p-3 text-right">
-                            {role === 'COORDENACAO' && (
-                              <div className="flex justify-end gap-2">
-                                {!p.pago && (
-                                  <button
-                                    onClick={() => handleConfirmarPagamento(p.id!)}
-                                    title="Confirmar pagamento"
-                                    className="text-green-700 bg-transparent border-none cursor-pointer"
-                                  >
-                                    <i className="ti ti-check" />
-                                  </button>
-                                )}
-                                <button
-                                  onClick={() => abrirModalEditar(p)}
-                                  title="Editar"
-                                  className="text-gray-400 bg-transparent border-none cursor-pointer"
-                                >
-                                  <i className="ti ti-edit" />
-                                </button>
-                                <button
-                                  onClick={() => handleEliminarPagamento(p.id!)}
-                                  title="Eliminar"
-                                  className="text-red-700 bg-transparent border-none cursor-pointer"
-                                >
-                                  <i className="ti ti-trash" />
-                                </button>
-                              </div>
-                            )}
-                          </td>
-                        </tr>
-                      ))
-                    )}
-                  </tbody>
-                </table>
-              </div>
-            </>
           )}
-        </main>
+
+          <div className="flex flex-col">
+            <label style={{ fontSize: '10px', color: 'var(--accent-muted)', marginBottom: '4px', fontWeight: 500 }}>FILTRAR MÊS</label>
+            <input
+              type="month"
+              value={mesFiltro}
+              onChange={e => setMesFiltro(e.target.value)}
+              style={{ padding: '6px 12px', border: '1px solid var(--border-warm)', borderRadius: '4px', fontSize: '13px', outline: 'none' }}
+            />
+          </div>
+
+          {role === 'COORDENACAO' && (
+            <button
+              onClick={abrirModalCriar}
+              style={{ background: 'var(--panel-dark)', color: 'var(--accent-gold)', border: 'none', padding: '8px 16px', borderRadius: '4px', cursor: 'pointer', fontSize: '12px', fontWeight: 500 }}
+            >
+              <i className="ti ti-plus" /> Novo Lançamento
+            </button>
+          )}
+        </div>
       </div>
 
-      {/* MODAL */}
+      {loading ? (
+        <p style={{ color: 'var(--accent-muted)', fontSize: '13px' }}>A atualizar listagem da base dados...</p>
+      ) : (
+        <>
+          {/* PAINEL DE TOTAIS */}
+          <div className="grid grid-cols-2 gap-4 mb-8">
+            <div className="p-4 rounded-lg" style={{ background: '#FBF7F2', border: '1px solid var(--border-warm)', borderLeft: '4px solid #2E7D32' }}>
+              <p style={{ fontSize: '10px', color: 'var(--accent-muted)', margin: '0 0 4px 0' }}>TOTAL LIQUIDADO</p>
+              <p style={{ fontSize: '22px', margin: 0, color: 'var(--panel-dark)', fontWeight: 500 }}>
+                {estatisticasCoord ? estatisticasCoord.getTotalPago?.toFixed(2) : estatisticasAluno?.totalPago?.toFixed(2)}€
+              </p>
+            </div>
+            <div className="p-4 rounded-lg" style={{ background: '#FBF7F2', border: '1px solid var(--border-warm)', borderLeft: '4px solid #C62828' }}>
+              <p style={{ fontSize: '10px', color: 'var(--accent-muted)', margin: '0 0 4px 0' }}>VALOR POR REGULARIZAR</p>
+              <p style={{ fontSize: '22px', margin: 0, color: '#C62828', fontWeight: 500 }}>
+                {estatisticasCoord ? estatisticasCoord.getTotalPorPagar?.toFixed(2) : estatisticasAluno?.totalPendente?.toFixed(2)}€
+              </p>
+            </div>
+          </div>
+
+          {/* TABELA PRINCIPAL */}
+          <div style={{ background: '#FFF', border: '1px solid var(--border-warm)', borderRadius: '8px', overflow: 'hidden' }}>
+            <table className="w-full text-left text-sm border-collapse">
+              <thead style={{ background: '#FAF6F0', color: 'var(--accent-muted)' }}>
+                <tr>
+                  <th className="p-3" style={{ fontSize: '11px' }}>Utilizador / Aluno</th>
+                  <th className="p-3" style={{ fontSize: '11px' }}>Descrição</th>
+                  <th className="p-3" style={{ fontSize: '11px' }}>Categoria</th>
+                  <th className="p-3" style={{ fontSize: '11px' }}>Data Emissão</th>
+                  <th className="p-3" style={{ fontSize: '11px' }}>Montante</th>
+                  <th className="p-3" style={{ fontSize: '11px' }}>Estado</th>
+                  {role === 'COORDENACAO' && <th className="p-3 text-right" style={{ fontSize: '11px' }}>Ações</th>}
+                </tr>
+              </thead>
+              <tbody>
+                {pagamentos.length === 0 ? (
+                  <tr>
+                    <td colSpan={7} className="p-8 text-center" style={{ color: 'var(--accent-muted)', fontSize: '13px' }}>
+                      Nenhum registo financeiro encontrado para os critérios selecionados.
+                    </td>
+                  </tr>
+                ) : (
+                  pagamentos.map((p, idx) => (
+                    <tr key={p.id || idx} className="border-t border-gray-100" style={{ color: 'var(--panel-dark)' }}>
+                      <td className="p-3 font-medium">{p.utilizadoreResumoDto?.nome || '—'}</td>
+                      <td className="p-3">{p.descricao}</td>
+                      <td className="p-3 text-xs">{p.tipoPagamentoNome || 'Geral'}</td>
+                      <td className="p-3 text-xs">{formatarDataBR(p.dataPagamento)}</td>
+                      <td className="p-3 font-bold">{p.valorPagamento?.toFixed(2)}€</td>
+                      <td className="p-3">
+                        <span style={{ padding: '3px 8px', borderRadius: '12px', fontSize: '11px', fontWeight: 500, backgroundColor: p.pago ? 'rgba(52, 168, 83, 0.08)' : 'rgba(249, 171, 0, 0.08)', color: p.pago ? '#2E7D32' : '#B58100' }}>
+                          {p.pago ? 'Liquidado' : 'Pendente'}
+                        </span>
+                      </td>
+                      {role === 'COORDENACAO' && (
+                        <td className="p-3 text-right">
+                          <div className="flex justify-end gap-2">
+                            {!p.pago && (
+                              <button onClick={() => handleConfirmarPagamento(p.id!)} title="Liquidar" className="text-green-700 bg-transparent border-none cursor-pointer"><i className="ti ti-check" /></button>
+                            )}
+                            <button onClick={() => abrirModalEditar(p)} title="Editar" className="text-gray-500 bg-transparent border-none cursor-pointer"><i className="ti ti-edit" /></button>
+                            <button onClick={() => handleEliminarPagamento(p.id!)} title="Eliminar" className="text-red-700 bg-transparent border-none cursor-pointer"><i className="ti ti-trash" /></button>
+                          </div>
+                        </td>
+                      )}
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        </>
+      )}
+
+      {/* MODAL CRIAÇÃO / EDIÇÃO RENOVADA */}
       {isModalOpen && (
-        <div
-          style={{
-            position: 'fixed',
-            inset: 0,
-            background: 'rgba(0,0,0,0.4)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            zIndex: 100,
-          }}
-          onClick={e => { if (e.target === e.currentTarget) fecharModal(); }}
-        >
-          <div
-            style={{
-              background: '#FFFCF8',
-              padding: '24px',
-              borderRadius: '8px',
-              width: '420px',
-              border: '1px solid var(--border-warm)',
-              boxShadow: '0 8px 32px rgba(0,0,0,0.15)',
-              maxHeight: '90vh',
-              overflowY: 'auto',
-            }}
-          >
-            <h2
-              className="mb-4"
-              style={{ fontFamily: 'var(--font-playfair)', fontSize: '18px' }}
-            >
-              {modalModo === 'CRIAR' ? 'Novo Pagamento' : 'Editar Registo'}
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(24, 23, 21, 0.5)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100 }}>
+          <div style={{ position: 'relative', background: '#FFFFFF', padding: '30px', borderRadius: '12px', width: '460px', border: '1px solid var(--border-warm)', boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)', overflow: 'hidden' }}>
+            
+            {/* BARRA LATERAL DA MODAL SOLICITADA */}
+            <div style={{ position: 'absolute', top: 0, left: 0, bottom: 0, width: '5px', backgroundColor: 'var(--panel-dark)' }} />
+
+            <h2 style={{ fontFamily: 'var(--font-playfair)', fontSize: '20px', margin: '0 0 6px 0', color: 'var(--panel-dark)', fontWeight: 400 }}>
+              {modalModo === 'CRIAR' ? 'Lançar Novo Pagamento' : 'Editar Registo Financeiro'}
             </h2>
+            <p style={{ fontSize: '12px', color: 'var(--accent-muted)', margin: '0 0 24px 0', letterSpacing: '0.3px' }}>
+              Preenche os detalhes financeiros para atualizar o fluxo de caixa.
+            </p>
 
-            <form onSubmit={handleGravarPagamento} className="flex flex-col gap-3">
-
-              {/* Descrição */}
+            <form onSubmit={handleGravarPagamento} className="flex flex-col gap-4">
               <div>
-                <label style={{ fontSize: '11px', fontWeight: 'bold', display: 'block', marginBottom: '4px' }}>
-                  Descrição do Lançamento
-                </label>
-                <input
-                  className="w-full p-2 border rounded text-sm"
-                  placeholder="Ex: Mensalidade, Inscrição..."
-                  value={formDescricao}
-                  onChange={e => setFormDescricao(e.target.value)}
-                  required
-                />
+                <label style={{ fontSize: '11px', fontWeight: 600, textTransform: 'uppercase', color: 'var(--accent-muted)', letterSpacing: '0.5px', display: 'block', marginBottom: '6px' }}>Descrição do Lançamento</label>
+                <input style={estiloCampoElegante} placeholder="Ex: Mensalidade de Dança Contemporânea" value={formDescricao} onChange={e => setFormDescricao(e.target.value)} required />
               </div>
 
-              {/* Valor */}
-              <div>
-                <label style={{ fontSize: '11px', fontWeight: 'bold', display: 'block', marginBottom: '4px' }}>
-                  Valor do Pagamento (€)
-                </label>
-                <input
-                  className="w-full p-2 border rounded text-sm"
-                  type="number"
-                  step="0.01"
-                  min="0.01"
-                  placeholder="0.00"
-                  value={formValor || ''}
-                  onChange={e => setFormValor(Number(e.target.value))}
-                  required
-                />
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label style={{ fontSize: '11px', fontWeight: 600, textTransform: 'uppercase', color: 'var(--accent-muted)', letterSpacing: '0.5px', display: 'block', marginBottom: '6px' }}>Montante (€)</label>
+                  <input style={estiloCampoElegante} type="number" step="0.01" placeholder="0.00" value={formValor || ''} onChange={e => setFormValor(Number(e.target.value))} required />
+                </div>
+                <div>
+                  <label style={{ fontSize: '11px', fontWeight: 600, textTransform: 'uppercase', color: 'var(--accent-muted)', letterSpacing: '0.5px', display: 'block', marginBottom: '6px' }}>Data de Emissão</label>
+                  <input style={estiloCampoElegante} type="date" value={formDataPagamento} onChange={e => setFormDataPagamento(e.target.value)} required />
+                </div>
               </div>
 
-              {/* Data */}
               <div>
-                <label style={{ fontSize: '11px', fontWeight: 'bold', display: 'block', marginBottom: '4px' }}>
-                  Data do Pagamento
-                </label>
-                <input
-                  className="w-full p-2 border rounded text-sm"
-                  type="date"
-                  value={formDataPagamento}
-                  onChange={e => setFormDataPagamento(e.target.value)}
-                  required
-                />
+                <label style={{ fontSize: '11px', fontWeight: 600, textTransform: 'uppercase', color: 'var(--accent-muted)', letterSpacing: '0.5px', display: 'block', marginBottom: '6px' }}>Categoria de Pagamento</label>
+                <div style={{ position: 'relative' }}>
+                  <select style={estiloCampoElegante} value={formIdTipoPagamento} onChange={e => setFormIdTipoPagamento(e.target.value)} required>
+                    <option value="">-- Escolher uma categoria --</option>
+                    {tiposPagamento.map((t, idx) => (
+                      <option key={t.id || idx} value={t.id}>
+                        {t.tipoPagamento}
+                      </option>
+                    ))}
+                  </select>
+                </div>
               </div>
 
-              {/* Tipo de Pagamento */}
               <div>
-                <label style={{ fontSize: '11px', fontWeight: 'bold', display: 'block', marginBottom: '4px' }}>
-                  Tipo de Pagamento
-                </label>
-                <select
-                  className="w-full p-2 border rounded text-sm"
-                  value={formIdTipoPagamento}
-                  onChange={e => setFormIdTipoPagamento(e.target.value)}
-                  required
-                >
-                  <option value="">-- Selecionar tipo --</option>
-                  {tiposPagamento.map(t => (
-                    <option key={t.id} value={t.id}>
-                      {t.tipoPagamento}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              {/* Utilizador com autocomplete */}
-              <div>
-                <label style={{ fontSize: '11px', fontWeight: 'bold', display: 'block', marginBottom: '4px' }}>
-                  Utilizador
-                </label>
+                <label style={{ fontSize: '11px', fontWeight: 600, textTransform: 'uppercase', color: 'var(--accent-muted)', letterSpacing: '0.5px', display: 'block', marginBottom: '6px' }}>Atribuir ao Aluno / Utilizador</label>
                 <div style={{ position: 'relative' }}>
                   <input
-                    className="w-full p-2 border rounded text-sm"
-                    placeholder="Escreve o nome (mín. 3 letras)..."
-                    value={formUtilizadorNome}
-                    onChange={e => pesquisarUtilizadores(e.target.value)}
-                    autoComplete="off"
                     style={{
-                      borderColor: utilizadorSelecionado ? '#2E7D32' : undefined,
-                      paddingRight: utilizadorSelecionado ? '100px' : undefined,
+                      ...estiloCampoElegante,
+                      borderColor: utilizadorSelecionado ? '#2E7D32' : 'var(--border-warm)',
+                      paddingRight: utilizadorSelecionado ? '90px' : '14px'
                     }}
+                    placeholder="Escreva para pesquisar."
+                    value={formUtilizadorNome}
+                    onChange={e => filtrarUtilizadoresModal(e.target.value)}
+                    autoComplete="off"
                   />
 
-                  {/* Badge confirmação */}
                   {utilizadorSelecionado && (
-                    <span
-                      style={{
-                        position: 'absolute',
-                        right: '8px',
-                        top: '50%',
-                        transform: 'translateY(-50%)',
-                        fontSize: '10px',
-                        background: '#E8F5E9',
-                        color: '#2E7D32',
-                        padding: '2px 7px',
-                        borderRadius: '10px',
-                        fontWeight: 600,
-                        whiteSpace: 'nowrap',
-                      }}
-                    >
-                      ✓ selecionado
+                    <span style={{ position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)', fontSize: '10px', background: '#E8F5E9', color: '#2E7D32', padding: '3px 8px', borderRadius: '4px', fontWeight: 600, letterSpacing: '0.3px' }}>
+                      ✓ VINCULADO
                     </span>
                   )}
 
-                  {/* Lista sugestões */}
-                  {(utilizadoresSugestoes.length > 0 || pesquisandoUtilizadores) && (
-                    <ul
-                      ref={sugestoesRef}
-                      style={{
-                        position: 'absolute',
-                        top: 'calc(100% + 4px)',
-                        left: 0,
-                        right: 0,
-                        background: '#FFF',
-                        border: '1px solid var(--border-warm)',
-                        borderRadius: '6px',
-                        zIndex: 300,
-                        maxHeight: '180px',
-                        overflowY: 'auto',
-                        margin: 0,
-                        padding: 0,
-                        listStyle: 'none',
-                        boxShadow: '0 6px 20px rgba(0,0,0,0.12)',
-                      }}
-                    >
-                      {pesquisandoUtilizadores ? (
-                        <li style={{ padding: '10px 14px', fontSize: '12px', color: '#999' }}>
-                          A pesquisar...
+                  {utilizadoresSugestoes.length > 0 && (
+                    <ul ref={sugestoesRef} style={{ position: 'absolute', top: 'calc(100% + 4px)', left: 0, right: 0, background: '#FFF', border: '1px solid var(--border-warm)', borderRadius: '6px', zIndex: 300, maxHeight: '150px', overflowY: 'auto', margin: 0, padding: '4px 0', listStyle: 'none', boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1)' }}>
+                      {utilizadoresSugestoes.map((u, i) => (
+                        <li key={u.id || i} onMouseDown={() => selecionarUtilizador(u)} style={{ padding: '9px 14px', fontSize: '13px', cursor: 'pointer', color: 'var(--panel-dark)', transition: 'background 0.1s' }} onMouseEnter={e => e.currentTarget.style.background = '#FAF6F0'} onMouseLeave={e => e.currentTarget.style.background = '#FFF'}>
+                          {u.nome}
                         </li>
-                      ) : utilizadoresSugestoes.length === 0 ? (
-                        <li style={{ padding: '10px 14px', fontSize: '12px', color: '#999' }}>
-                          Nenhum utilizador encontrado.
-                        </li>
-                      ) : (
-                        utilizadoresSugestoes.map(u => (
-                          <li
-                            key={u.id}
-                            onMouseDown={() => selecionarUtilizador(u)}
-                            style={{
-                              padding: '9px 14px',
-                              fontSize: '13px',
-                              cursor: 'pointer',
-                              borderBottom: '1px solid #F0EBE3',
-                              display: 'flex',
-                              alignItems: 'center',
-                              gap: '8px',
-                            }}
-                            onMouseEnter={e => (e.currentTarget.style.background = '#FAF6F0')}
-                            onMouseLeave={e => (e.currentTarget.style.background = '#FFF')}
-                          >
-                            <span
-                              style={{
-                                width: '26px',
-                                height: '26px',
-                                borderRadius: '50%',
-                                background: 'var(--panel-dark)',
-                                color: 'var(--accent-gold)',
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                fontSize: '10px',
-                                fontWeight: 700,
-                                flexShrink: 0,
-                              }}
-                            >
-                              {u.nome.charAt(0).toUpperCase()}
-                            </span>
-                            <span>{u.nome}</span>
-                          </li>
-                        ))
-                      )}
+                      ))}
                     </ul>
                   )}
                 </div>
-
-                {/* Hints */}
-                {!utilizadorSelecionado && formUtilizadorNome.length > 0 && formUtilizadorNome.length < 3 && (
-                  <p style={{ fontSize: '10px', color: '#999', marginTop: '3px' }}>
-                    Escreve pelo menos 3 caracteres para pesquisar.
-                  </p>
-                )}
-                {!utilizadorSelecionado && utilizadoresSugestoes.length === 0 && formUtilizadorNome.length >= 3 && !pesquisandoUtilizadores && (
-                  <p style={{ fontSize: '10px', color: '#C62828', marginTop: '3px' }}>
-                    Seleciona um utilizador da lista.
-                  </p>
-                )}
               </div>
 
-              {/* Estado — só no editar */}
               {modalModo === 'EDITAR' && (
                 <div>
-                  <label style={{ fontSize: '11px', fontWeight: 'bold', display: 'block', marginBottom: '4px' }}>
-                    Estado
-                  </label>
-                  <select
-                    className="w-full p-2 border rounded text-sm"
-                    value={formPago ? 't' : 'f'}
-                    onChange={e => setFormPago(e.target.value === 't')}
-                  >
-                    <option value="f">Pendente</option>
-                    <option value="t">Pago / Liquidado</option>
+                  <label style={{ fontSize: '11px', fontWeight: 600, textTransform: 'uppercase', color: 'var(--accent-muted)', letterSpacing: '0.5px', display: 'block', marginBottom: '6px' }}>Estado Fluxo do Pagamento</label>
+                  <select style={estiloCampoElegante} value={formPago ? 't' : 'f'} onChange={e => setFormPago(e.target.value === 't')}>
+                    <option value="f">Pendente (Aguardar Recebimento)</option>
+                    <option value="t">Pago / Liquidado (Validado)</option>
                   </select>
                 </div>
               )}
 
-              {/* Botões */}
-              <div className="flex justify-end gap-2 mt-4">
-                <button
-                  type="button"
-                  onClick={fecharModal}
-                  style={{
-                    padding: '8px 16px',
-                    border: '1px solid var(--border-warm)',
-                    background: 'transparent',
-                    borderRadius: '4px',
-                    cursor: 'pointer',
-                    fontSize: '13px',
-                  }}
+              {/* BOTÕES DE AÇÃO PREMIUM */}
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '16px' }}>
+                <button 
+                  type="button" 
+                  onClick={() => setIsModalOpen(false)} 
+                  style={{ padding: '10px 18px', border: '1px solid var(--border-warm)', background: 'transparent', borderRadius: '6px', fontSize: '13px', fontWeight: 500, color: 'var(--panel-dark)', cursor: 'pointer', transition: 'background 0.2s' }}
+                  onMouseEnter={e => e.currentTarget.style.background = '#F9F6F0'}
+                  onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
                 >
                   Cancelar
                 </button>
-                <button
-                  type="submit"
-                  style={{
-                    background: 'var(--panel-dark)',
-                    color: 'var(--accent-gold)',
-                    border: 'none',
-                    padding: '8px 20px',
-                    borderRadius: '4px',
-                    cursor: 'pointer',
-                    fontSize: '13px',
-                  }}
+                <button 
+                  type="submit" 
+                  style={{ background: 'var(--panel-dark)', color: 'var(--accent-gold)', border: 'none', padding: '10px 22px', borderRadius: '6px', fontSize: '13px', fontWeight: 500, cursor: 'pointer', transition: 'opacity 0.2s' }}
+                  onMouseEnter={e => e.currentTarget.style.opacity = '0.9'}
+                  onMouseLeave={e => e.currentTarget.style.opacity = '1'}
                 >
-                  Guardar
+                  {modalModo === 'CRIAR' ? 'Criar Lançamento' : 'Gravar Alterações'}
                 </button>
               </div>
             </form>

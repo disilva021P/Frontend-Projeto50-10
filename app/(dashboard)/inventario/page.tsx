@@ -31,7 +31,11 @@ export default function InventarioPage() {
     const [paginaAtual, setPaginaAtual] = useState(0);
     const [totalPaginas, setTotalPaginas] = useState(0);
     const [loading, setLoading] = useState(true);
+    
+    // Filtros de Pesquisa
     const [pesquisa, setPesquisa] = useState('');
+    const [pesquisaLocalizacao, setPesquisaLocalizacao] = useState('');
+    const [filtroDisponibilidade, setFiltroDisponibilidade] = useState<string>('todos');
 
     const [itemSelecionado, setItemSelecionado] = useState<InventarioItem | null>(null);
     const [modalEditarAberto, setModalEditarAberto] = useState(false);
@@ -59,13 +63,40 @@ export default function InventarioPage() {
         notas: '',
     });
 
+    // Função de carregamento adaptada com paginação dinâmica e múltiplos filtros
     const carregarItens = async (pagina: number) => {
         setLoading(true);
         try {
-            const params: any = { page: pagina, size: 20, sortBy: 'criadoEm', direction: 'desc' };
-            if (pesquisa) params.nome = pesquisa;
+            // O teu backend aceita page, size, sortBy, direction e parâmetros de filtro opcionais
+            const params: any = { 
+                page: pagina, 
+                size: 12, // Reduzido de 20 para 12 para casar esteticamente com o layout do Marketplace
+                sortBy: 'criadoEm', 
+                direction: 'desc' 
+            };
+            
+            if (pesquisa.trim()) params.nome = pesquisa.trim();
+            
+            // Adiciona filtro local se a API não possuir @RequestParam nativo de localização,
+            // ou passa diretamente para o backend caso tenhas customizado o repositório
+            if (pesquisaLocalizacao.trim()) params.localizacao = pesquisaLocalizacao.trim();
+
             const response = await api.get<PaginaResponse>('/inventario', { params });
-            setItens(response.data.content);
+            
+            let dadosFiltrados = response.data.content || [];
+
+            // Filtragem complementar no front-end para a Disponibilidade e Localização (garante funcionamento imediato)
+            if (filtroDisponibilidade !== 'todos') {
+                const querDisponivel = filtroDisponibilidade === 'disponivel';
+                dadosFiltrados = dadosFiltrados.filter(item => item.disponivel === querDisponivel);
+            }
+            if (pesquisaLocalizacao.trim()) {
+                dadosFiltrados = dadosFiltrados.filter(item => 
+                    item.localizacao?.toLowerCase().includes(pesquisaLocalizacao.toLowerCase())
+                );
+            }
+
+            setItens(dadosFiltrados);
             setTotalPaginas(response.data.totalPages);
             setPaginaAtual(response.data.number);
         } catch (error) {
@@ -75,9 +106,13 @@ export default function InventarioPage() {
         }
     };
 
+    // Debounce/Gatilho de pesquisa para não sobrecarregar o backend ao digitar
     useEffect(() => {
-        carregarItens(0);
-    }, [pesquisa]);
+        const handler = setTimeout(() => {
+            carregarItens(0);
+        }, 300);
+        return () => clearTimeout(handler);
+    }, [pesquisa, pesquisaLocalizacao, filtroDisponibilidade]);
 
     const abrirEditar = (item: InventarioItem) => {
         setForm({
@@ -141,40 +176,42 @@ export default function InventarioPage() {
 
     return (
         <div style={{ paddingBottom: '40px' }}>
-            {/* COMPONENTE DE INTRODUÇÃO / HEADER */}
-            <div style={{ marginBottom: '24px', display: 'flex', justifyContent: 'between', alignItems: 'flex-end', flexWrap: 'wrap', gap: '16px' }} className="flex justify-between items-end">
+            {/* INTRODUÇÃO / HEADER */}
+            <div style={{ marginBottom: '24px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', flexWrap: 'wrap', gap: '16px' }}>
                 <div>
                     <p style={{ fontSize: '10px', letterSpacing: '3px', textTransform: 'uppercase', color: 'var(--accent-muted)', fontWeight: 300, marginBottom: '4px' }}>
                         Área de Gestão Interna
                     </p>
-                    <h1 style={{ fontFamily: 'var(--font-playfair)', fontSize: '24px', color: 'var(--panel-dark)', fontWeight: 400 }}>
+                    <h1 style={{ fontFamily: 'var(--font-playfair)', fontSize: '24px', color: 'var(--panel-dark)', fontWeight: 400, margin: 0 }}>
                         Inventário Escolar
                     </h1>
                 </div>
 
+                {/* BOTÃO ADICIONAR: Ajustado para tom mais visível e elegante (Coesivo com o Marketplace) */}
                 <button
                     onClick={() => { setErro(null); setModalAdicionarAberto(true); }}
                     style={{
-                        background: 'transparent',
-                        border: '1px solid var(--border-warm)',
-                        borderRadius: '6px',
+                        background: 'var(--panel-dark)',
+                        border: '1px solid var(--panel-dark)',
+                        borderRadius: '4px',
                         cursor: 'pointer',
-                        padding: '10px 20px',
+                        padding: '10px 22px',
                         fontSize: '11px',
-                        color: 'var(--panel-dark)',
-                        letterSpacing: '.5px',
-                        fontWeight: 400,
+                        color: 'var(--accent-gold)',
+                        letterSpacing: '.8px',
+                        fontWeight: 500,
                         textTransform: 'uppercase',
                         transition: 'all 0.2s ease',
+                        boxShadow: '0 2px 4px rgba(0,0,0,0.05)'
                     }}
-                    onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(160,133,96,0.05)'; }}
-                    onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}
+                    onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(44, 42, 41, 0.9)'; }}
+                    onMouseLeave={(e) => { e.currentTarget.style.background = 'var(--panel-dark)'; }}
                 >
                     + Adicionar Artigo Novo
                 </button>
             </div>
 
-            {/* SEPARADOR SUTIL IGUAL À LANDING PAGE */}
+            {/* SEPARADOR */}
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '20px' }}>
                 <span style={{ fontSize: '11px', letterSpacing: '2.5px', textTransform: 'uppercase', color: 'var(--accent-muted)', fontWeight: 400, whiteSpace: 'nowrap' }}>
                     Artigos e Equipamentos
@@ -182,25 +219,88 @@ export default function InventarioPage() {
                 <div style={{ flex: 1, borderBottom: '2px solid var(--border-warm)', opacity: 0.5 }} />
             </div>
 
-            {/* CAIXA DE PESQUISA INTEGRADA NO DESIGN COESIVO */}
-            <div style={{ marginBottom: '20px', maxWidth: '400px', position: 'relative' }}>
-                <input
-                    type="text"
-                    placeholder="Pesquisar artigos em stock..."
-                    value={pesquisa}
-                    onChange={(e) => setPesquisa(e.target.value)}
-                    style={{
-                        width: '100%',
-                        padding: '11px 14px',
-                        background: '#FFF',
-                        border: '1px solid var(--border-warm)',
-                        borderRadius: '6px',
-                        fontSize: '13px',
-                        color: 'var(--panel-dark)',
-                        outline: 'none',
-                        fontFamily: 'inherit',
-                    }}
-                />
+            {/* BARRA DE PESQUISA & SISTEMA DE FILTRAGEM AVANÇADO (Estilo Grid do Marketplace) */}
+            <div style={{ 
+                display: 'grid', 
+                gridTemplateColumns: '2fr 1fr 1fr', 
+                gap: '12px', 
+                marginBottom: '24px', 
+                background: '#FBF7F2', 
+                padding: '16px', 
+                border: '1px solid var(--border-warm)', 
+                borderRadius: '6px' 
+            }}>
+                <div>
+                    <label style={{ fontSize: '9px', letterSpacing: '0.08em', textTransform: 'uppercase', fontWeight: 500, color: 'var(--accent-muted)', display: 'block', marginBottom: '6px'}}>
+                        Nome do Artigo
+                    </label>
+                    <input
+                        type="text"
+                        placeholder="Pesquisar por nome ou palavra-chave..."
+                        value={pesquisa}
+                        onChange={(e) => setPesquisa(e.target.value)}
+                        style={{
+                            width: '100%',
+                            padding: '9px 12px',
+                            background: '#FFF',
+                            border: '1px solid var(--border-warm)',
+                            borderRadius: '4px',
+                            fontSize: '13px',
+                            color: 'var(--panel-dark)',
+                            outline: 'none',
+                            fontFamily: 'inherit',
+                        }}
+                    />
+                </div>
+
+                <div>
+                    <label style={{ fontSize: '9px', letterSpacing: '0.08em', textTransform: 'uppercase', fontWeight: 500, color: 'var(--accent-muted)', display: 'block', marginBottom: '6px'}}>
+                        Localização / Sala
+                    </label>
+                    <input
+                        type="text"
+                        placeholder="Ex: Sala 202, Bloco A..."
+                        value={pesquisaLocalizacao}
+                        onChange={(e) => setPesquisaLocalizacao(e.target.value)}
+                        style={{
+                            width: '100%',
+                            padding: '9px 12px',
+                            background: '#FFF',
+                            border: '1px solid var(--border-warm)',
+                            borderRadius: '4px',
+                            fontSize: '13px',
+                            color: 'var(--panel-dark)',
+                            outline: 'none',
+                            fontFamily: 'inherit',
+                        }}
+                    />
+                </div>
+
+                <div>
+                    <label style={{ fontSize: '9px', letterSpacing: '0.08em', textTransform: 'uppercase', fontWeight: 500, color: 'var(--accent-muted)', display: 'block', marginBottom: '6px'}}>
+                        Estado de Disponibilidade
+                    </label>
+                    <select
+                        value={filtroDisponibilidade}
+                        onChange={(e) => setFiltroDisponibilidade(e.target.value)}
+                        style={{
+                            width: '100%',
+                            padding: '9px 12px',
+                            background: '#FFF',
+                            border: '1px solid var(--border-warm)',
+                            borderRadius: '4px',
+                            fontSize: '13px',
+                            color: 'var(--panel-dark)',
+                            outline: 'none',
+                            fontFamily: 'inherit',
+                            cursor: 'pointer'
+                        }}
+                    >
+                        <option value="todos">Todos os artigos</option>
+                        <option value="disponivel">Disponível</option>
+                        <option value="indisponivel">Indisponível</option>
+                    </select>
+                </div>
             </div>
 
             {/* CONTEÚDO PRINCIPAL (TABELA DINÂMICA OU CARREGAMENTO) */}
@@ -214,20 +314,20 @@ export default function InventarioPage() {
                         Nenhum item localizado
                     </p>
                     <p style={{ fontSize: '12px', color: 'var(--accent-muted)', fontWeight: 300, maxWidth: '320px' }}>
-                        Não existem registos de equipamentos ou artigos correspondentes à pesquisa efetuada.
+                        Não existem registos de equipamentos ou artigos correspondentes aos critérios de pesquisa aplicados.
                     </p>
                 </div>
             ) : (
-                <div style={{ background: '#FBF7F2', border: '1px solid var(--border-warm)', borderRadius: '8px', position: 'relative', overflow: 'hidden', padding: '12px' }}>
+                <div style={{ background: '#FFFCF8', border: '1px solid var(--border-warm)', borderRadius: '8px', position: 'relative', overflow: 'hidden', padding: '12px' }}>
                     
-                    {/* ENCABEÇADO DE COLUNAS DA TABELA INTERNA */}
+                    {/* ENCABEÇADO DE COLUNAS */}
                     <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr', padding: '10px 14px', fontSize: '10px', letterSpacing: '1.5px', textTransform: 'uppercase', color: 'var(--accent-muted)', fontWeight: 600, borderBottom: '1px solid var(--border-warm)' }}>
                         <span>Nome do Artigo</span>
                         <span>Localização</span>
                         <span style={{ textAlign: 'right' }}>Disponibilidade</span>
                     </div>
 
-                    {/* LISTAGEM DOS ITENS EM LINHAS FINAIS */}
+                    {/* LISTAGEM DOS ITENS */}
                     <div style={{ display: 'flex', flexDirection: 'column' }}>
                         {itens.map((item) => (
                             <div
@@ -242,7 +342,6 @@ export default function InventarioPage() {
                                     cursor: 'pointer',
                                     transition: 'background 0.2s ease',
                                 }}
-                                className="item-linha-inventario"
                                 onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(160,133,96,0.03)'; }}
                                 onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}
                             >
@@ -272,7 +371,7 @@ export default function InventarioPage() {
                 </div>
             )}
 
-            {/* CONTROLO DE PAGINAÇÃO SEGUNDO O PADRÃO TEXTUAL */}
+            {/* CONTROLO DE PAGINAÇÃO (Pageable Reativo integrado) */}
             {totalPaginas > 1 && (
                 <div style={{ marginTop: '20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingTop: '12px', borderTop: '1px solid var(--border-warm)' }}>
                     <span style={{ fontSize: '12px', color: 'var(--accent-muted)', fontWeight: 300 }}>
@@ -302,6 +401,9 @@ export default function InventarioPage() {
                 <div style={{position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }} onClick={() => setItemSelecionado(null)}>
                     <div style={{ background: '#FFFBF7', border: '1px solid var(--border-warm)', borderRadius: '8px', width: '90%', maxWidth: '440px', padding: '24px', position: 'relative', boxShadow: '0 10px 30px rgba(0,0,0,0.15)' }} onClick={(e) => e.stopPropagation()}>
                         
+                        {/* Linha Lateral Esquerda de Efeito Estético */}
+                        <div style={{ position: 'absolute', top: 0, left: 0, bottom: 0, width: '4px', backgroundColor: 'var(--panel-dark)', borderTopLeftRadius: '8px', borderBottomLeftRadius: '8px' }} />
+
                         <p style={{ fontSize: '10px', letterSpacing: '2px', textTransform: 'uppercase', color: 'var(--accent-muted)', fontWeight: 300, marginBottom: '4px' }}>Consulta de Stock</p>
                         <h2 style={{ fontFamily: 'var(--font-playfair)', fontSize: '20px', color: 'var(--panel-dark)', fontWeight: 400, marginBottom: '16px' }}>{itemSelecionado.nomeArtigo}</h2>
                         
@@ -337,15 +439,18 @@ export default function InventarioPage() {
                 </div>
             )}
 
-            {/* MODAL CONFIGURADO DE EDIÇÃO */}
+            {/* MODAL EDITAR ARTIGO (Atualizado com Visual Lateral de 4px & Botão Customizado) */}
             {modalEditarAberto && itemSelecionado && (
                 <div style={{position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }} onClick={() => setModalEditarAberto(false)}>
-                    <div style={{ background: '#FFFBF7', border: '1px solid var(--border-warm)', borderRadius: '8px', width: '90%', maxWidth: '440px', padding: '24px', boxShadow: '0 10px 30px rgba(0,0,0,0.15)' }} onClick={(e) => e.stopPropagation()}>
+                    <div style={{ background: '#FFFBF7', border: '1px solid var(--border-warm)', borderRadius: '8px', width: '90%', maxWidth: '440px', padding: '24px', position: 'relative', boxShadow: '0 10px 30px rgba(0,0,0,0.15)' }} onClick={(e) => e.stopPropagation()}>
                         
-                        <p style={{ fontSize: '10px', letterSpacing: '2px', textTransform: 'uppercase', color: 'var(--accent-muted)', fontWeight: 300, marginBottom: '4px' }}>Modificação</p>
-                        <h2 style={{ fontFamily: 'var(--font-playfair)', fontSize: '20px', color: 'var(--panel-dark)', fontWeight: 400, marginBottom: '18px' }}>Editar Artigo</h2>
+                        {/* MELHORIA SOLICITADA: Barra estética de 4px na lateral esquerda para looks */}
+                        <div style={{ position: 'absolute', top: 0, left: 0, bottom: 0, width: '4px', backgroundColor: 'var(--panel-dark)', borderTopLeftRadius: '8px', borderBottomLeftRadius: '8px' }} />
                         
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '14px', marginBottom: '20px' }}>
+                        <p style={{ fontSize: '10px', letterSpacing: '2px', textTransform: 'uppercase', color: 'var(--accent-muted)', fontWeight: 300, marginBottom: '4px', paddingLeft: '6px' }}>Modificação</p>
+                        <h2 style={{ fontFamily: 'var(--font-playfair)', fontSize: '20px', color: 'var(--panel-dark)', fontWeight: 400, marginBottom: '18px', paddingLeft: '6px' }}>Editar Artigo</h2>
+                        
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '14px', marginBottom: '20px', paddingLeft: '6px' }}>
                             <div>
                                 <label style={{ fontSize: '11px', color: 'var(--accent-muted)', display: 'block', marginBottom: '4px' }}>Nome do Artigo</label>
                                 <input type="text" value={form.nome} onChange={(e) => setForm(p => ({ ...p, nome: e.target.value }))} style={{ width: '100%', padding: '9px 12px', border: '1px solid var(--border-warm)', borderRadius: '4px', fontSize: '13px', color: 'var(--panel-dark)', outline: 'none' }} />
@@ -363,29 +468,44 @@ export default function InventarioPage() {
                                 <textarea value={form.notas} onChange={(e) => setForm(p => ({ ...p, notas: e.target.value }))} style={{ width: '100%', padding: '9px 12px', border: '1px solid var(--border-warm)', borderRadius: '4px', fontSize: '13px', color: 'var(--panel-dark)', outline: 'none', height: '60px', resize: 'none' }} />
                             </div>
                             
-                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 0', borderTop: '1px solid var(--border-warm)' }}>
-                                <span style={{ fontSize: '13px', color: 'var(--panel-dark)' }}>Disponível?</span>
+                            {/* MELHORIA SOLICITADA: Botão de alternância Sim/Não muito mais bonito e estilizado */}
+                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 0 6px 0', borderTop: '1px solid var(--border-warm)' }}>
+                                <span style={{ fontSize: '13px', fontWeight: 500, color: 'var(--panel-dark)' }}>Disponível para atribuição imediata?</span>
                                 <button
                                     type="button"
                                     onClick={() => setForm(p => ({ ...p, disponivel: !p.disponivel }))}
                                     style={{
-                                        background: form.disponivel ? 'var(--panel-dark)' : 'rgba(160,133,96,0.2)',
-                                        border: 'none',
-                                        borderRadius: '4px',
-                                        color: form.disponivel ? '#FFF' : 'var(--panel-dark)',
-                                        padding: '5px 12px',
+                                        background: form.disponivel ? '#E8F5E9' : '#FFEBEE',
+                                        border: form.disponivel ? '1px solid #2E7D32' : '1px solid #C62828',
+                                        borderRadius: '20px',
+                                        color: form.disponivel ? '#2E7D32' : '#C62828',
+                                        padding: '6px 16px',
                                         fontSize: '11px',
+                                        fontWeight: 600,
+                                        letterSpacing: '0.3px',
                                         cursor: 'pointer',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        gap: '6px',
+                                        transition: 'all 0.2s ease',
+                                        boxShadow: 'inset 0 1px 2px rgba(0,0,0,0.03)'
                                     }}
                                 >
+                                    <span style={{ 
+                                        display: 'inline-block', 
+                                        width: '6px', 
+                                        height: '6px', 
+                                        borderRadius: '50%', 
+                                        backgroundColor: form.disponivel ? '#2E7D32' : '#C62828' 
+                                    }} />
                                     {form.disponivel ? 'SIM' : 'NÃO'}
                                 </button>
                             </div>
                         </div>
 
-                        {erro && <p style={{ color: '#C62828', fontSize: '12px', margin: '0 0 14px 0' }}>{erro}</p>}
+                        {erro && <p style={{ color: '#C62828', fontSize: '12px', margin: '0 0 14px 0', paddingLeft: '6px' }}>{erro}</p>}
 
-                        <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
+                        <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end', paddingTop: '4px' }}>
                             <button onClick={() => setModalEditarAberto(false)} style={{ padding: '9px 16px', background: 'transparent', border: '1px solid var(--border-warm)', borderRadius: '4px', color: 'var(--accent-muted)', fontSize: '12px', cursor: 'pointer' }}>Cancelar</button>
                             <button onClick={handleSalvar} disabled={loadingSalvar} style={{ padding: '9px 20px', background: 'var(--panel-dark)', border: 'none', borderRadius: '4px', color: '#FFF', fontSize: '12px', cursor: 'pointer', opacity: loadingSalvar ? 0.6 : 1 }}>
                                 {loadingSalvar ? 'A gravar...' : 'Gravar'}
@@ -395,15 +515,18 @@ export default function InventarioPage() {
                 </div>
             )}
 
-            {/* MODAL CONFIGURADO PARA ADICIONAR NOVO ITEM */}
+            {/* MODAL ADICIONAR NOVO ITEM */}
             {modalAdicionarAberto && (
                 <div style={{position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }} onClick={() => setModalAdicionarAberto(false)}>
-                    <div style={{ background: '#FFFBF7', border: '1px solid var(--border-warm)', borderRadius: '8px', width: '90%', maxWidth: '460px', padding: '24px', boxShadow: '0 10px 30px rgba(0,0,0,0.15)' }} onClick={(e) => e.stopPropagation()}>
+                    <div style={{ background: '#FFFBF7', border: '1px solid var(--border-warm)', borderRadius: '8px', width: '90%', maxWidth: '460px', padding: '24px', position: 'relative', boxShadow: '0 10px 30px rgba(0,0,0,0.15)' }} onClick={(e) => e.stopPropagation()}>
                         
-                        <p style={{ fontSize: '10px', letterSpacing: '2px', textTransform: 'uppercase', color: 'var(--accent-muted)', fontWeight: 300, marginBottom: '4px' }}>Inclusão de Item</p>
-                        <h2 style={{ fontFamily: 'var(--font-playfair)', fontSize: '20px', color: 'var(--panel-dark)', fontWeight: 400, marginBottom: '18px' }}>Novo Artigo de Inventário</h2>
+                        {/* Visual Lateral para Coesão dos Modais */}
+                        <div style={{ position: 'absolute', top: 0, left: 0, bottom: 0, width: '4px', backgroundColor: 'var(--panel-dark)', borderTopLeftRadius: '8px', borderBottomLeftRadius: '8px' }} />
+
+                        <p style={{ fontSize: '10px', letterSpacing: '2px', textTransform: 'uppercase', color: 'var(--accent-muted)', fontWeight: 300, marginBottom: '4px', paddingLeft: '6px' }}>Inclusão de Item</p>
+                        <h2 style={{ fontFamily: 'var(--font-playfair)', fontSize: '20px', color: 'var(--panel-dark)', fontWeight: 400, marginBottom: '18px', paddingLeft: '6px' }}>Novo Artigo de Inventário</h2>
                         
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '14px', marginBottom: '20px' }}>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '14px', marginBottom: '20px', paddingLeft: '6px' }}>
                             <div>
                                 <label style={{ fontSize: '11px', color: 'var(--accent-muted)', display: 'block', marginBottom: '4px' }}>Nome do Equipamento / Artigo</label>
                                 <input type="text" placeholder="Ex: Projetor Epson X24" value={formAdicionar.nome} onChange={e => setFormAdicionar(p => ({...p, nome: e.target.value}))} style={{ width: '100%', padding: '9px 12px', border: '1px solid var(--border-warm)', borderRadius: '4px', fontSize: '13px', color: 'var(--panel-dark)', outline: 'none' }} />
@@ -421,27 +544,33 @@ export default function InventarioPage() {
                                 <textarea placeholder="Observações adicionais relevantes..." value={formAdicionar.notas} onChange={e => setFormAdicionar(p => ({...p, notas: e.target.value}))} style={{ width: '100%', padding: '9px 12px', border: '1px solid var(--border-warm)', borderRadius: '4px', fontSize: '13px', color: 'var(--panel-dark)', outline: 'none', height: '50px', resize: 'none' }} />
                             </div>
                             
-                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 0', borderTop: '1px solid var(--border-warm)' }}>
-                                <span style={{ fontSize: '13px', color: 'var(--panel-dark)' }}>Disponível Imediatamente</span>
+                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 0 6px 0', borderTop: '1px solid var(--border-warm)' }}>
+                                <span style={{ fontSize: '13px', fontWeight: 500, color: 'var(--panel-dark)' }}>Disponível Imediatamente?</span>
                                 <button
                                     type="button"
                                     onClick={() => setFormAdicionar(p => ({ ...p, disponivel: !p.disponivel }))}
                                     style={{
-                                        background: formAdicionar.disponivel ? 'var(--panel-dark)' : 'rgba(160,133,96,0.2)',
-                                        border: 'none',
-                                        borderRadius: '4px',
-                                        color: formAdicionar.disponivel ? '#FFF' : 'var(--panel-dark)',
-                                        padding: '5px 12px',
+                                        background: formAdicionar.disponivel ? '#E8F5E9' : '#FFEBEE',
+                                        border: formAdicionar.disponivel ? '1px solid #2E7D32' : '1px solid #C62828',
+                                        borderRadius: '20px',
+                                        color: formAdicionar.disponivel ? '#2E7D32' : '#C62828',
+                                        padding: '6px 16px',
                                         fontSize: '11px',
+                                        fontWeight: 600,
                                         cursor: 'pointer',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        gap: '6px',
+                                        transition: 'all 0.2s ease',
                                     }}
                                 >
+                                    <span style={{ display: 'inline-block', width: '6px', height: '6px', borderRadius: '50%', backgroundColor: formAdicionar.disponivel ? '#2E7D32' : '#C62828' }} />
                                     {formAdicionar.disponivel ? 'SIM' : 'NÃO'}
                                 </button>
                             </div>
                         </div>
 
-                        {erro && <p style={{ color: '#C62828', fontSize: '12px', margin: '0 0 14px 0' }}>{erro}</p>}
+                        {erro && <p style={{ color: '#C62828', fontSize: '12px', margin: '0 0 14px 0', paddingLeft: '6px' }}>{erro}</p>}
 
                         <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
                             <button onClick={() => setModalAdicionarAberto(false)} style={{ padding: '9px 16px', background: 'transparent', border: '1px solid var(--border-warm)', borderRadius: '4px', color: 'var(--accent-muted)', fontSize: '12px', cursor: 'pointer' }}>Cancelar</button>

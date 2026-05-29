@@ -40,11 +40,10 @@ const DIAS_OPTIONS = [
   { value: 5, label: "SEXTA"   }, { value: 6, label: "SÁBADO" },
   { value: 7, label: "DOMINGO" },
 ];
+
 const HORAS = [
-  "00:00", "01:00", "02:00", "03:00", "04:00", "05:00", 
-  "06:00", "07:00", "08:00", "09:00", "10:00", "11:00", 
-  "12:00", "13:00", "14:00", "15:00", "16:00", "17:00", 
-  "18:00", "19:00", "20:00", "21:00", "22:00", "23:00"
+  "08:00", "09:00", "10:00", "11:00", "12:00", "13:00", "14:00", 
+  "15:00", "16:00", "17:00", "18:00", "19:00", "20:00", "21:00", "22:00", "23:00"
 ];
 
 const AULA_CORES       = ["#FBF0E4","#EAF4EC","#EEF2FB","#FBF0F7","#F5F5DC"];
@@ -106,6 +105,7 @@ function normalizeAula(a: any): AulaDto {
   const diaDerived = diaSemana ?? (a.dataAula
     ? (() => { const d = new Date(a.dataAula + "T00:00:00"); return d.getDay() === 0 ? 7 : d.getDay(); })()
     : undefined);
+  
   return {
     id:         a.id,
     titulo:     a.titulo     ?? h.titulo,
@@ -115,11 +115,10 @@ function normalizeAula(a: any): AulaDto {
     diaSemana:  diaDerived,
     turma:      a.turma      ?? h.idturmaId,
     estudio:    a.estudio    ?? h.estudioId,
-    professor:  a.professor  ?? h.professor ?? h.idcriadoPor,
+    professor:  a.professor  ?? h.professor ?? (h.idcriadoPor && h.professor ? h.idcriadoPor : undefined),
   };
 }
 
-// Calcula o intervalo de datas (Segunda a Domingo) baseado no offset de semanas
 function obterIntervaloSemanas(offset: number): string {
   const hoje = new Date();
   const diaAtual = hoje.getDay() === 0 ? 7 : hoje.getDay();
@@ -133,7 +132,6 @@ function obterIntervaloSemanas(offset: number): string {
   return `${formatar(segundaFeira)} até ${formatar(domingo)}`;
 }
 
-// Filtra registos futuros (compara data e hora de fim)
 function eFuturo(dataStr: string, horaFimStr?: string): boolean {
   if (!dataStr) return true;
   const hoje = new Date();
@@ -152,10 +150,10 @@ function Loader() {
 }
 
 function ErrMsg({ msg }: { msg: string }) {
-  return <div style={{ color: "#c0392b", padding: "10px 14px", background: "#fde8e8", borderRadius: 6, marginBottom: 12, fontSize: 13, border: "1px solid #f5c6cb" }}>⚠️ {msg}</div>;
+  return <div style={{ color: "#c0392b", padding: "10px 14px", background: "#fde8e8", borderRadius: 6, marginBottom: 12, fontSize: 13, border: "1px solid #f5c6cb" }}>Aviso: {msg}</div>;
 }
 function OkMsg({ msg }: { msg: string }) {
-  return <div style={{ color: "#27ae60", padding: "10px 14px", background: "#eafaf1", borderRadius: 6, marginBottom: 12, fontSize: 13, border: "1px solid #a9dfbf" }}>✓ {msg}</div>;
+  return <div style={{ color: "#27ae60", padding: "10px 14px", background: "#eafaf1", borderRadius: 6, marginBottom: 12, fontSize: 13, border: "1px solid #a9dfbf" }}>Sucesso: {msg}</div>;
 }
 
 function EstadoBadge({ estado }: { estado: string }) {
@@ -163,10 +161,11 @@ function EstadoBadge({ estado }: { estado: string }) {
     CONFIRMADO:   { bg: "#d4edda", text: "#155724", label: "CONFIRMADO" },
     VALIDADO:     { bg: "#d1ecf1", text: "#0c5460", label: "VALIDADO" },
     PENDENTE:     { bg: "#fff3cd", text: "#856404", label: "PENDENTE" },
+    AGENDADO:     { bg: "#fff3cd", text: "#856404", label: "AGENDADO" },
     LISTA_ESPERA: { bg: "#fce4ec", text: "#880e4f", label: "LISTA DE ESPERA" },
     CANCELADO:    { bg: "#f8d7da", text: "#721c24", label: "CANCELADO" },
   };
-  const c = cores[estado] ?? { bg: "#e9ecef", text: "#495057", label: estado };
+  const c = cores[estado?.toUpperCase()] ?? { bg: "#e9ecef", text: "#495057", label: estado };
   return <span style={{ background: c.bg, color: c.text, borderRadius: 4, padding: "4px 10px", fontSize: 11, fontWeight: 700, letterSpacing: .5 }}>{c.label}</span>;
 }
 
@@ -249,28 +248,27 @@ function Modal({ open, onClose, title, children }: { open: boolean; onClose: () 
 // ─── Grelha semanal ───────────────────────────────────────────────────────────
 
 function GrelhaHorario({ aulas, titulo, semanaOffset, onPrev, onNext }: { aulas: AulaDto[]; titulo: string; semanaOffset: number; onPrev: () => void; onNext: () => void }) {
-  const HORA_INICIO = 0;
-  const HORA_FIM    = 24;
+  const HORA_INICIO = 8;
+  const HORA_FIM    = 23;
   const TOTAL_MIN   = (HORA_FIM - HORA_INICIO) * 60;
   const PX_POR_HORA = 56;
-  const ALTURA      = TOTAL_MIN / 60 * PX_POR_HORA;
-  const SCROLL_INICIAL = 8 * PX_POR_HORA;
+  const ALTURA      = (TOTAL_MIN / 60) * PX_POR_HORA;
 
-  const scrollRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (scrollRef.current) {
-      scrollRef.current.scrollTop = SCROLL_INICIAL;
-    }
-  }, []);
+  const [aulaSelecionada, setAulaSelecionada] = useState<AulaDto | null>(null);
 
   const aulasPorDia: AulaDto[][] = Array.from({ length: 7 }, () => []);
   aulas.forEach(a => {
     const i = diaParaIdx(a.diaSemana);
-    if (i >= 0) aulasPorDia[i].push(a);
+    const minInicio = horaParaMin(a.horaInicio ?? "00:00");
+    const minLimiteInicio = HORA_INICIO * 60;
+    const minLimiteFim = HORA_FIM * 60;
+    
+    if (i >= 0 && minInicio >= minLimiteInicio && minInicio < minLimiteFim) {
+      aulasPorDia[i].push(a);
+    }
   });
 
-  const pos  = (h: string) => (horaParaMin(h) / TOTAL_MIN) * ALTURA;
+  const pos  = (h: string) => ((horaParaMin(h) - (HORA_INICIO * 60)) / TOTAL_MIN) * ALTURA;
   const alto = (i: string, f: string) => Math.max(((horaParaMin(f) - horaParaMin(i)) / TOTAL_MIN) * ALTURA, 22);
 
   return (
@@ -297,11 +295,11 @@ function GrelhaHorario({ aulas, titulo, semanaOffset, onPrev, onNext }: { aulas:
             ))}
           </div>
 
-          <div ref={scrollRef} style={{ overflowY: "auto", maxHeight: 560 }}>
+          <div style={{ overflowY: "auto", maxHeight: 560 }}>
             <div style={{ display: "grid", gridTemplateColumns: "48px repeat(7, 1fr)" }}>
               <div style={{ position: "relative", height: ALTURA }}>
                 {HORAS.map((h, i) => {
-                  const top = (horaParaMin(h) / TOTAL_MIN) * ALTURA;
+                  const top = pos(h);
                   return (
                     <div key={h} style={{ position: "absolute", top, left: 0, right: 0, display: "flex", alignItems: "flex-start" }}>
                       {i > 0 && <div style={{ position: "absolute", top: 0, left: 0, right: 0, borderTop: "1px solid #EEE" }} />}
@@ -314,7 +312,7 @@ function GrelhaHorario({ aulas, titulo, semanaOffset, onPrev, onNext }: { aulas:
               {DIAS.map((_, dIdx) => (
                 <div key={dIdx} style={{ position: "relative", height: ALTURA, borderLeft: "1px solid var(--border-warm)" }}>
                   {HORAS.map((h, i) => {
-                    const top = (horaParaMin(h) / TOTAL_MIN) * ALTURA;
+                    const top = pos(h);
                     return <div key={h} style={{ position: "absolute", top, left: 0, right: 0, borderTop: i === 0 ? "none" : "1px solid #F5F0EA", height: 1 }} />;
                   })}
                   {aulasPorDia[dIdx].map((a, aIdx) => {
@@ -322,7 +320,11 @@ function GrelhaHorario({ aulas, titulo, semanaOffset, onPrev, onNext }: { aulas:
                     const height = alto(a.horaInicio ?? "08:00", a.horaFim ?? "09:00");
                     const c = aIdx % AULA_CORES.length;
                     return (
-                      <div key={a.id} style={{ position: "absolute", top: top + 1, left: 3, right: 3, height: height - 2, background: AULA_CORES[c], border: `1px solid ${AULA_CORES_BORDA[c]}`, borderLeft: `3px solid ${AULA_CORES_BORDA[c]}`, borderRadius: 4, padding: "3px 5px", overflow: "hidden" }}>
+                      <div 
+                        key={a.id} 
+                        onClick={() => setAulaSelecionada(a)}
+                        style={{ position: "absolute", top: top + 1, left: 3, right: 3, height: height - 2, background: AULA_CORES[c], border: `1px solid ${AULA_CORES_BORDA[c]}`, borderLeft: `3px solid ${AULA_CORES_BORDA[c]}`, borderRadius: 4, padding: "3px 5px", overflow: "hidden", cursor: "pointer" }}
+                      >
                         <div style={{ fontSize: 10, fontWeight: 400, color: AULA_CORES_TEXTO[c], lineHeight: 1.2 }}>{a.turma?.nome ?? a.titulo ?? "Aula"}</div>
                         <div style={{ fontSize: 9, color: AULA_CORES_TEXTO[c], opacity: .8, marginTop: 1 }}>{trimHora(a.horaInicio)} – {trimHora(a.horaFim)}</div>
                         {height > 36 && a.professor && <div style={{ fontSize: 9, color: AULA_CORES_TEXTO[c], opacity: .65 }}>{a.professor.nome}</div>}
@@ -335,6 +337,49 @@ function GrelhaHorario({ aulas, titulo, semanaOffset, onPrev, onNext }: { aulas:
           </div>
         </div>
       </div>
+
+      <Modal open={!!aulaSelecionada} onClose={() => setAulaSelecionada(null)} title="Detalhes da Aula">
+        {aulaSelecionada && (
+          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+            <div style={{ fontSize: 14, color: "var(--panel-dark)" }}>
+              <span style={{ color: "var(--accent-muted)", fontWeight: 500 }}>Título / Turma:</span>{" "}
+              <strong>{aulaSelecionada.turma?.nome ?? aulaSelecionada.titulo ?? "Aula Regular"}</strong>
+            </div>
+            {aulaSelecionada.dataAula && (
+              <div style={{ fontSize: 14, color: "var(--panel-dark)" }}>
+                <span style={{ color: "var(--accent-muted)", fontWeight: 500 }}>Data:</span>{" "}
+                <strong>{aulaSelecionada.dataAula}</strong>
+              </div>
+            )}
+            <div style={{ fontSize: 14, color: "var(--panel-dark)" }}>
+              <span style={{ color: "var(--accent-muted)", fontWeight: 500 }}>Horário:</span>{" "}
+              <strong>{trimHora(aulaSelecionada.horaInicio)} às {trimHora(aulaSelecionada.horaFim)}</strong>
+            </div>
+            
+            {/* INCLUSÃO DO PEDIDO DINÂMICO DE PROFESSOR NO MODAL DA GRELHA */}
+            <div style={{ fontSize: 14, color: "var(--panel-dark)" }}>
+              <span style={{ color: "var(--accent-muted)", fontWeight: 500 }}>Professor:</span>{" "}
+              <NomeProfessorLazy idAula={aulaSelecionada.id} professorFallback={aulaSelecionada.professor?.nome ?? "Não atribuído"} />
+            </div>
+
+            {aulaSelecionada.estudio && (
+              <div style={{ fontSize: 14, color: "var(--panel-dark)" }}>
+                <span style={{ color: "var(--accent-muted)", fontWeight: 500 }}>Estúdio / Local:</span>{" "}
+                <span>{aulaSelecionada.estudio.nome}</span>
+              </div>
+            )}
+            {aulaSelecionada.turma?.modalidade && (
+              <div style={{ fontSize: 14, color: "var(--panel-dark)" }}>
+                <span style={{ color: "var(--accent-muted)", fontWeight: 500 }}>Modalidade:</span>{" "}
+                <span>{aulaSelecionada.turma.modalidade.nome}</span>
+              </div>
+            )}
+            <div style={{ marginTop: 12, display: "flex", justifyContent: "flex-end" }}>
+              <BtnSecundario label="Fechar" onClick={() => setAulaSelecionada(null)} />
+            </div>
+          </div>
+        )}
+      </Modal>
     </div>
   );
 }
@@ -387,7 +432,6 @@ function MarcarCoachingForm({
   }, [form.professorId]);
 
   const listaProfessores = professores?.content ?? [];
-  const profSel = listaProfessores.find((p: any) => String(p.id ?? p.utilizadorId) === form.professorId);
   const dispSelecionada = disponibilidades.find(d => d.id === horarioSelecionadoId);
 
   const obterProximaDataPorDiaSemana = (diaSemanaAlvo: number): string => {
@@ -439,7 +483,7 @@ function MarcarCoachingForm({
     <div>
       {err && <ErrMsg msg={err} />}
       {ok && <OkMsg msg={ok} />}
-      {dataErro && <div style={{ color: "#721c24", padding: "10px 14px", background: "#f8d7da", borderRadius: 6, marginBottom: 12, fontSize: 13, border: "1px solid #f5c6cb" }}>⚠️ {dataErro}</div>}
+      {dataErro && <div style={{ color: "#721c24", padding: "10px 14px", background: "#f8d7da", borderRadius: 6, marginBottom: 12, fontSize: 13, border: "1px solid #f5c6cb" }}>Aviso: {dataErro}</div>}
 
       <SelectField
         label="1 · Modalidade"
@@ -530,44 +574,102 @@ function MarcarCoachingForm({
   );
 }
 
-// ─── Componente Comum de Grelha de Coachings (Alunos e Encarregados) ───────────
+// ─── Componente Auxiliar para Carregar o Professor via API (Corrigido) ───
+
+function NomeProfessorLazy({ idAula, professorFallback }: { idAula: string; professorFallback: string }) {
+  const [nomes, setNomes] = useState<string[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (!idAula || idAula === "undefined") {
+      console.warn("NomeProfessorLazy: idAula não foi fornecido ou é inválido.");
+      setLoading(false);
+      return;
+    }
+    
+    setLoading(true);
+    console.log(`[NomeProfessorLazy] A iniciar pedido para a aula: ${idAula}`);
+
+    apiFetch<string[]>(`/api/professores/nomebyAula/${idAula}`)
+      .then((data) => {
+        console.log(`[NomeProfessorLazy] Resposta para a aula ${idAula}:`, data);
+        setNomes(data || []);
+      })
+      .catch((err) => {
+        console.error(`[NomeProfessorLazy] Erro ao contactar a API para a aula ${idAula}:`, err);
+        setNomes([]);
+      })
+      .finally(() => setLoading(false));
+  }, [idAula]);
+
+  if (loading) return <span style={{ color: "var(--accent-muted)", fontSize: 12, fontStyle: "italic" }}>A carregar...</span>;
+  
+  if (nomes && nomes.length > 0) {
+    return <strong>{nomes.join(", ")}</strong>;
+  }
+  
+  return <strong>{professorFallback}</strong>;
+}
+
+// ─── Componente Comum de Grelha de Coachings ───────────────────────────────────
 
 function CoachingGrid({ items, onAction, actionLabel, actionPerigo }: { items: CoachingDto[]; onAction: (id: string) => void; actionLabel: string; actionPerigo?: boolean }) {
   return (
-    <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill, minmax(280px, 1fr))", gap:20 }}>
-      {items.map(c => (
-        <div key={c.aulaDto.id} style={{ background:"#fff", border:"1px solid var(--border-warm)", borderRadius:12, padding:"20px", boxShadow:"0 4px 6px -1px rgba(0,0,0,0.02), 0 2px 4px -1px rgba(0,0,0,0.01)", display:"flex", flexDirection:"column", justifyContent:"space-between" }}>
-          <div>
-            <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:12, gap: 10 }}>
-              <div style={{ fontFamily:"var(--font-playfair)", fontWeight:600, fontSize:16, color:"var(--panel-dark)" }}>{c.modalidadeDto?.nome || "Sessão de Coaching"}</div>
-              <EstadoBadge estado={c.estadoAulaDto?.estado??"PENDENTE"} />
+    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: 20 }}>
+      {items.map(c => {
+        const estadoAtual = c.estadoAulaDto?.estado?.toUpperCase() ?? "PENDENTE";
+        const isBotaoCancelar = actionLabel.toLowerCase().includes("cancelar");
+        const deveMostrarBotao = !isBotaoCancelar || (estadoAtual === "AGENDADO" || estadoAtual === "PENDENTE");
+
+        const horario = (c.aulaDto as any)?.idHorario;
+        const nomeProfessorOriginal = 
+          c.professorDto?.nome || 
+          c.professorDto?.utilizadores?.nome || 
+          c.professorDto?.utilizador?.nome ||
+          horario?.professor?.nome || 
+          horario?.idcriadoPor?.nome || 
+          "Não atribuído";
+
+        return (
+          <div key={c.aulaDto.id} style={{ background: "#fff", border: "1px solid var(--border-warm)", borderRadius: 12, padding: "20px", display: "flex", flexDirection: "column", justifyContent: "space-between" }}>
+            <div>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 12, gap: 10 }}>
+                <div style={{ fontFamily: "var(--font-playfair)", fontWeight: 600, fontSize: 16, color: "var(--panel-dark)" }}>{c.modalidadeDto?.nome || "Sessão de Coaching"}</div>
+                <EstadoBadge estado={c.estadoAulaDto?.estado ?? "PENDENTE"} />
+              </div>
+              
+              <div style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: 16, borderTop: "1px solid #FAF8F5", paddingTop: 12 }}>
+                <div style={{ fontSize: 13, color: "var(--panel-dark)", display: "flex", alignItems: "center", gap: 6 }}>
+                  <span style={{ color: "var(--accent-muted)" }}>Data:</span> <strong>{c.aulaDto.dataAula}</strong>
+                </div>
+                <div style={{ fontSize: 13, color: "var(--panel-dark)", display: "flex", alignItems: "center", gap: 6 }}>
+                  <span style={{ color: "var(--accent-muted)" }}>Horário:</span> <strong>{trimHora(c.aulaDto.horaInicio)} – {trimHora(c.aulaDto.horaFim)}</strong>
+                </div>
+                
+                <div style={{ fontSize: 13, color: "var(--panel-dark)", display: "flex", alignItems: "center", gap: 6 }}>
+                  <span style={{ color: "var(--accent-muted)" }}>Professor:</span> 
+                  {/* O idAula aqui passado garante a chamada única por cartão */}
+                  <NomeProfessorLazy idAula={c.aulaDto.id} professorFallback={nomeProfessorOriginal} />
+                </div>
+
+                {c.aulaDto.estudio && (
+                  <div style={{ fontSize: 13, color: "var(--panel-dark)", display: "flex", alignItems: "center", gap: 6 }}>
+                    <span style={{ color: "var(--accent-muted)" }}>Estúdio:</span> <span>{c.aulaDto.estudio.nome}</span>
+                  </div>
+                )}
+              </div>
             </div>
             
-            <div style={{ display:"flex", flexDirection:"column", gap:6, marginBottom:16, borderTop:"1px solid #FAF8F5", paddingTop:12 }}>
-              <div style={{ fontSize:13, color:"var(--panel-dark)", display:"flex", alignItems:"center", gap:6 }}>
-                <span style={{ color:"var(--accent-muted)" }}>📅 Data:</span> <strong>{c.aulaDto.dataAula}</strong>
+            {deveMostrarBotao && (
+              <div style={{ borderTop: "1px solid #FAF8F5", paddingTop: 12, display: "flex", justifyContent: "flex-end" }}>
+                {actionPerigo
+                  ? <BtnPerigo   label={actionLabel} onClick={() => onAction(c.aulaDto.id)} small />
+                  : <BtnPrimario label={actionLabel} onClick={() => onAction(c.aulaDto.id)} small />}
               </div>
-              <div style={{ fontSize:13, color:"var(--panel-dark)", display:"flex", alignItems:"center", gap:6 }}>
-                <span style={{ color:"var(--accent-muted)" }}>⏰ Horário:</span> <strong>{trimHora(c.aulaDto.horaInicio)} – {trimHora(c.aulaDto.horaFim)}</strong>
-              </div>
-              <div style={{ fontSize:13, color:"var(--panel-dark)", display:"flex", alignItems:"center", gap:6 }}>
-                <span style={{ color:"var(--accent-muted)" }}>👤 Professor:</span> <span>{c.professorDto?.utilizadores?.nome || c.professorDto?.nome || "Não atribuído"}</span>
-              </div>
-              {c.aulaDto.estudio && (
-                <div style={{ fontSize:13, color:"var(--panel-dark)", display:"flex", alignItems:"center", gap:6 }}>
-                  <span style={{ color:"var(--accent-muted)" }}>📍 Estúdio:</span> <span>{c.aulaDto.estudio.nome}</span>
-                </div>
-              )}
-            </div>
+            )}
           </div>
-          
-          <div style={{ borderTop: "1px solid #FAF8F5", paddingTop: 12, display: "flex", justifyContent: "flex-end" }}>
-            {actionPerigo
-              ? <BtnPerigo   label={actionLabel} onClick={()=>onAction(c.aulaDto.id)} small />
-              : <BtnPrimario label={actionLabel} onClick={()=>onAction(c.aulaDto.id)} small />}
-          </div>
-        </div>
-      ))}
+        );
+      })}
     </div>
   );
 }
@@ -613,7 +715,7 @@ function AlunoView({ userName, educandoId }: { userName: string; educandoId?: st
     carregarDados();
   };
 
-  const inscrever = async (id: string) => {
+  const inscriver = async (id: string) => {
     const url = educandoId ? `${API}/inscreverEmCoaching/${id}/educando/${educandoId}` : `${API}/inscreverEmCoaching/${id}`;
     await apiFetch(url, { method:"POST" });
     carregarDados();
@@ -631,8 +733,17 @@ function AlunoView({ userName, educandoId }: { userName: string; educandoId?: st
     } catch (e: any) { setErr(e.message || "Erro ao marcar coaching."); }
   };
 
-  // Filtros de histórico
-  const coachingsFiltrados = coaching.filter(c => verPassados ? !eFuturo(c.aulaDto.dataAula, c.aulaDto.horaFim) : eFuturo(c.aulaDto.dataAula, c.aulaDto.horaFim));
+  const coachingsFiltrados = coaching.filter(c => {
+    const estado = c.estadoAulaDto?.estado?.toUpperCase() || "PENDENTE";
+    const estadosAtivos = ["AGENDADO", "PENDENTE", "CONFIRMADO"];
+    
+    if (verPassados) {
+      return estado === "CANCELADO" || !estadosAtivos.includes(estado);
+    } else {
+      return estadosAtivos.includes(estado) && estado !== "CANCELADO";
+    }
+  });
+
   const disponiveisFiltrados = disponiveis.filter(c => eFuturo(c.aulaDto.dataAula, c.aulaDto.horaFim));
 
   const TABS = [{ key:"horario", label:"Aulas" },{ key:"coaching", label:"Coaching" },{ key:"disponiveis", label:"Disponíveis" }] as const;
@@ -663,7 +774,7 @@ function AlunoView({ userName, educandoId }: { userName: string; educandoId?: st
               <h2 style={{ fontFamily: "var(--font-playfair)", fontSize: 24, color: "var(--panel-dark)", margin: 0 }}>Coachings disponíveis</h2>
             </div>
             {disponiveisFiltrados.length === 0 && <Empty>Sem sessões livres para inscrição no momento.</Empty>}
-            <CoachingGrid items={disponiveisFiltrados} onAction={(id) => inscrever(id)} actionLabel="Inscrever na Sessão" />
+            <CoachingGrid items={disponiveisFiltrados} onAction={(id) => inscriver(id)} actionLabel="Inscrever na Sessão" />
           </div>
         )}
       </>}
@@ -760,7 +871,6 @@ function ProfessorView({ userName }: { userName: string }) {
     try {
       setDispErr("");
       if (editId) {
-        // Simulação / Chamada de Atualização se suportada pelo endpoint, caso contrário recria
         await apiFetch(`/disponibilidade/professor/${editId}`, { method: "DELETE" });
       }
       await apiFetch(`/disponibilidade/professor`, { method: "POST", body: JSON.stringify(dispForm) });
@@ -776,7 +886,6 @@ function ProfessorView({ userName }: { userName: string }) {
     }
   };
 
-  // Filtra apenas as disponibilidades válidas (que não expiraram)
   const disponibilidadesValidas = disps.filter(d => d.validoAte ? eFuturo(d.validoAte) : true);
 
   const TABS = [{ key:"horario", label:"Horário Semanal" },{ key:"coaching", label:"Coachings Pendentes" },{ key:"disponibilidade", label:"Disponibilidade" }] as const;
@@ -802,12 +911,12 @@ function ProfessorView({ userName }: { userName: string }) {
                       <EstadoBadge estado={c.estadoAulaDto.estado} />
                     </div>
                     <div style={{ fontSize:13, color:"var(--accent-muted)", marginBottom:14 }}>
-                      📆 {c.aulaDto.dataAula} <br />⏰ {trimHora(c.aulaDto.horaInicio)} – {trimHora(c.aulaDto.horaFim)}
+                      Data: {c.aulaDto.dataAula} <br />Horário: {trimHora(c.aulaDto.horaInicio)} – {trimHora(c.aulaDto.horaFim)}
                     </div>
                   </div>
                   <div style={{ display:"flex", gap:8, justifyContent:"flex-end", borderTop:"1px solid #FAF8F5", paddingTop:12 }}>
-                    <BtnSecundario label="✕ Rejeitar" onClick={()=>rejeitar(c.aulaDto.id)} small />
-                    <BtnPrimario   label="✓ Confirmar" onClick={()=>confirmar(c.aulaDto.id)} small />
+                    <BtnSecundario label="Rejeitar" onClick={()=>rejeitar(c.aulaDto.id)} small />
+                    <BtnPrimario   label="Confirmar" onClick={()=>confirmar(c.aulaDto.id)} small />
                   </div>
                 </div>
               ))}
@@ -822,17 +931,17 @@ function ProfessorView({ userName }: { userName: string }) {
               <BtnPrimario label="+ Nova Disponibilidade" onClick={openCriar} />
             </div>
             
-            {disponibilidadesValidas.length===0 && <Empty>Nenhuma disponibilidade ativa configurada.</Empty>}
+            {disponibilidadesValidas.length===0 && <Empty>Nenhuma disponibilidade activa configurada.</Empty>}
             
             <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill, minmax(280px, 1fr))", gap:16 }}>
               {disponibilidadesValidas.map(d => (
                 <div key={d.id} style={{ background:"#fff", border:"1px solid var(--border-warm)", borderRadius:12, padding:"18px", boxShadow:"0 2px 4px rgba(0,0,0,0.01)", display:"flex", flexDirection:"column", justifyContent:"space-between" }}>
                   <div>
                     <div style={{ fontSize:15, color:"var(--panel-dark)", fontWeight:600, marginBottom:6 }}>
-                      🗓️ {DIAS_OPTIONS.find(x=>x.value===d.diaSemana)?.label??d.diaSemana}
+                      Dia: {DIAS_OPTIONS.find(x=>x.value===d.diaSemana)?.label??d.diaSemana}
                     </div>
                     <div style={{ fontSize:13, color:"var(--panel-dark)", marginBottom:12 }}>
-                      ⏰ {trimHora(d.horaInicio)} – {trimHora(d.horaFim)}
+                      Horário: {trimHora(d.horaInicio)} – {trimHora(d.horaFim)}
                       {d.validoDe && <div style={{ fontSize:11, color:"var(--accent-muted)", marginTop:4 }}>Vigência: {d.validoDe} até {d.validoAte}</div>}
                     </div>
                   </div>
@@ -847,7 +956,6 @@ function ProfessorView({ userName }: { userName: string }) {
         )}
       </>}
 
-      {/* Modal Nova / Editar Disponibilidade */}
       <Modal open={isModalOpen} onClose={() => setIsModalOpen(false)} title={editId ? "Editar Disponibilidade" : "Nova Disponibilidade"}>
         {dispErr && <ErrMsg msg={dispErr} />}
         <SelectField label="Dia da semana" value={dispForm.diaSemana.toString()} onChange={v=>setDispForm(f=>({...f,diaSemana:parseInt(v)}))} options={DIAS_OPTIONS.map(d=>({value:d.value.toString(),label:d.label}))} />
@@ -951,14 +1059,14 @@ function CoordenacaoView() {
                 <div key={h.id} style={{ background:"#fff", border:"1px solid var(--border-warm)", borderRadius:12, padding:"20px", display:"flex", flexDirection:"column", justifyContent:"space-between", boxShadow:"0 2px 4px rgba(0,0,0,0.01)" }}>
                   <div>
                     <div style={{ fontSize:15, color:"var(--panel-dark)", fontWeight:600, marginBottom:8 }}>
-                      🗓️ {DIAS_OPTIONS.find(d=>d.label===h.diaSemana||d.value.toString()===h.diaSemana)?.label??h.diaSemana} · {trimHora(h.horaInicio)} – {trimHora(h.horaFim)}
+                      Dia: {DIAS_OPTIONS.find(d=>d.label===h.diaSemana||d.value.toString()===h.diaSemana)?.label??h.diaSemana} · {trimHora(h.horaInicio)} – {trimHora(h.horaFim)}
                     </div>
                     <div style={{ display:"flex", gap:6, flexWrap:"wrap", marginBottom:8 }}>
                       {h.idturmaId && <span style={{ background:"rgba(44,31,20,0.06)", color:"var(--panel-dark)", borderRadius:4, padding:"2px 8px", fontSize:11, fontWeight:500 }}>{h.idturmaId.nome}</span>}
-                      {h.estudioId && <span style={{ background:"rgba(160,133,96,0.1)", color:"var(--accent-muted)", borderRadius:4, padding:"2px 8px", fontSize:11, fontWeight:500 }}>📍 {h.estudioId.nome}</span>}
+                      {h.estudioId && <span style={{ background:"rgba(160,133,96,0.1)", color:"var(--accent-muted)", borderRadius:4, padding:"2px 8px", fontSize:11, fontWeight:500 }}>Estúdio: {h.estudioId.nome}</span>}
                     </div>
                     <div style={{ fontSize:12, color:"var(--accent-muted)", fontWeight:400 }}>
-                      Vigência: {h.dataInicio} ➔ {h.dataValidade} <br /> Duração: {h.duracaoMinutos} min
+                      Vigência: {h.dataInicio} para {h.dataValidade} <br /> Duração: {h.duracaoMinutos} min
                     </div>
                   </div>
                   <div style={{ display:"flex", gap:8, justifyContent:"flex-end", borderTop:"1px solid #FAF8F5", paddingTop:12, marginTop:12 }}>
@@ -988,9 +1096,9 @@ function CoordenacaoView() {
                         <EstadoBadge estado={c.estadoAulaDto?.estado??"—"} />
                       </div>
                       <div style={{ fontSize:13, color:"var(--panel-dark)", marginBottom:4 }}>
-                        ⏰ Horário: {trimHora(c.aulaDto.horaInicio)} – {trimHora(c.aulaDto.horaFim)}
+                        Horário: {trimHora(c.aulaDto.horaInicio)} – {trimHora(c.aulaDto.horaFim)}
                       </div>
-                      {c.professorDto && <div style={{ fontSize:12, color:"var(--accent-muted)", marginBottom:10 }}>Professor: {c.professorDto.utilizadores?.nome||"Não atribuído"}</div>}
+                      {c.professorDto && <div style={{ fontSize:12, color:"var(--accent-muted)", marginBottom:10 }}>Professor: {c.professorDto.utilizadores?.nome || c.professorDto?.utilizador?.nome || c.professorDto?.nome || "Não atribuído"}</div>}
                     </div>
                     <div style={{ display:"flex", gap:8, justifyContent:"flex-end", borderTop:"1px solid #FAF8F5", paddingTop:12 }}>
                       {!jaValidado && <BtnPrimario label="Validar" onClick={()=>validarC(c.aulaDto.id)} small />}
@@ -1004,7 +1112,6 @@ function CoordenacaoView() {
         )}
       </>}
 
-      {/* Modal Criar / Editar Horário Fixo */}
       <Modal open={isModalOpen} onClose={() => setIsModalOpen(false)} title={editId ? "Editar Horário Fixo" : "Novo Horário Fixo"}>
         {err && <ErrMsg msg={err} />}
         <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12 }}>

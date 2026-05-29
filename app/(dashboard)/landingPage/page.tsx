@@ -16,7 +16,6 @@ interface EstudioDto {
   nome: string;
 }
 
-// Atualizado para a assinatura do teu AulaTituloDto do Java
 interface AulaTituloDto {
   id: string;
   estudio?: EstudioDto;
@@ -41,6 +40,25 @@ function diaParaIdx(dataStr: string | undefined): number {
   
   if (diaSemana === 0) return -1; 
   return diaSemana - 1; 
+}
+
+// Retorna um array com o número do dia do mês para cada dia da semana (Segunda a Sábado)
+function getDiasDaSemanaAtual(): number[] {
+  const hoje = new Date();
+  const diaSemana = hoje.getDay();
+  // Se for Domingo (0), recua 6 dias para ir para a Segunda anterior. Caso contrário, calcula a distância.
+  const distanciaParaSegunda = diaSemana === 0 ? -6 : 1 - diaSemana;
+  
+  const segunda = new Date(hoje);
+  segunda.setDate(hoje.getDate() + distanciaParaSegunda);
+
+  const dias: number[] = [];
+  for (let i = 0; i < 6; i++) {
+    const diaCorrente = new Date(segunda);
+    diaCorrente.setDate(segunda.getDate() + i);
+    dias.push(diaCorrente.getDate());
+  }
+  return dias;
 }
 
 function getIntervaloSemana(): string {
@@ -86,16 +104,19 @@ function HorarioResumo({ role }: { role: Role }) {
   const [loading, setLoading] = useState(true);
   const [erro, setErro] = useState("");
   const [intervaloTexto, setIntervaloTexto] = useState("");
+  const [diasDoMes, setDiasDoMes] = useState<number[]>([]);
   const router = useRouter();
 
   useEffect(() => {
     setIntervaloTexto(getIntervaloSemana());
+    setDiasDoMes(getDiasDaSemanaAtual());
+    
     const token = localStorage.getItem("token") ?? "";
     const headers = {
       "Content-Type": "application/json",
       Authorization: `Bearer ${token}`,
     };
-    // Certifica-te que estes endpoints chamam a tua nova função 'buscarHorarioCompletoDoAluno' que junta as duas tabelas
+    
     const endpoint =
       role === "PROFESSOR"
         ? `${BASE_URL}/api/horario/professor/horario?offset=0`
@@ -108,7 +129,6 @@ function HorarioResumo({ role }: { role: Role }) {
       })
       .then((data: any[]) => {
         console.log("DADOS VINDOS DA API (AULA_TITULO_DTO):", data);
-        // Os dados já vêm convertidos do Java, basta guardá-los diretamente no estado
         setAulas(data ?? []);
       })
       .catch((e) => setErro(e.message))
@@ -212,8 +232,8 @@ function HorarioResumo({ role }: { role: Role }) {
             <div key={idx} style={{ display: "flex", flexDirection: "column", minWidth: "120px" }}>
               <div
                 style={{
-                  fontSize: "9px",
-                  letterSpacing: "2px",
+                  fontSize: "10px",
+                  letterSpacing: "1px",
                   textTransform: "uppercase",
                   color: "var(--accent-muted)",
                   fontWeight: 600,
@@ -223,7 +243,7 @@ function HorarioResumo({ role }: { role: Role }) {
                   textAlign: "center"
                 }}
               >
-                {DIAS_ABREV[idx]}
+                {DIAS_ABREV[idx]} {diasDoMes[idx] ? `(${diasDoMes[idx]})` : ""}
               </div>
               {aulasPorDia[idx].length === 0 ? (
                 <div
@@ -448,10 +468,7 @@ export default function LandingPage() {
   ];
 
   const totalItensVisiveisEAlfinetados = NAV_SECTIONS.flatMap(s => s.items).filter(item => {
-    // Oculta Gestão de Utilizadores se não for COORDENACAO
     if (item.href === "/utilizadores" && role !== "COORDENACAO") return false;
-
-    // Oculta Gestão de Stock/Inventario se nao for COORDENACAO
     if (item.href === "/inventario" && role !== "COORDENACAO") return false;
     return pinnedHrefs.includes(item.href);
   }).length;
@@ -474,7 +491,6 @@ export default function LandingPage() {
           {NAV_SECTIONS.map((section) => {
             const itensFiltradosDaSeccao = section.items.filter((item) => {
               if (item.href === "/utilizadores" && role !== "COORDENACAO") return false;
-
               if (item.href === "/inventario" && role !== "COORDENACAO") return false;
               return pinnedHrefs.includes(item.href);
             });
