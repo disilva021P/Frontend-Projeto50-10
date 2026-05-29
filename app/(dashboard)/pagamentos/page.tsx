@@ -26,16 +26,6 @@ interface PagamentoDto {
   utilizadoreResumoDto?: UtilizadoreResumoDto;
 }
 
-interface PagamentosEstatisticaCoordenacao {
-  getTotalPago: number;
-  getTotalPorPagar: number;
-}
-
-interface AlunoEstatisticaDto {
-  totalPago?: number;
-  totalPendente?: number;
-}
-
 const BASE_URL = 'http://localhost:8080';
 
 const CATEGORIAS_PADRAO: TipoPagamentoDto[] = [
@@ -67,10 +57,12 @@ export default function PagamentosPage() {
   // Estados de Dados
   const [pagamentos, setPagamentos] = useState<PagamentoDto[]>([]);
   const [todosOsPagamentos, setTodosOsPagamentos] = useState<PagamentoDto[]>([]); 
-  const [estatisticasCoord, setEstatisticasCoord] = useState<PagamentosEstatisticaCoordenacao | null>(null);
-  const [estatisticasAluno, setEstatisticasAluno] = useState<AlunoEstatisticaDto | null>(null);
   const [loading, setLoading] = useState(true);
   const [tiposPagamento, setTiposPagamento] = useState<TipoPagamentoDto[]>(CATEGORIAS_PADRAO);
+
+  // Estados locais para Totais Financeiros (Calculados dinamicamente)
+  const [totalLiquidado, setTotalLiquidado] = useState<number>(0);
+  const [totalPendente, setTotalPendente] = useState<number>(0);
 
   // Filtros
   const [pesquisaNome, setPesquisaNome] = useState('');
@@ -95,6 +87,16 @@ export default function PagamentosPage() {
   
   const sugestoesRef = useRef<HTMLUListElement>(null);
 
+  // Estados para ordenação e filtro por coluna
+  const [ordenacaoData, setOrdenacaoData] = useState<'ASC' | 'DESC'>('DESC');
+  const [ordenacaoMontante, setOrdenacaoMontante] = useState<'ASC' | 'DESC' | null>(null);
+  const [filtroEstadoCol, setFiltroEstadoCol] = useState<'TODOS' | 'LIQUIDADO' | 'PENDENTE'>('TODOS');
+
+  // ENCARREGADO
+  const [perfilUtilizador, setPerfilUtilizador] = useState<any>(null);
+  const [educandos, setEducandos] = useState<UtilizadoreResumoDto[]>([]);
+  const [educandoSelecionado, setEducandoSelecionado] = useState<UtilizadoreResumoDto | null>(null);
+
   useEffect(() => {
     setIsMounted(true);
     const raw = localStorage.getItem('user');
@@ -105,6 +107,12 @@ export default function PagamentosPage() {
       } catch { }
     }
   }, []);
+
+  useEffect(() => {
+    if (isMounted && role) {
+      carregarPerfil();
+    }
+  }, [isMounted, role]);
 
   useEffect(() => {
     const handleClickFora = (e: MouseEvent) => {
@@ -131,19 +139,25 @@ export default function PagamentosPage() {
     const offsetCalculado = calcularOffsetMes(mesFiltro);
 
     let endpointLista = `${BASE_URL}/api/pagamentos`; 
-    let endpointStats = `${BASE_URL}/api/pagamentos/estatisticas/coordenacao`;
 
     if (role === 'ALUNO') {
-      endpointLista = `${BASE_URL}/api/pagamentos/meus?offset=${offsetCalculado}`;
-      endpointStats = `${BASE_URL}/api/pagamentos/meus/estatisticas?offset=${offsetCalculado}`;
+      if (mesFiltro) {
+        endpointLista = `${BASE_URL}/api/pagamentos/meus?offset=${offsetCalculado}`;
+      } else {
+        endpointLista = `${BASE_URL}/api/pagamentos/meus/paginado?page=0&size=500`;
+      }
+    } else if (role === 'PROFESSOR') {
+      endpointLista = `${BASE_URL}/api/pagamentos/meus/professor/paginado?page=0&size=500`;
+    } 
+    
+    if (role === 'ENCARREGADO') {
+      if (!educandoSelecionado) return; 
+      endpointLista = `${BASE_URL}/api/pagamentos/educando/${educandoSelecionado.id}/paginado?page=0&size=500`;
     }
 
     setLoading(true);
     try {
-      const [resLista, resStats] = await Promise.all([
-        fetch(endpointLista, { headers }),
-        fetch(endpointStats, { headers }).catch(() => null)
-      ]);
+      const resLista = await fetch(endpointLista, { headers });
 
       let listaTratada: PagamentoDto[] = [];
       if (resLista.ok) {
@@ -165,29 +179,12 @@ export default function PagamentosPage() {
       const listaFinalCategorias: TipoPagamentoDto[] = [];
       mapaCategorias.forEach((id, nomeFormatado) => {
         const original = CATEGORIAS_PADRAO.find(c => c.tipoPagamento.toLowerCase() === nomeFormatado)?.tipoPagamento 
-                         || (nomeFormatado.charAt(0).toUpperCase() + nomeFormatado.slice(1));
-        
+                        || (nomeFormatado.charAt(0).toUpperCase() + nomeFormatado.slice(1));
         listaFinalCategorias.push({ id, tipoPagamento: original });
       });
 
       setTiposPagamento(listaFinalCategorias);
 
-      if (resStats && resStats.ok) {
-        const dadosStats = await resStats.json();
-        if (role === 'COORDENACAO') {
-          setEstatisticasCoord({
-            getTotalPago: dadosStats?.getTotalPago ?? dadosStats?.totalPago ?? 0,
-            getTotalPorPagar: dadosStats?.getTotalPorPagar ?? dadosStats?.totalPorPagar ?? 0
-          });
-          setEstatisticasAluno(null);
-        } else {
-          setEstatisticasCoord(null);
-          setEstatisticasAluno({
-            totalPago: dadosStats?.totalPago ?? 0,
-            totalPendente: dadosStats?.totalPendente ?? 0,
-          });
-        }
-      }
     } catch (err) {
       console.error('Erro ao processar dados financeiros:', err);
     } finally {
@@ -198,32 +195,109 @@ export default function PagamentosPage() {
   useEffect(() => {
     if (!isMounted) return;
 
-    if (role === 'COORDENACAO') {
-      let dadosFiltrados = [...todosOsPagamentos];
+    let dadosTratados = [...todosOsPagamentos];
 
-      if (mesFiltro) {
-        dadosFiltrados = dadosFiltrados.filter(p => p.dataPagamento?.startsWith(mesFiltro));
-      }
-
-      if (pesquisaNome.trim() !== '') {
-        const termo = pesquisaNome.toLowerCase().trim();
-        dadosFiltrados = dadosFiltrados.filter(p => 
-          p.utilizadoreResumoDto?.nome?.toLowerCase().includes(termo) ||
-          p.descricao?.toLowerCase().includes(termo)
-        );
-      }
-
-      setPagamentos(dadosFiltrados);
-    } else {
-      setPagamentos(todosOsPagamentos);
+    if (mesFiltro) {
+      dadosTratados = dadosTratados.filter(p => p.dataPagamento?.startsWith(mesFiltro));
     }
-  }, [todosOsPagamentos, mesFiltro, pesquisaNome, isMounted, role]);
+
+    if (role === 'COORDENACAO' && pesquisaNome.trim() !== '') {
+      const termo = pesquisaNome.toLowerCase().trim();
+      dadosTratados = dadosTratados.filter(p => 
+        p.utilizadoreResumoDto?.nome?.toLowerCase().includes(termo) ||
+        p.descricao?.toLowerCase().includes(termo)
+      );
+    }
+
+    let liq = 0;
+    let pen = 0;
+    dadosTratados.forEach(p => {
+      const valor = p.valorPagamento ?? 0;
+      if (p.pago) {
+        liq += valor;
+      } else {
+        pen += valor;
+      }
+    });
+    setTotalLiquidado(liq);
+    setTotalPendente(pen);
+
+    if (filtroEstadoCol === 'LIQUIDADO') {
+      dadosTratados = dadosTratados.filter(p => p.pago === true);
+    } else if (filtroEstadoCol === 'PENDENTE') {
+      dadosTratados = dadosTratados.filter(p => p.pago === false);
+    }
+
+    if (ordenacaoMontante !== null) {
+      dadosTratados.sort((a, b) => {
+        const valorA = a.valorPagamento ?? 0;
+        const valorB = b.valorPagamento ?? 0;
+        return ordenacaoMontante === 'ASC' ? valorA - valorB : valorB - valorA;
+      });
+    } else {
+      dadosTratados.sort((a, b) => {
+        const dataA = a.dataPagamento ? new Date(a.dataPagamento).getTime() : 0;
+        const dataB = b.dataPagamento ? new Date(b.dataPagamento).getTime() : 0;
+        return ordenacaoData === 'ASC' ? dataA - dataB : dataB - dataA;
+      });
+    }
+
+    setPagamentos(dadosTratados);
+  }, [todosOsPagamentos, mesFiltro, pesquisaNome, ordenacaoData, ordenacaoMontante, filtroEstadoCol, isMounted, role]);
 
   useEffect(() => {
     if (isMounted && role) {
       carregarDadosFinanceiros();
     }
-  }, [mesFiltro, role, isMounted]);
+  }, [mesFiltro, educandoSelecionado, role, isMounted]);
+
+  const alternarOrdenacaoData = () => {
+    setOrdenacaoMontante(null); 
+    setOrdenacaoData(prev => prev === 'DESC' ? 'ASC' : 'DESC');
+  };
+
+  const alternarOrdenacaoMontante = () => {
+    if (ordenacaoMontante === null) {
+      setOrdenacaoMontante('ASC');
+    } else if (ordenacaoMontante === 'ASC') {
+      setOrdenacaoMontante('DESC');
+    } else {
+      setOrdenacaoMontante(null); 
+      setOrdenacaoData('DESC');
+    }
+  };
+
+  const alternarFiltroEstado = () => {
+    setFiltroEstadoCol(prev => {
+      if (prev === 'TODOS') return 'PENDENTE';
+      if (prev === 'PENDENTE') return 'LIQUIDADO';
+      return 'TODOS';
+    });
+  };
+
+  const carregarPerfil = async () => {
+    const token = localStorage.getItem('token') ?? '';
+    const headers = { Authorization: `Bearer ${token}` };
+
+    try {
+      const resPerfil = await fetch(`${BASE_URL}/api/utilizadores/meu-perfil`, { headers });
+      if (resPerfil.ok) {
+        const perfil = await resPerfil.json();
+        setPerfilUtilizador(perfil);
+      }
+
+      if (role === 'ENCARREGADO') {
+        const resEducandos = await fetch(`${BASE_URL}/api/utilizadores/meus-educandos`, { headers });
+        if (resEducandos.ok) {
+          const lista = await resEducandos.json();
+          setEducandos(lista);
+          if (lista.length > 0) setEducandoSelecionado(lista[0]); 
+        }
+      }
+    } catch (err) {
+      console.error('Erro ao carregar perfil:', err);
+    }
+  };
 
   const carregarDadosModal = async () => {
     const token = localStorage.getItem('token') ?? '';
@@ -372,6 +446,31 @@ export default function PagamentosPage() {
     }
   };
 
+  // Esta função agora serve para o fluxo unificado de execução de pagamentos pendentes no frontend
+  const handlePagarFatura = async (idPagamento: string) => {
+    if (!confirm("Desejas proceder ao pagamento deste lançamento pendente?")) return;
+
+    const token = localStorage.getItem('token') ?? '';
+    const url = `${BASE_URL}/api/pagamentos/${idPagamento}/confirmar`;
+
+    try {
+      const res = await fetch(url, {
+        method: 'PATCH',
+        headers: { Authorization: `Bearer ${token}` }
+      });
+
+      if (res.ok) {
+        alert("Pagamento efetuado com sucesso!");
+        carregarDadosFinanceiros();
+      } else {
+        alert("Não foi possível processar o pagamento. Tente novamente.");
+      }
+    } catch (err) {
+      console.error("Erro ao processar pagamento:", err);
+      alert("Falha de comunicação com o servidor.");
+    }
+  };
+
   const handleEliminarPagamento = async (id: string) => {
     if (!confirm('Eliminar permanentemente este registo?')) return;
     const token = localStorage.getItem('token') ?? '';
@@ -386,9 +485,17 @@ export default function PagamentosPage() {
     }
   };
 
+  const isMenorDeIdade = (): boolean => {
+    if (!perfilUtilizador?.dataNascimento) return false;
+    const nascimento = new Date(perfilUtilizador.dataNascimento);
+    const hoje = new Date();
+    const idade = hoje.getFullYear() - nascimento.getFullYear() -
+      (hoje < new Date(hoje.getFullYear(), nascimento.getMonth(), nascimento.getDate()) ? 1 : 0);
+    return idade < 18;
+  };
+
   if (!isMounted) return <p className="p-8 text-sm">A ler configurações do servidor...</p>;
 
-  // Estilo comum para Inputs/Selects elegantes
   const estiloCampoElegante = {
     width: '100%',
     padding: '10px 14px',
@@ -403,6 +510,12 @@ export default function PagamentosPage() {
     transition: 'border-color 0.2s, box-shadow 0.2s'
   };
 
+  const deveMostrarColunaAcoes = 
+    role === 'COORDENACAO' || 
+    role === 'PROFESSOR' || 
+    role === 'ENCARREGADO' ||
+    (role === 'ALUNO' && !isMenorDeIdade());
+
   return (
     <div style={{ paddingBottom: '40px' }}>
       
@@ -413,13 +526,13 @@ export default function PagamentosPage() {
           <h1 style={{ fontFamily: 'var(--font-playfair)', fontSize: '24px', margin: 0, fontWeight: 400 }}>Histórico de Pagamentos</h1>
         </div>
 
-        <div className="flex items-center gap-4">
+        <div className="flex items-end gap-4"> 
           {role === 'COORDENACAO' && (
             <div className="flex flex-col">
               <label style={{ fontSize: '10px', color: 'var(--accent-muted)', marginBottom: '4px', fontWeight: 500 }}>PESQUISAR UTILIZADOR / CONTEÚDO</label>
               <input
                 type="text"
-                placeholder="Digita o nome do aluno..."
+                placeholder="Digite nome utilizador / conteúdo"
                 value={pesquisaNome}
                 onChange={e => setPesquisaNome(e.target.value)}
                 style={{ padding: '7px 12px', border: '1px solid var(--border-warm)', borderRadius: '4px', fontSize: '13px', width: '220px', outline: 'none' }}
@@ -455,31 +568,94 @@ export default function PagamentosPage() {
           {/* PAINEL DE TOTAIS */}
           <div className="grid grid-cols-2 gap-4 mb-8">
             <div className="p-4 rounded-lg" style={{ background: '#FBF7F2', border: '1px solid var(--border-warm)', borderLeft: '4px solid #2E7D32' }}>
-              <p style={{ fontSize: '10px', color: 'var(--accent-muted)', margin: '0 0 4px 0' }}>TOTAL LIQUIDADO</p>
+              <p style={{ fontSize: '10px', color: 'var(--accent-muted)', margin: '0 0 4px 0' }}>
+                {role === 'PROFESSOR' ? 'HONORÁRIOS RECEBIDOS' : 'TOTAL LIQUIDADO'}
+              </p>
               <p style={{ fontSize: '22px', margin: 0, color: 'var(--panel-dark)', fontWeight: 500 }}>
-                {estatisticasCoord ? estatisticasCoord.getTotalPago?.toFixed(2) : estatisticasAluno?.totalPago?.toFixed(2)}€
+                {totalLiquidado.toFixed(2)}€
               </p>
             </div>
             <div className="p-4 rounded-lg" style={{ background: '#FBF7F2', border: '1px solid var(--border-warm)', borderLeft: '4px solid #C62828' }}>
-              <p style={{ fontSize: '10px', color: 'var(--accent-muted)', margin: '0 0 4px 0' }}>VALOR POR REGULARIZAR</p>
+              <p style={{ fontSize: '10px', color: 'var(--accent-muted)', margin: '0 0 4px 0' }}>
+                {role === 'PROFESSOR' ? 'VALOR PENDENTE A RECEBER' : 'VALOR POR REGULARIZAR'}
+              </p>
               <p style={{ fontSize: '22px', margin: 0, color: '#C62828', fontWeight: 500 }}>
-                {estatisticasCoord ? estatisticasCoord.getTotalPorPagar?.toFixed(2) : estatisticasAluno?.totalPendente?.toFixed(2)}€
+                {totalPendente.toFixed(2)}€
               </p>
             </div>
           </div>
+
+          {/* SELECTOR DE EDUCANDOS NO JSX (Apenas para ENCARREGADO) */}
+          {role === 'ENCARREGADO' && educandos.length > 0 && (
+            <div style={{ marginBottom: '20px', display: 'flex', gap: '10px', alignItems: 'center' }}>
+              <span style={{ fontSize: '11px', fontWeight: 600, textTransform: 'uppercase', color: 'var(--accent-muted)', letterSpacing: '0.5px' }}>
+                Educando
+              </span>
+              <div style={{ display: 'flex', gap: '8px' }}>
+                {educandos.map(e => (
+                  <button
+                    key={e.id}
+                    onClick={() => setEducandoSelecionado(e)}
+                    style={{
+                      padding: '6px 14px',
+                      borderRadius: '6px',
+                      border: '1px solid var(--border-warm)',
+                      background: educandoSelecionado?.id === e.id ? 'var(--panel-dark)' : 'transparent',
+                      color: educandoSelecionado?.id === e.id ? 'var(--accent-gold)' : 'var(--panel-dark)',
+                      fontSize: '12px',
+                      fontWeight: 500,
+                      cursor: 'pointer',
+                      transition: 'all 0.2s'
+                    }}
+                  >
+                    {e.nome}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* TABELA PRINCIPAL */}
           <div style={{ background: '#FFF', border: '1px solid var(--border-warm)', borderRadius: '8px', overflow: 'hidden' }}>
             <table className="w-full text-left text-sm border-collapse">
               <thead style={{ background: '#FAF6F0', color: 'var(--accent-muted)' }}>
                 <tr>
-                  <th className="p-3" style={{ fontSize: '11px' }}>Utilizador / Aluno</th>
+                  <th className="p-3" style={{ fontSize: '11px' }}>Utilizador</th>
                   <th className="p-3" style={{ fontSize: '11px' }}>Descrição</th>
                   <th className="p-3" style={{ fontSize: '11px' }}>Categoria</th>
-                  <th className="p-3" style={{ fontSize: '11px' }}>Data Emissão</th>
-                  <th className="p-3" style={{ fontSize: '11px' }}>Montante</th>
-                  <th className="p-3" style={{ fontSize: '11px' }}>Estado</th>
-                  {role === 'COORDENACAO' && <th className="p-3 text-right" style={{ fontSize: '11px' }}>Ações</th>}
+                  
+                  <th 
+                    className="p-3 cursor-pointer select-none hover:bg-orange-50 transition-colors" 
+                    style={{ fontSize: '11px' }}
+                    onClick={alternarOrdenacaoData}
+                  >
+                    Data Emissão {ordenacaoMontante === null && (ordenacaoData === 'DESC' ? '↓' : '↑')}
+                  </th>
+                  
+                  <th 
+                    className="p-3 cursor-pointer select-none hover:bg-orange-50 transition-colors" 
+                    style={{ fontSize: '11px' }}
+                    onClick={alternarOrdenacaoMontante}
+                  >
+                    Montante {ordenacaoMontante === 'ASC' ? '↑' : ordenacaoMontante === 'DESC' ? '↓' : ''}
+                  </th>
+                  
+                  <th 
+                    className="p-3 cursor-pointer select-none hover:bg-orange-50 transition-colors" 
+                    style={{ fontSize: '11px' }}
+                    onClick={alternarFiltroEstado}
+                  >
+                    <span style={{ 
+                      padding: '2px 6px', 
+                      borderRadius: '4px', 
+                      background: filtroEstadoCol !== 'TODOS' ? 'var(--panel-dark)' : 'transparent',
+                      color: filtroEstadoCol !== 'TODOS' ? 'var(--accent-gold)' : 'inherit'
+                    }}>
+                      Estado {filtroEstadoCol === 'TODOS' ? '⌕' : `(${filtroEstadoCol})`}
+                    </span>
+                  </th>
+                  
+                  {deveMostrarColunaAcoes && <th className="p-3 text-right" style={{ fontSize: '11px' }}>Ações</th>}
                 </tr>
               </thead>
               <tbody>
@@ -502,14 +678,43 @@ export default function PagamentosPage() {
                           {p.pago ? 'Liquidado' : 'Pendente'}
                         </span>
                       </td>
-                      {role === 'COORDENACAO' && (
+                      {deveMostrarColunaAcoes && (
                         <td className="p-3 text-right">
                           <div className="flex justify-end gap-2">
-                            {!p.pago && (
-                              <button onClick={() => handleConfirmarPagamento(p.id!)} title="Liquidar" className="text-green-700 bg-transparent border-none cursor-pointer"><i className="ti ti-check" /></button>
+                            {/* AÇÕES DA COORDENAÇÃO */}
+                            {role === 'COORDENACAO' && (
+                              <>
+                                {!p.pago && (
+                                  <button onClick={() => handleConfirmarPagamento(p.id!)} title="Liquidar" className="text-green-700 bg-transparent border-none cursor-pointer"><i className="ti ti-check" /></button>
+                                )}
+                                <button onClick={() => abrirModalEditar(p)} title="Editar" className="text-gray-500 bg-transparent border-none cursor-pointer"><i className="ti ti-edit" /></button>
+                                <button onClick={() => handleEliminarPagamento(p.id!)} title="Eliminar" className="text-red-700 bg-transparent border-none cursor-pointer"><i className="ti ti-trash" /></button>
+                              </>
                             )}
-                            <button onClick={() => abrirModalEditar(p)} title="Editar" className="text-gray-500 bg-transparent border-none cursor-pointer"><i className="ti ti-edit" /></button>
-                            <button onClick={() => handleEliminarPagamento(p.id!)} title="Eliminar" className="text-red-700 bg-transparent border-none cursor-pointer"><i className="ti ti-trash" /></button>
+
+                            {/* CORREÇÃO E UNIFICAÇÃO AQUI: 
+                                Exibe o mesmo botão "Pagar" premium para Professor, Encarregado e Alunos maiores de idade quando o pagamento estiver Pendente */}
+                            {!p.pago && (role === 'ENCARREGADO' || role === 'PROFESSOR' || (role === 'ALUNO' && !isMenorDeIdade())) && (
+                              <button
+                                onClick={() => handlePagarFatura(p.id!)}
+                                title={role === 'PROFESSOR' ? "Confirmar Recebimento / Pagar" : "Efetuar Pagamento"}
+                                style={{ 
+                                  background: 'var(--panel-dark)', 
+                                  color: 'var(--accent-gold)', 
+                                  border: 'none', 
+                                  padding: '4px 10px', 
+                                  borderRadius: '4px', 
+                                  cursor: 'pointer', 
+                                  fontSize: '11px', 
+                                  fontWeight: 600,
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  gap: '4px'
+                                }}
+                              >
+                                <i className="ti ti-credit-card" /> Pagar
+                              </button>
+                            )}
                           </div>
                         </td>
                       )}
@@ -522,12 +727,11 @@ export default function PagamentosPage() {
         </>
       )}
 
-      {/* MODAL CRIAÇÃO / EDIÇÃO RENOVADA */}
+      {/* MODAL CRIAÇÃO / EDIÇÃO */}
       {isModalOpen && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(24, 23, 21, 0.5)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100 }}>
           <div style={{ position: 'relative', background: '#FFFFFF', padding: '30px', borderRadius: '12px', width: '460px', border: '1px solid var(--border-warm)', boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)', overflow: 'hidden' }}>
             
-            {/* BARRA LATERAL DA MODAL SOLICITADA */}
             <div style={{ position: 'absolute', top: 0, left: 0, bottom: 0, width: '5px', backgroundColor: 'var(--panel-dark)' }} />
 
             <h2 style={{ fontFamily: 'var(--font-playfair)', fontSize: '20px', margin: '0 0 6px 0', color: 'var(--panel-dark)', fontWeight: 400 }}>
@@ -569,7 +773,7 @@ export default function PagamentosPage() {
               </div>
 
               <div>
-                <label style={{ fontSize: '11px', fontWeight: 600, textTransform: 'uppercase', color: 'var(--accent-muted)', letterSpacing: '0.5px', display: 'block', marginBottom: '6px' }}>Atribuir ao Aluno / Utilizador</label>
+                <label style={{ fontSize: '11px', fontWeight: 600, textTransform: 'uppercase', color: 'var(--accent-muted)', letterSpacing: '0.5px', display: 'block', marginBottom: '6px' }}>Atribuir ao Utilizador</label>
                 <div style={{ position: 'relative' }}>
                   <input
                     style={{
@@ -611,7 +815,6 @@ export default function PagamentosPage() {
                 </div>
               )}
 
-              {/* BOTÕES DE AÇÃO PREMIUM */}
               <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '16px' }}>
                 <button 
                   type="button" 
