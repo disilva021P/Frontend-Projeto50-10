@@ -456,10 +456,7 @@ export default function UtilizadoresPage() {
           </main>
         </div>
 
-        <footer style={{ padding: "12px 24px", borderTop: "1px solid var(--border-warm)", display: "flex", alignItems: "center", justifyContent: "space-between", flexShrink: 0 }}>
-          <span style={{ fontFamily: "var(--font-playfair)", fontSize: 12, letterSpacing: 3, color: "var(--accent-muted)" }}>entartes</span>
-          <span style={{ fontSize: 10, color: "var(--accent-muted)", fontWeight: 300 }}>© 2026 Entartes — Escola de Dança</span>
-        </footer>
+      
       </div>
 
       {/* ══ MODAL DETALHE ══ */}
