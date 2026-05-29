@@ -17,9 +17,9 @@ interface UtilizadorResponseDto {
 
 
 interface UtilizadoreResumoDto {
-  id: string;
-  nome: string;
-  email: string;
+id: string;
+nome: string;
+email: string;
   tipoUtilizador?: string;
 }
 
@@ -73,7 +73,7 @@ export default function UtilizadoresPage() {
   const [detalhe, setDetalhe] = useState<UtilizadorResponseDto | null>(null);
   const [isEditing, setIsEditing] = useState(false);
   
-  // 🟢 [CORREÇÃO] Tipagem corrigida para idEducandosIniciais como array opcional de strings
+  // Tipagem corrigida para idEducandosIniciais como array opcional de strings
   const [editForm, setEditForm] = useState<Partial<UtilizadorResponseDto> & {
     idTurmasIniciais?: string[];
     modalidadesIds?: string[];
@@ -239,7 +239,7 @@ export default function UtilizadoresPage() {
         modalidadesIds: form.id_tipoUtilizador === hashesDiscobertas.PROFESSOR
           ? form.modalidadesIds
           : [],
-        // 🟢 [NOVO] Adicionado o envio de idEducandosIniciais no payload se for ENCARREGADO
+        // Envia idEducandosIniciais no payload se for encarregado
         idEducandosIniciais: form.id_tipoUtilizador === hashesDiscobertas.ENCARREGADO
           ? form.idEducandosIniciais
           : [],
@@ -283,7 +283,7 @@ export default function UtilizadoresPage() {
   }
 
   async function eliminarPermanente(u: UtilizadorResponseDto) {
-    if (!confirm(`⚠️ Tens a certeza que queres eliminar permanentemente ${u.nome}? Esta ação é irreversível!`)) return;
+    if (!confirm(`Tens a certeza que queres eliminar permanentemente ${u.nome}? Esta ação é irreversível!`)) return;
     try {
       const res = await fetch(`${BASE_URL}/api/utilizadores/eliminaPermanente/${u.id}`, { method: "DELETE", headers: authHeaders() });
       if (!res.ok) throw new Error();
@@ -359,17 +359,14 @@ export default function UtilizadoresPage() {
 
               <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(145px, 1fr))", gap: 12, marginTop: 22 }}>
                 {[
-                  { label: "Total", value: totalElementos, icon: "ti-users", color: "var(--panel-dark)" },
-                  { label: "Ativos nesta página", value: ativosPagina, icon: "ti-user-check", color: "#2D6A3F" },
-                  { label: "Alunos", value: alunosPagina, icon: "ti-school", color: "#2D4E7A" },
-                  { label: "Professores", value: professoresPagina, icon: "ti-chalkboard", color: "#7A5020" },
-                  { label: "Encarregados", value: encarregadosPagina, icon: "ti-users-group", color: "#2D6A3F" },
+                  { label: "Total", value: totalElementos },
+                  { label: "Ativos nesta página", value: ativosPagina },
+                  { label: "Alunos", value: alunosPagina },
+                  { label: "Professores", value: professoresPagina },
+                  { label: "Encarregados", value: encarregadosPagina },
                 ].map(item => (
                   <div key={item.label} className="u-soft" style={{ border: "1px solid var(--border-warm)", borderRadius: 8, padding: 14, background: "rgba(255,255,255,.58)" }}>
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10 }}>
-                      <span style={{ fontSize: 10, letterSpacing: 1.4, textTransform: "uppercase", color: "var(--accent-muted)" }}>{item.label}</span>
-                      <i className={`ti ${item.icon}`} style={{ color: item.color, fontSize: 17 }} />
-                    </div>
+                    <span style={{ display: "block", fontSize: 10, letterSpacing: 1.4, textTransform: "uppercase", color: "var(--accent-muted)" }}>{item.label}</span>
                     <strong style={{ display: "block", marginTop: 8, fontFamily: "var(--font-playfair)", fontSize: 24, fontWeight: 400, color: "var(--panel-dark)" }}>{item.value}</strong>
                   </div>
                 ))}
@@ -456,10 +453,7 @@ export default function UtilizadoresPage() {
           </main>
         </div>
 
-        <footer style={{ padding: "12px 24px", borderTop: "1px solid var(--border-warm)", display: "flex", alignItems: "center", justifyContent: "space-between", flexShrink: 0 }}>
-          <span style={{ fontFamily: "var(--font-playfair)", fontSize: 12, letterSpacing: 3, color: "var(--accent-muted)" }}>entartes</span>
-          <span style={{ fontSize: 10, color: "var(--accent-muted)", fontWeight: 300 }}>© 2026 Entartes — Escola de Dança</span>
-        </footer>
+      
       </div>
 
       {/* ══ MODAL DETALHE ══ */}
@@ -529,7 +523,7 @@ export default function UtilizadoresPage() {
               <div>
                 <span style={{ display: "block", fontSize: 9, letterSpacing: 1.5, textTransform: "uppercase", color: "var(--accent-muted)", marginBottom: 4 }}>Estado</span>
                 <span style={{ fontSize: 13, color: detalhe.ativo ? "#27ae60" : "#c0392b", fontWeight: 500 }}>
-                  {detalhe.ativo ? "✓ Ativo" : "✕ Inativo"}
+                  {detalhe.ativo ? "Ativo" : "Inativo"}
                 </span>
               </div>
             </div>
@@ -622,8 +616,7 @@ export default function UtilizadoresPage() {
                 )}
               </div>
             )}
-            {/* 🟢 [NOVO] SECÇÃO VISUAL DOS EDUCANDOS (ENCARREGADO DE EDUCAÇÃO) NO MODAL DETALHE/EDIÇÃO */}
-           {/* 🟢 [ATUALIZADO] SECÇÃO DE EDUCANDOS (ENCARREGADO DE EDUCAÇÃO) NO MODAL DETALHE */}
+            {/* Secção de educandos no modal de detalhe/edição */}
             {(detalhe.tipoUtilizador === "ROLE_ENCARREGADO" || detalhe.tipoUtilizador === "ENCARREGADO") && (
               <div style={{ paddingLeft: 8, marginBottom: 16 }}>
                 <span style={{ display: "block", fontSize: 9, letterSpacing: 1.5, textTransform: "uppercase", color: "var(--accent-muted)", marginBottom: 6 }}>Educandos Associados</span>
@@ -660,7 +653,7 @@ export default function UtilizadoresPage() {
                     </div>
                   </div>
                 ) : (
-                  // 🟢 Exibição direta nos Detalhes (Modo de Leitura)
+                  // Exibição direta nos detalhes em modo de leitura
                   <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
                     {detalhe.educandos && detalhe.educandos.length > 0 ? (
                       detalhe.educandos.map(educando => (
@@ -865,7 +858,7 @@ export default function UtilizadoresPage() {
                 </div>
               )}
 
-              {/* 🟢 [NOVO] SECÇÃO VISUAL DE SELEÇÃO DE EDUCANDOS NO FORMULÁRIO DE CRIAÇÃO DO ENCARREGADO */}
+              {/* Secção de seleção de educandos no formulário de criação do encarregado */}
               {form.id_tipoUtilizador === hashesDiscobertas.ENCARREGADO && hashesDiscobertas.ENCARREGADO !== "" && (
                 <div>
                   <label style={{ display: "block", fontSize: 10, letterSpacing: 2, textTransform: "uppercase", color: "#2D6A3F", marginBottom: 6, fontWeight: "bold" }}>
