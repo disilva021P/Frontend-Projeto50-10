@@ -7,7 +7,7 @@ import { useEffect, useState, useCallback, useRef } from "react";
 type Role = "ALUNO" | "COORDENACAO" | "PROFESSOR" | "ENCARREGADO";
 
 interface ResumoDto { id: string; nome: string }
-interface TurmaDto   { id: string; nome: string; modalidade?: ResumoDto }
+interface TurmaDto   { id: string; nome: string; mensalidade?: number; ativo?: boolean; modalidade?: ResumoDto }
 interface EstudioDto { id: string; nome: string }
 interface AulaDto    {
   id: string; titulo?: string; dataAula?: string; horaInicio?: string; horaFim?: string;
@@ -29,6 +29,7 @@ interface DisponibilidadeDto {
   id: string; diaSemana: number; horaInicio: string; horaFim: string;
   validoDe?: string; validoAte?: string; professor?: ResumoDto;
 }
+interface ModalidadeDto { id: string; nome: string }
 
 const BASE = "http://localhost:8080";
 const API  = `${BASE}/api/horario`;
@@ -44,11 +45,10 @@ const DIAS_OPTIONS = [
 const HORAS = [
   "08:00", "09:00", "10:00", "11:00", "12:00", "13:00", "14:00", 
   "15:00", "16:00", "17:00", "18:00", "19:00", "20:00", "21:00", "22:00", "23:00"
-];
-
-const AULA_CORES       = ["#FBF0E4","#EAF4EC","#EEF2FB","#FBF0F7","#F5F5DC"];
-const AULA_CORES_BORDA = ["#D4B288","#9ECFAA","#9DBCE8","#D4A8C7","#C8C89E"];
-const AULA_CORES_TEXTO = ["#7A5020","#2D6A4F","#1A3F6F","#6B2D56","#5A5A30"];
+];// Substitua as linhas antigas por estas:
+const AULA_CORES       = ["#FFFFFF"];
+const AULA_CORES_BORDA = ["#E6E6E6"];
+const AULA_CORES_TEXTO = ["#2C1F14"];
 
 // ─── Auth helpers ─────────────────────────────────────────────────────────────
 
@@ -286,10 +286,9 @@ function GrelhaHorario({ aulas, titulo, semanaOffset, onPrev, onNext }: { aulas:
 
       <div style={{ overflowX: "auto" }}>
         <div style={{ minWidth: 700, border: "1px solid var(--border-warm)", borderRadius: 8, overflow: "hidden", background: "#fff" }}>
-          <div style={{ display: "grid", gridTemplateColumns: "48px repeat(7, 1fr)", background: "#FAF8F5", borderBottom: "1px solid var(--border-warm)", position: "sticky", top: 0, zIndex: 2 }}>
-            <div />
+        <div style={{ display: "grid", gridTemplateColumns: "48px repeat(7, 1fr)", background: "#EEEEEE", borderBottom: "1px solid var(--border-warm)", position: "sticky", top: 0, zIndex: 2 }}>            <div />
             {DIAS.map(dia => (
-              <div key={dia} style={{ borderLeft: "1px solid var(--border-warm)", padding: "8px 4px", textAlign: "center", fontSize: 10, fontWeight: 400, letterSpacing: 2, color: "var(--accent-muted)" }}>
+              <div key={dia} style={{ borderLeft: "1px solid var(--border-warm)", padding: "8px 4px", textAlign: "center", fontSize: 10, fontWeight: 400, letterSpacing: 2, color: "#BFAE9E" }}>
                 {dia}
               </div>
             ))}
@@ -316,21 +315,44 @@ function GrelhaHorario({ aulas, titulo, semanaOffset, onPrev, onNext }: { aulas:
                     return <div key={h} style={{ position: "absolute", top, left: 0, right: 0, borderTop: i === 0 ? "none" : "1px solid #F5F0EA", height: 1 }} />;
                   })}
                   {aulasPorDia[dIdx].map((a, aIdx) => {
-                    const top    = pos(a.horaInicio ?? "08:00");
-                    const height = alto(a.horaInicio ?? "08:00", a.horaFim ?? "09:00");
-                    const c = aIdx % AULA_CORES.length;
-                    return (
-                      <div 
-                        key={a.id} 
-                        onClick={() => setAulaSelecionada(a)}
-                        style={{ position: "absolute", top: top + 1, left: 3, right: 3, height: height - 2, background: AULA_CORES[c], border: `1px solid ${AULA_CORES_BORDA[c]}`, borderLeft: `3px solid ${AULA_CORES_BORDA[c]}`, borderRadius: 4, padding: "3px 5px", overflow: "hidden", cursor: "pointer" }}
-                      >
-                        <div style={{ fontSize: 10, fontWeight: 400, color: AULA_CORES_TEXTO[c], lineHeight: 1.2 }}>{a.turma?.nome ?? a.titulo ?? "Aula"}</div>
-                        <div style={{ fontSize: 9, color: AULA_CORES_TEXTO[c], opacity: .8, marginTop: 1 }}>{trimHora(a.horaInicio)} – {trimHora(a.horaFim)}</div>
-                        {height > 36 && a.professor && <div style={{ fontSize: 9, color: AULA_CORES_TEXTO[c], opacity: .65 }}>{a.professor.nome}</div>}
-                      </div>
-                    );
-                  })}
+  const top    = pos(a.horaInicio ?? "08:00");
+  const height = alto(a.horaInicio ?? "08:00", a.horaFim ?? "09:00");
+  
+  return (
+    <div 
+      key={a.id} 
+      onClick={() => setAulaSelecionada(a)}
+      style={{ 
+        position: "absolute", 
+        top: top + 1, 
+        left: 3, 
+        right: 3, 
+        height: height - 2, 
+        background: "#FFFFFF",                        // <--- Força Branco
+        border: "1px solid #E6E6E6",                 // <--- Borda cinza clara neutra
+        borderLeft: "3px solid var(--accent-muted)", // <--- Detalhe lateral discreto
+        borderRadius: 4, 
+        padding: "3px 5px", 
+        overflow: "hidden", 
+        cursor: "pointer",
+        boxShadow: "0 1px 2px rgba(0,0,0,0.05)"       // <--- Dá relevo para se notar que é um cartão
+      }}
+    >
+      {/* Texto com cor escura fixa para leitura perfeita no fundo branco */}
+      <div style={{ fontSize: 10, fontWeight: 600, color: "var(--panel-dark)", lineHeight: 1.2 }}>
+        {a.turma?.nome ?? a.titulo ?? "Aula"}
+      </div>
+      <div style={{ fontSize: 9, color: "var(--panel-dark)", opacity: .8, marginTop: 1 }}>
+        {trimHora(a.horaInicio)} – {trimHora(a.horaFim)}
+      </div>
+      {height > 36 && a.professor && (
+        <div style={{ fontSize: 9, color: "var(--panel-dark)", opacity: .65 }}>
+          {a.professor.nome}
+        </div>
+      )}
+    </div>
+  );
+})}
                 </div>
               ))}
             </div>
@@ -674,6 +696,98 @@ function CoachingGrid({ items, onAction, actionLabel, actionPerigo }: { items: C
   );
 }
 
+// ─── Horários Gerais (partilhado por Aluno, Professor, Encarregado) ───────────
+
+function GrelhaGeral() {
+  const [horarios, setHorarios]   = useState<HorarioFixoDto[]>([]);
+  const [turmas, setTurmas]       = useState<TurmaDto[]>([]);
+  const [loading, setLoading]     = useState(true);
+  const [offset, setOffset]       = useState(0);
+  const [turmaFiltro, setTurmaFiltro] = useState<string>("");
+
+  useEffect(() => {
+    setLoading(true);
+    Promise.all([
+      apiFetch<{ content: HorarioFixoDto[] }>(`${API}?page=0&size=200`),
+      apiFetch<TurmaDto[]>(`/api/turmas`),
+    ]).then(([h, t]) => {
+      setHorarios(h?.content ?? []);
+      setTurmas(t ?? []);
+    }).catch(console.error).finally(() => setLoading(false));
+  }, []);
+
+  if (loading) return <Loader />;
+
+  const hoje = new Date();
+  const diaAtual = hoje.getDay() === 0 ? 7 : hoje.getDay();
+  const segundaSemana = new Date(hoje);
+  segundaSemana.setDate(hoje.getDate() - (diaAtual - 1) + offset * 7);
+  segundaSemana.setHours(0, 0, 0, 0);
+  const domingoSemana = new Date(segundaSemana);
+  domingoSemana.setDate(segundaSemana.getDate() + 6);
+  domingoSemana.setHours(23, 59, 59, 999);
+
+  const turmasAtivas = turmas.filter(t => t.ativo !== false);
+
+  const todasAulas: AulaDto[] = horarios
+    .filter(h => {
+      if (!turmasAtivas.some(t => t.id === h.idturmaId?.id)) return false;
+      const inicio   = h.dataInicio   ? new Date(h.dataInicio   + "T00:00:00") : null;
+      const validade = h.dataValidade ? new Date(h.dataValidade + "T23:59:59") : null;
+      if (inicio   && inicio   > domingoSemana) return false;
+      if (validade && validade < segundaSemana)  return false;
+      return true;
+    })
+    .map(h => ({ ...normalizeAula(h), turma: h.idturmaId }));
+
+  const aulasGrelha = turmaFiltro
+    ? todasAulas.filter(a => a.turma?.id === turmaFiltro)
+    : todasAulas;
+
+  const turmasFiltro = turmasAtivas.filter(t =>
+    horarios.some(h => h.idturmaId?.id === t.id)
+  );
+
+  const titulo = turmaFiltro
+    ? (turmasAtivas.find(t => t.id === turmaFiltro)?.nome ?? "Turma selecionada")
+    : `${aulasGrelha.length} aula${aulasGrelha.length !== 1 ? "s" : ""} nesta semana`;
+
+  return (
+    <div>
+      <div style={{ marginBottom: 20, display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: 12 }}>
+        <h2 style={{ fontFamily: "var(--font-playfair)", fontSize: 22, color: "var(--panel-dark)", margin: 0 }}>
+          Horários Gerais
+        </h2>
+        {turmasFiltro.length > 0 && (
+          <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+            <label style={{ fontSize: 10, letterSpacing: 2, textTransform: "uppercase" as const, color: "var(--accent-muted)", fontWeight: 400 }}>Filtrar por turma</label>
+            <select
+              value={turmaFiltro}
+              onChange={e => setTurmaFiltro(e.target.value)}
+              style={{ background: "#fff", border: "1px solid var(--border-warm)", borderRadius: 6, color: "var(--panel-dark)", padding: "8px 12px", fontSize: 13, outline: "none", cursor: "pointer", minWidth: 200 }}
+            >
+              <option value="">Todas as turmas</option>
+              {turmasFiltro.map(t => (
+                <option key={t.id} value={t.id}>{t.nome}</option>
+              ))}
+            </select>
+          </div>
+        )}
+      </div>
+      {aulasGrelha.length === 0
+        ? <p style={{ color: "var(--accent-muted)", fontSize: 14, fontStyle: "italic" }}>Sem horários válidos para esta semana{turmaFiltro ? " e turma selecionada" : ""}.</p>
+        : <GrelhaHorario
+            aulas={aulasGrelha}
+            titulo={titulo}
+            semanaOffset={offset}
+            onPrev={() => setOffset(o => o - 1)}
+            onNext={() => setOffset(o => o + 1)}
+          />
+      }
+    </div>
+  );
+}
+
 // ─── Vista Base / Aluno ───────────────────────────────────────────────────────
 
 function AlunoView({ userName, educandoId }: { userName: string; educandoId?: string }) {
@@ -682,7 +796,7 @@ function AlunoView({ userName, educandoId }: { userName: string; educandoId?: st
   const [disponiveis, setDisp]      = useState<CoachingDto[]>([]);
   const [offset, setOffset]         = useState(0);
   const [loading, setLoading]       = useState(true);
-  const [tab, setTab]               = useState<"horario"|"coaching"|"disponiveis">("horario");
+  const [tab, setTab]               = useState<"horario"|"coaching"|"disponiveis"|"grelha">("horario");
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [verPassados, setVerPassados] = useState(false);
   const [err, setErr]               = useState("");
@@ -746,7 +860,7 @@ function AlunoView({ userName, educandoId }: { userName: string; educandoId?: st
 
   const disponiveisFiltrados = disponiveis.filter(c => eFuturo(c.aulaDto.dataAula, c.aulaDto.horaFim));
 
-  const TABS = [{ key:"horario", label:"Aulas" },{ key:"coaching", label:"Coaching" },{ key:"disponiveis", label:"Disponíveis" }] as const;
+  const TABS = [{ key:"horario", label:"Aulas" },{ key:"coaching", label:"Coaching" },{ key:"disponiveis", label:"Disponíveis"},    { key:"grelha",      label:"Horários Gerais" }] as const;
 
   return (
     <div>
@@ -777,6 +891,8 @@ function AlunoView({ userName, educandoId }: { userName: string; educandoId?: st
             <CoachingGrid items={disponiveisFiltrados} onAction={(id) => inscriver(id)} actionLabel="Inscrever na Sessão" />
           </div>
         )}
+
+        {tab === "grelha" && <GrelhaGeral />}
       </>}
 
       <Modal open={isModalOpen} onClose={() => setIsModalOpen(false)} title="Marcar Sessão de Coaching">
@@ -827,7 +943,7 @@ function ProfessorView({ userName }: { userName: string }) {
   const [pendentes, setPend]    = useState<CoachingDto[]>([]);
   const [disps, setDisps]       = useState<DisponibilidadeDto[]>([]);
   const [offset, setOffset]     = useState(0);
-  const [tab, setTab]           = useState<"horario"|"coaching"|"disponibilidade">("horario");
+  const [tab, setTab]           = useState<"horario"|"coaching"|"disponibilidade"|"grelha">("horario");
   const [loading, setLoading]   = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editId, setEditId] = useState<string|null>(null);
@@ -888,7 +1004,7 @@ function ProfessorView({ userName }: { userName: string }) {
 
   const disponibilidadesValidas = disps.filter(d => d.validoAte ? eFuturo(d.validoAte) : true);
 
-  const TABS = [{ key:"horario", label:"Horário Semanal" },{ key:"coaching", label:"Coachings Pendentes" },{ key:"disponibilidade", label:"Disponibilidade" }] as const;
+  const TABS = [{ key:"horario", label:"Horário Semanal" },{ key:"coaching", label:"Coachings Pendentes" },{ key:"disponibilidade", label:"Disponibilidade"},    { key:"grelha",      label:"Horários Gerais" }] as const;
 
   return (
     <div>
@@ -954,6 +1070,8 @@ function ProfessorView({ userName }: { userName: string }) {
             </div>
           </div>
         )}
+
+        {tab==="grelha" && <GrelhaGeral />}
       </>}
 
       <Modal open={isModalOpen} onClose={() => setIsModalOpen(false)} title={editId ? "Editar Disponibilidade" : "Nova Disponibilidade"}>
@@ -976,102 +1094,366 @@ function ProfessorView({ userName }: { userName: string }) {
 
 // ─── Vista Coordenação ────────────────────────────────────────────────────────
 
+// Helper: get pretty day label from diaSemana (string label or number)
+function diaLabel(diaSemana: string | number | undefined): string {
+  if (diaSemana === undefined || diaSemana === null) return "—";
+  const opt = DIAS_OPTIONS.find(d => d.label === diaSemana || d.value.toString() === String(diaSemana) || d.value === diaSemana);
+  return opt?.label ?? String(diaSemana);
+}
+
+// ─── Horário Card (pretty, consistent with aluno/professor style) ─────────────
+function HorarioCard({ h, onEdit, onDel }: { h: HorarioFixoDto; onEdit: () => void; onDel: () => void }) {
+  const diaIdx  = diaParaIdx(h.diaSemana);
+  const corIdx  = diaIdx >= 0 ? diaIdx % AULA_CORES.length : 0;
+  const bg      = AULA_CORES[corIdx];
+  const border  = AULA_CORES_BORDA[corIdx];
+  const texto   = AULA_CORES_TEXTO[corIdx];
+
+  return (
+    <div style={{ background: bg, border: `1px solid ${border}`, borderRadius: 12, padding: "18px 20px", display: "flex", flexDirection: "column", justifyContent: "space-between", boxShadow: "0 2px 6px rgba(0,0,0,0.04)", transition: "transform .15s", cursor: "default" }}>
+      <div>
+        {/* Day pill + time */}
+        <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}>
+          <span style={{ background: border, color: "#fff", borderRadius: 20, padding: "3px 12px", fontSize: 11, fontWeight: 700, letterSpacing: 1, textTransform: "uppercase" as const }}>
+            {diaLabel(h.diaSemana)}
+          </span>
+          <span style={{ fontSize: 15, fontWeight: 700, color: texto, letterSpacing: 0.3 }}>
+            {trimHora(h.horaInicio)} – {trimHora(h.horaFim)}
+          </span>
+        </div>
+
+        {/* Turma + Estúdio chips */}
+        <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 10 }}>
+          {h.idturmaId && (
+            <span style={{ background: "rgba(255,255,255,0.7)", color: texto, border: `1px solid ${border}`, borderRadius: 6, padding: "3px 10px", fontSize: 11, fontWeight: 600 }}>
+              <i className="ti ti-users" style={{ marginRight: 4, fontSize: 10 }} />{h.idturmaId.nome}
+            </span>
+          )}
+          {h.estudioId && (
+            <span style={{ background: "rgba(255,255,255,0.55)", color: texto, border: `1px solid ${border}`, borderRadius: 6, padding: "3px 10px", fontSize: 11, fontWeight: 600 }}>
+              <i className="ti ti-building" style={{ marginRight: 4, fontSize: 10 }} />{h.estudioId.nome}
+            </span>
+          )}
+        </div>
+
+        {/* Dates + duration */}
+        <div style={{ fontSize: 11, color: texto, opacity: 0.75, lineHeight: 1.6 }}>
+          <i className="ti ti-calendar" style={{ marginRight: 4 }} />
+          {h.dataInicio} → {h.dataValidade}
+          <span style={{ marginLeft: 10, background: "rgba(255,255,255,0.5)", borderRadius: 4, padding: "1px 7px" }}>
+            {h.duracaoMinutos} min
+          </span>
+        </div>
+      </div>
+
+      <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", borderTop: `1px solid ${border}`, paddingTop: 12, marginTop: 12 }}>
+        <BtnSecundario label="Editar"    onClick={onEdit} small />
+        <BtnPerigo     label="Eliminar"  onClick={onDel}  small />
+      </div>
+    </div>
+  );
+}
+
 function CoordenacaoView() {
-  const [horarios, setHorarios]   = useState<HorarioFixoDto[]>([]);
-  const [turmas, setTurmas]       = useState<TurmaDto[]>([]);
-  const [estudios, setEst]        = useState<EstudioDto[]>([]);
-  const [professores, setProfs]   = useState<ResumoDto[]>([]);
-  const [coachings, setCoachings] = useState<CoachingDto[]>([]);
-  const [loading, setLoading]     = useState(true);
-  const [tab, setTab]             = useState<"horarios"|"coaching">("horarios");
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [editId, setEditId]       = useState<string|null>(null);
-  const [err, setErr]             = useState("");
-  const [userId]                  = useState(() => typeof window!=="undefined" ? localStorage.getItem("userId")??"" : "");
-  
-  const emptyForm                 = { idturma:"", estudioId:"", idProfessor:"", dataInicio:"", dataValidade:"", diaSemana:"", horaInicio:"", horaFim:"", duracaoMinutos:0 };
-  const [form, setForm]           = useState(emptyForm);
+  const [horarios, setHorarios]       = useState<HorarioFixoDto[]>([]);
+  const [turmas, setTurmas]           = useState<TurmaDto[]>([]);
+  const [estudios, setEst]            = useState<EstudioDto[]>([]);
+  const [modalidades, setModal]       = useState<ModalidadeDto[]>([]);
+  const [professores, setProfs]       = useState<ResumoDto[]>([]);
+  const [coachings, setCoachings]     = useState<CoachingDto[]>([]);
+  const [loading, setLoading]         = useState(true);
+  const [tab, setTab]                 = useState<"horarios"|"turmas"|"modalidades"|"estudios"|"coaching"|"grelha">("horarios");
+  const [grelhaOffset, setGrelhaOffset]       = useState(0);
+  const [grelhaTurmaFiltro, setGrelhaTurmaFiltro] = useState<string>("");
+
+  // ── Horário modal ──────────────────────────────────────────────────────────
+  const [horModalOpen, setHorModalOpen]   = useState(false);
+  const [editHorId, setEditHorId]         = useState<string|null>(null);
+  const [horErr, setHorErr]               = useState("");
+  const emptyHorForm = { idturma:"", estudioId:"", idProfessor:"", dataInicio:"", dataValidade:"", diaSemana:"", horaInicio:"", horaFim:"", duracaoMinutos:0 };
+  const [horForm, setHorForm]             = useState(emptyHorForm);
+
+  // ── Turma modal ───────────────────────────────────────────────────────────
+  const [turmaModalOpen, setTurmaModalOpen] = useState(false);
+  const [editTurmaId, setEditTurmaId]       = useState<string|null>(null);
+  const [turmaErr, setTurmaErr]             = useState("");
+  const [turmaForm, setTurmaForm]           = useState({ nome:"", mensalidade:"", modalidadeId:"", ativo: true });
+
+  // ── Modalidade modal ──────────────────────────────────────────────────────
+  const [modModalOpen, setModModalOpen] = useState(false);
+  const [modErr, setModErr]             = useState("");
+  const [modNome, setModNome]           = useState("");
+
+  // ── Estúdio modal (criar/editar) ──────────────────────────────────────────
+  const [estModalOpen, setEstModalOpen]       = useState(false);
+  const [editEstId, setEditEstId]             = useState<string|null>(null);
+  const [estErr, setEstErr]                   = useState("");
+  const [estNome, setEstNome]                 = useState("");
+  const [estCapacidade, setEstCapacidade]     = useState<number|"">("");
+
+  // ── Estúdio: modal de associações ─────────────────────────────────────────
+  const [assocModalOpen, setAssocModalOpen]           = useState(false);
+  const [assocEstudio, setAssocEstudio]               = useState<EstudioDto|null>(null);
+  const [modalidadesAssociadas, setModalidadesAssoc]  = useState<ModalidadeDto[]>([]);
+  const [modalidadesDisponiveis, setModalidadesDisp]  = useState<ModalidadeDto[]>([]);
+  const [loadingAssoc, setLoadingAssoc]               = useState(false);
+  const [assocErr, setAssocErr]                       = useState("");
+
+  const [userId] = useState(() => typeof window !== "undefined" ? localStorage.getItem("userId") ?? "" : "");
 
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const [h,t,e,p,c] = await Promise.all([
+      const [h,t,e,m,p,c] = await Promise.all([
         apiFetch<{ content: HorarioFixoDto[] }>(`${API}?page=0&size=50`),
         apiFetch<TurmaDto[]>(`/api/turmas`),
         apiFetch<EstudioDto[]>(`/api/estudios`),
+        apiFetch<ModalidadeDto[]>(`/api/modalidades`).catch(()=>[]),
         apiFetch<ResumoDto[]>(`/api/professores/selecionar`).catch(()=>[]),
         apiFetch<{ content: CoachingDto[] }>(`${API}/coaching/todos`),
       ]);
-      setHorarios(h?.content??[]); setTurmas(t??[]); setEst(e??[]); setProfs(p??[]); setCoachings(c?.content??[]);
+      setHorarios(h?.content??[]); setTurmas(t??[]); setEst(e??[]); setModal(m??[]); setProfs(p??[]); setCoachings(c?.content??[]);
     } catch(e) { console.error(e); }
     setLoading(false);
   }, []);
 
   useEffect(() => { load(); }, [load]);
 
-  const openCriar = () => {
-    setForm(emptyForm);
-    setEditId(null);
-    setErr("");
-    setIsModalOpen(true);
+  // ── Horário CRUD ──────────────────────────────────────────────────────────
+  const openCriarHor = () => { setHorForm(emptyHorForm); setEditHorId(null); setHorErr(""); setHorModalOpen(true); };
+  const openEditHor  = (h: HorarioFixoDto) => {
+    setHorForm({ idturma:h.idturmaId?.id??"", estudioId:h.estudioId?.id??"", idProfessor:"", dataInicio:h.dataInicio??"", dataValidade:h.dataValidade??"", diaSemana:h.diaSemana??"", horaInicio:h.horaInicio??"", horaFim:h.horaFim??"", duracaoMinutos:h.duracaoMinutos });
+    setEditHorId(h.id); setHorErr(""); setHorModalOpen(true);
   };
-
-  const openEdit = (h: HorarioFixoDto) => { 
-    setForm({idturma:h.idturmaId?.id??"",estudioId:h.estudioId?.id??"",idProfessor:"",dataInicio:h.dataInicio??"",dataValidade:h.dataValidade??"",diaSemana:h.diaSemana??"",horaInicio:h.horaInicio??"",horaFim:h.horaFim??"",duracaoMinutos:h.duracaoMinutos}); 
-    setEditId(h.id); 
-    setErr(""); 
-    setIsModalOpen(true); 
-  };
-
-  const submit = async () => {
-    setErr("");
+  const submitHor = async () => {
+    setHorErr("");
     try {
-      const body = { id:editId??null, idcriadoPor:userId, idturma:form.idturma, estudioId:form.estudioId, dataInicio:form.dataInicio, dataValidade:form.dataValidade, diaSemana:form.diaSemana?parseInt(form.diaSemana):null, horaInicio:form.horaInicio, horaFim:form.horaFim, duracaoMinutos:form.duracaoMinutos };
-      if (editId) await apiFetch(`${API}/${editId}?idProfessor=${form.idProfessor}`,{method:"PUT",body:JSON.stringify(body)});
-      else        await apiFetch(`${API}/criar?idProfessor=${form.idProfessor}`,{method:"POST",body:JSON.stringify(body)});
-      setIsModalOpen(false); 
-      load();
-    } catch(e:unknown) { setErr(String(e)); }
+      const body = { id:editHorId??null, idcriadoPor:userId, idturma:horForm.idturma, estudioId:horForm.estudioId, dataInicio:horForm.dataInicio, dataValidade:horForm.dataValidade, diaSemana:horForm.diaSemana?parseInt(horForm.diaSemana):null, horaInicio:horForm.horaInicio, horaFim:horForm.horaFim, duracaoMinutos:horForm.duracaoMinutos };
+      if (editHorId) await apiFetch(`${API}/${editHorId}?idProfessor=${horForm.idProfessor}`,{method:"PUT",body:JSON.stringify(body)});
+      else           await apiFetch(`${API}/criar?idProfessor=${horForm.idProfessor}`,{method:"POST",body:JSON.stringify(body)});
+      setHorModalOpen(false); load();
+    } catch(e:unknown) { setHorErr(String(e)); }
+  };
+  const delHor = async (id: string) => { if (!confirm("Eliminar este horário fixo?")) return; await apiFetch(`${API}/${id}`,{method:"DELETE"}); load(); };
+
+  // ── Turma CRUD ────────────────────────────────────────────────────────────
+  const openCriarTurma = () => { setTurmaForm({ nome:"", mensalidade:"", modalidadeId:"", ativo: true }); setEditTurmaId(null); setTurmaErr(""); setTurmaModalOpen(true); };
+  const openEditTurma  = (t: TurmaDto) => { setTurmaForm({ nome:t.nome, mensalidade: t.mensalidade?.toString()??"", modalidadeId:t.modalidade?.id??"", ativo: t.ativo ?? true }); setEditTurmaId(t.id); setTurmaErr(""); setTurmaModalOpen(true); };
+  const submitTurma = async () => {
+    setTurmaErr("");
+    if (!turmaForm.modalidadeId) { setTurmaErr("A modalidade é obrigatória."); return; }
+    try {
+      const modalidadeSel = modalidades.find(m => m.id === turmaForm.modalidadeId);
+      const body = {
+        nome: turmaForm.nome,
+        ativo: turmaForm.ativo,
+        mensalidade: turmaForm.mensalidade ? parseFloat(turmaForm.mensalidade) : null,
+        modalidade: modalidadeSel ? { id: modalidadeSel.id, nome: modalidadeSel.nome } : null,
+      };
+      if (editTurmaId) await apiFetch(`/api/turmas/${editTurmaId}`,{method:"PUT",body:JSON.stringify(body)});
+      else             await apiFetch(`/api/turmas`,{method:"POST",body:JSON.stringify(body)});
+      setTurmaModalOpen(false); load();
+    } catch(e:unknown) { setTurmaErr(String(e)); }
+  };
+  const delTurma = async (id: string) => { if (!confirm("Remover esta turma?")) return; await apiFetch(`/api/turmas/${id}`,{method:"DELETE"}); load(); };
+  const toggleTurmaAtivo = async (t: TurmaDto) => {
+    await apiFetch(`/api/turmas/toggleAtivo/${t.id}`, { method: "POST" });
+    load();
   };
 
-  const del = async (id: string) => { if (!confirm("Eliminar este horário fixo?")) return; await apiFetch(`${API}/${id}`,{method:"DELETE"}); load(); };
-  const validarC   = async (id: string) => { await apiFetch(`${API}/coaching/${id}/validar`,{method:"PUT"}); load(); };
-  const eliminarC  = async (id: string) => { if (!confirm("Remover este registo de coaching?")) return; await apiFetch(`${API}/coaching/${id}`,{method:"DELETE"}); load(); };
-  const f = (k: keyof typeof form, v: string) => setForm(prev=>({...prev,[k]:v}));
+  // ── Modalidade CRUD ───────────────────────────────────────────────────────
+  const openCriarMod = () => { setModNome(""); setModErr(""); setModModalOpen(true); };
+  const submitMod = async () => {
+    setModErr("");
+    try {
+      await apiFetch(`/api/modalidades`,{method:"POST",body:JSON.stringify({ nome: modNome })});
+      setModModalOpen(false); load();
+    } catch(e:unknown) { setModErr(String(e)); }
+  };
+  const delMod = async (id: string) => { if (!confirm("Remover esta modalidade?")) return; await apiFetch(`/api/modalidades/${id}`,{method:"DELETE"}); load(); };
 
-  const TABS = [{ key:"horarios", label:"Horários Fixos" },{ key:"coaching", label:"Todos os Coachings" }] as const;
+  // ── Estúdio CRUD ──────────────────────────────────────────────────────────
+  const openCriarEst = () => {
+    setEditEstId(null);
+    setEstNome("");
+    setEstCapacidade("");
+    setEstErr("");
+    setEstModalOpen(true);
+  };
+  const openEditEst = (e: EstudioDto) => {
+    setEditEstId(e.id);
+    setEstNome(e.nome);
+    setEstCapacidade(e.capacidade ?? "");
+    setEstErr("");
+    setEstModalOpen(true);
+  };
+  const submitEst = async () => {
+    setEstErr("");
+    if (!estNome.trim()) { setEstErr("O nome é obrigatório."); return; }
+    const capacidadeVal = estCapacidade === "" ? null : Number(estCapacidade);
+    const payload = { nome: estNome, capacidade: capacidadeVal };
+    try {
+      if (editEstId) {
+        await apiFetch(`/api/estudios/${editEstId}`, { method: "PUT", body: JSON.stringify(payload) });
+      } else {
+        await apiFetch(`/api/estudios`, { method: "POST", body: JSON.stringify(payload) });
+      }
+      setEstModalOpen(false);
+      load();
+    } catch(e:unknown) { setEstErr(String(e)); }
+  };
+  const delEst = async (id: string) => { if (!confirm("Remover este estúdio?")) return; await apiFetch(`/api/estudios/${id}`,{method:"DELETE"}); load(); };
+
+  // ── Associar Estúdio ↔ Modalidade ─────────────────────────────────────────
+  const carregarRelacoesEstudio = async (id: string) => {
+    setLoadingAssoc(true);
+    try {
+      const associadas   = await apiFetch<ModalidadeDto[]>(`/api/estudios/modalidades/${id}`);
+      const naoAssociadas = await apiFetch<ModalidadeDto[]>(`/api/estudios/modalidadesNaoAssociadas/${id}`);
+      setModalidadesAssoc(associadas ?? []);
+      setModalidadesDisp(naoAssociadas ?? []);
+    } catch { setAssocErr("Erro ao carregar relações do estúdio."); }
+    finally { setLoadingAssoc(false); }
+  };
+
+  const openAssoc = (estudio: EstudioDto) => {
+    setAssocEstudio(estudio);
+    setAssocErr("");
+    setAssocModalOpen(true);
+    carregarRelacoesEstudio(estudio.id);
+  };
+
+  const handleAdicionarModalidade = async (modalidadeId: string) => {
+    if (!assocEstudio) return;
+    try {
+      await apiFetch(`/api/estudios/${assocEstudio.id}/modalidade/${modalidadeId}`, { method: "POST" });
+      carregarRelacoesEstudio(assocEstudio.id);
+    } catch { setAssocErr("Erro ao associar modalidade."); }
+  };
+
+  const handleRemoverModalidade = async (modalidadeId: string) => {
+    if (!assocEstudio) return;
+    try {
+      await apiFetch(`/api/estudios/${assocEstudio.id}/modalidade/${modalidadeId}`, { method: "DELETE" });
+      carregarRelacoesEstudio(assocEstudio.id);
+    } catch { setAssocErr("Erro ao remover associação."); }
+  };
+
+  // ── Coaching ──────────────────────────────────────────────────────────────
+  const validarC  = async (id: string) => { await apiFetch(`${API}/coaching/${id}/validar`,{method:"PUT"}); load(); };
+  const eliminarC = async (id: string) => { if (!confirm("Remover este registo de coaching?")) return; await apiFetch(`${API}/coaching/${id}`,{method:"DELETE"}); load(); };
+
+  // ── Coaching filtros ──────────────────────────────────────────────────────
+  const ESTADOS_COACHING = [
+    { id: "2", label: "Pedido",                  desc: "Pedido de aula submetido, aguarda validação" },
+    { id: "3", label: "Agendado",                desc: "Aula validada pelo sistema e pelo professor" },
+    { id: "4", label: "Aula cancelada",          desc: "Aula cancelada por professor, estudante ou outro motivo" },
+    { id: "5", label: "Aula ocorrida",           desc: "Aula realizou-se, aguarda registo contabilístico" },
+    { id: "6", label: "Pendente de validação",   desc: "Aguarda confirmação dos atores necessários" },
+    { id: "7", label: "Validado Automáticamente",desc: "Prazo de validação de 48h ultrapassado sem confirmação" },
+    { id: "8", label: "Validado",                desc: "Confirmado por todos os atores necessários" },
+    { id: "9", label: "Contabilizado",           desc: "Incluído no relatório mensal" },
+  ];
+
+  const [coachingFiltroEstado, setCoachingFiltroEstado] = useState<string>("3");
+  const [coachingFiltroDataDe, setCoachingFiltroDataDe] = useState<string>("");
+  const [coachingFiltroDataAte, setCoachingFiltroDataAte] = useState<string>("");
+
+  // ── Coaching detalhe modal ────────────────────────────────────────────────
+  const [coachingDetalhe, setCoachingDetalhe] = useState<CoachingDto | null>(null);
+  const [coachingDetalheProf, setCoachingDetalheProf] = useState<string[]>([]);
+  const [coachingDetalheLoadingProf, setCoachingDetalheLoadingProf] = useState(false);
+
+  const abrirDetalheCoaching = async (c: CoachingDto) => {
+    setCoachingDetalhe(c);
+    setCoachingDetalheProf([]);
+    setCoachingDetalheLoadingProf(true);
+    try {
+      const nomes = await apiFetch<string[]>(`/api/professores/nomebyAula/${c.aulaDto.id}`);
+      setCoachingDetalheProf(nomes ?? []);
+    } catch { setCoachingDetalheProf([]); }
+    finally { setCoachingDetalheLoadingProf(false); }
+  };
+
+  const coachingsFiltrados = coachings.filter(c => {
+    const estadoId = c.estadoAulaDto?.id ?? "";
+    const estadoLabel = (c.estadoAulaDto?.estado ?? "").toUpperCase();
+    const estadoMatch = ESTADOS_COACHING.find(e => e.id === coachingFiltroEstado);
+    if (coachingFiltroEstado && estadoId !== coachingFiltroEstado && estadoLabel !== estadoMatch?.label.toUpperCase()) return false;
+    if (coachingFiltroDataDe && c.aulaDto.dataAula < coachingFiltroDataDe) return false;
+    if (coachingFiltroDataAte && c.aulaDto.dataAula > coachingFiltroDataAte) return false;
+    return true;
+  });
+
+  const TABS = [
+    { key:"horarios",    label:"Horários Fixos" },
+    { key:"turmas",      label:"Turmas" },
+    { key:"modalidades", label:"Modalidades" },
+    { key:"estudios",    label:"Estúdios" },
+    { key:"coaching",    label:"Coachings" },
+    { key:"grelha",      label:"Horários Gerais" },
+  ] as const;
+
+  const SectionHeader = ({ title, btnLabel, onBtnClick }: { title: string; btnLabel: string; onBtnClick: () => void }) => (
+    <div style={{ marginBottom: 20, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+      <h2 style={{ fontFamily: "var(--font-playfair)", fontSize: 22, color: "var(--panel-dark)", margin: 0 }}>{title}</h2>
+      <BtnPrimario label={btnLabel} onClick={onBtnClick} />
+    </div>
+  );
 
   return (
     <div>
       <Tabs tabs={TABS as any} active={tab} onChange={setTab as any} />
       {loading ? <Loader /> : <>
-        
+
+        {/* ── HORÁRIOS FIXOS ─────────────────────────────────────────────── */}
         {tab==="horarios" && (
           <div>
-            <div style={{ marginBottom:20, display:"flex", justifyContent:"space-between", alignItems:"center" }}>
-              <h2 style={{ fontFamily: "var(--font-playfair)", fontSize: 22, color: "var(--panel-dark)", margin: 0 }}>Gestão de Horários Fixos</h2>
-              <BtnPrimario label="+ Criar Horário" onClick={openCriar} />
-            </div>
-
+            <SectionHeader title="Horários Fixos" btnLabel="+ Criar Horário" onBtnClick={openCriarHor} />
             {horarios.length===0 && <Empty>Sem horários fixos registados.</Empty>}
-            <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill, minmax(320px, 1fr))", gap:16 }}>
+            <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill, minmax(300px, 1fr))", gap:16 }}>
               {horarios.map(h => (
-                <div key={h.id} style={{ background:"#fff", border:"1px solid var(--border-warm)", borderRadius:12, padding:"20px", display:"flex", flexDirection:"column", justifyContent:"space-between", boxShadow:"0 2px 4px rgba(0,0,0,0.01)" }}>
+                <HorarioCard key={h.id} h={h} onEdit={()=>openEditHor(h)} onDel={()=>delHor(h.id)} />
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* ── TURMAS ────────────────────────────────────────────────────── */}
+        {tab==="turmas" && (
+          <div>
+            <SectionHeader title="Gestão de Turmas" btnLabel="+ Nova Turma" onBtnClick={openCriarTurma} />
+            {turmas.length===0 && <Empty>Sem turmas criadas.</Empty>}
+            <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill, minmax(260px, 1fr))", gap:14 }}>
+              {turmas.map(t => (
+                <div key={t.id} style={{ background:"#fff", border:`1px solid ${t.ativo === false ? "#f5c6cb" : "var(--border-warm)"}`, borderRadius:12, padding:"18px 20px", display:"flex", flexDirection:"column", justifyContent:"space-between", boxShadow:"0 2px 4px rgba(0,0,0,0.02)", opacity: t.ativo === false ? 0.75 : 1 }}>
                   <div>
-                    <div style={{ fontSize:15, color:"var(--panel-dark)", fontWeight:600, marginBottom:8 }}>
-                      Dia: {DIAS_OPTIONS.find(d=>d.label===h.diaSemana||d.value.toString()===h.diaSemana)?.label??h.diaSemana} · {trimHora(h.horaInicio)} – {trimHora(h.horaFim)}
+                    <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:8 }}>
+                      <div style={{ fontSize:16, fontWeight:700, color:"var(--panel-dark)" }}>{t.nome}</div>
+                      <span style={{ background: t.ativo === false ? "#f8d7da" : "#d4edda", color: t.ativo === false ? "#721c24" : "#155724", borderRadius:20, padding:"2px 10px", fontSize:10, fontWeight:700, letterSpacing:.5, textTransform:"uppercase" as const, whiteSpace:"nowrap" as const }}>
+                        {t.ativo === false ? "Inativa" : "Ativa"}
+                      </span>
                     </div>
-                    <div style={{ display:"flex", gap:6, flexWrap:"wrap", marginBottom:8 }}>
-                      {h.idturmaId && <span style={{ background:"rgba(44,31,20,0.06)", color:"var(--panel-dark)", borderRadius:4, padding:"2px 8px", fontSize:11, fontWeight:500 }}>{h.idturmaId.nome}</span>}
-                      {h.estudioId && <span style={{ background:"rgba(160,133,96,0.1)", color:"var(--accent-muted)", borderRadius:4, padding:"2px 8px", fontSize:11, fontWeight:500 }}>Estúdio: {h.estudioId.nome}</span>}
-                    </div>
-                    <div style={{ fontSize:12, color:"var(--accent-muted)", fontWeight:400 }}>
-                      Vigência: {h.dataInicio} para {h.dataValidade} <br /> Duração: {h.duracaoMinutos} min
+                    <div style={{ display:"flex", gap:6, flexWrap:"wrap", alignItems:"center" }}>
+                      {t.modalidade && (
+                        <span style={{ background:"rgba(160,133,96,0.12)", color:"var(--accent-muted)", borderRadius:5, padding:"3px 10px", fontSize:11, fontWeight:600 }}>
+                          <i className="ti ti-tag" style={{ marginRight:4, fontSize:10 }} />{t.modalidade.nome}
+                        </span>
+                      )}
+                      {t.mensalidade != null && (
+                        <span style={{ background:"rgba(39,174,96,0.1)", color:"#1e8449", borderRadius:5, padding:"3px 10px", fontSize:11, fontWeight:600 }}>
+                          {Number(t.mensalidade).toFixed(2)} €/mês
+                        </span>
+                      )}
                     </div>
                   </div>
                   <div style={{ display:"flex", gap:8, justifyContent:"flex-end", borderTop:"1px solid #FAF8F5", paddingTop:12, marginTop:12 }}>
-                    <BtnSecundario label="Editar" onClick={()=>openEdit(h)} small />
-                    <BtnPerigo     label="Eliminar" onClick={()=>del(h.id)} small />
+                    <button onClick={()=>toggleTurmaAtivo(t)}
+                      style={{ ...btnBase, background: t.ativo === false ? "rgba(39,174,96,0.1)" : "rgba(231,76,60,0.08)", border: `1px solid ${t.ativo === false ? "#27ae60" : "#e74c3c"}`, color: t.ativo === false ? "#1e8449" : "#e74c3c", fontSize:11, padding:"5px 13px" }}>
+                      {t.ativo === false ? "Ativar" : "Desativar"}
+                    </button>
+                    <BtnSecundario label="Editar"   onClick={()=>openEditTurma(t)} small />
+                    <BtnPerigo     label="Remover"  onClick={()=>delTurma(t.id)}  small />
                   </div>
                 </div>
               ))}
@@ -1079,30 +1461,148 @@ function CoordenacaoView() {
           </div>
         )}
 
+        {/* ── MODALIDADES ────────────────────────────────────────────────── */}
+        {tab==="modalidades" && (
+          <div>
+            <SectionHeader title="Gestão de Modalidades" btnLabel="+ Nova Modalidade" onBtnClick={openCriarMod} />
+            {modalidades.length===0 && <Empty>Sem modalidades criadas.</Empty>}
+            <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill, minmax(240px, 1fr))", gap:14 }}>
+              {modalidades.map(m => (
+                <div key={m.id} style={{ background:"#fff", border:"1px solid var(--border-warm)", borderRadius:12, padding:"18px 20px", display:"flex", alignItems:"center", justifyContent:"space-between", boxShadow:"0 2px 4px rgba(0,0,0,0.02)" }}>
+                  <div style={{ fontSize:15, fontWeight:700, color:"var(--panel-dark)" }}>{m.nome}</div>
+                  <BtnPerigo label="Remover" onClick={()=>delMod(m.id)} small />
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* ── ESTÚDIOS ───────────────────────────────────────────────────── */}
+        {tab==="estudios" && (
+          <div>
+            <SectionHeader title="Gestão de Estúdios" btnLabel="+ Novo Estúdio" onBtnClick={openCriarEst} />
+            {estudios.length===0 && <Empty>Sem estúdios criados.</Empty>}
+            <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill, minmax(280px, 1fr))", gap:14 }}>
+              {estudios.map(e => (
+                <div key={e.id} style={{ background:"#fff", border:"1px solid var(--border-warm)", borderRadius:12, padding:"18px 20px", display:"flex", flexDirection:"column", justifyContent:"space-between", boxShadow:"0 2px 4px rgba(0,0,0,0.02)" }}>
+                  <div>
+                    <div style={{ fontSize:16, fontWeight:700, color:"var(--panel-dark)", marginBottom:6 }}>
+                      <i className="ti ti-building" style={{ marginRight:6, color:"var(--accent-muted)" }} />{e.nome}
+                    </div>
+                    {e.capacidade != null && (
+                      <div style={{ fontSize:11, color:"var(--accent-muted)" }}>
+                        • Lotação: <strong>{e.capacidade}</strong> pessoas
+                      </div>
+                    )}
+                  </div>
+                  <div style={{ display:"flex", gap:8, justifyContent:"flex-end", borderTop:"1px solid #FAF8F5", paddingTop:12, marginTop:12 }}>
+                    <BtnSecundario label="Associações"      onClick={()=>openAssoc(e)}     small />
+                    <BtnSecundario label="Editar"           onClick={()=>openEditEst(e)}   small />
+                    <BtnPerigo     label="Remover"          onClick={()=>delEst(e.id)}     small />
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* ── COACHINGS ──────────────────────────────────────────────────── */}
         {tab==="coaching" && (
           <div>
             <div style={{ marginBottom: 20 }}>
               <h2 style={{ fontFamily: "var(--font-playfair)", fontSize: 22, color: "var(--panel-dark)", margin: 0 }}>Histórico Global de Coachings</h2>
             </div>
-            {coachings.length===0 && <Empty>Nenhum registo de coaching encontrado.</Empty>}
+
+            {/* ── Filtros ── */}
+            <div style={{ background:"#FAF8F5", border:"1px solid var(--border-warm)", borderRadius:10, padding:"16px 20px", marginBottom:22, display:"flex", flexWrap:"wrap", gap:16, alignItems:"flex-end" }}>
+              {/* Filtro por estado */}
+              <div style={{ flex:"1 1 220px", minWidth:0 }}>
+                <label style={{ display:"block", fontSize:10, fontWeight:400, letterSpacing:2, color:"var(--accent-muted)", marginBottom:6, textTransform:"uppercase" as const }}>Estado</label>
+                <select
+                  value={coachingFiltroEstado}
+                  onChange={e => setCoachingFiltroEstado(e.target.value)}
+                  style={{ width:"100%", background:"#fff", border:"1px solid var(--border-warm)", borderRadius:6, color:"var(--panel-dark)", padding:"8px 12px", fontSize:13, outline:"none", cursor:"pointer" }}
+                >
+                  <option value="">Todos os estados</option>
+                  {ESTADOS_COACHING.map(e => (
+                    <option key={e.id} value={e.id}>{e.label}</option>
+                  ))}
+                </select>
+                {coachingFiltroEstado && (
+                  <div style={{ fontSize:11, color:"var(--accent-muted)", marginTop:4, fontStyle:"italic" }}>
+                    {ESTADOS_COACHING.find(e => e.id === coachingFiltroEstado)?.desc}
+                  </div>
+                )}
+              </div>
+
+              {/* Filtro data de */}
+              <div style={{ flex:"1 1 160px", minWidth:0 }}>
+                <label style={{ display:"block", fontSize:10, fontWeight:400, letterSpacing:2, color:"var(--accent-muted)", marginBottom:6, textTransform:"uppercase" as const }}>Data de</label>
+                <input
+                  type="date"
+                  value={coachingFiltroDataDe}
+                  onChange={e => setCoachingFiltroDataDe(e.target.value)}
+                  style={{ width:"100%", background:"#fff", border:"1px solid var(--border-warm)", borderRadius:6, color:"var(--panel-dark)", padding:"8px 12px", fontSize:13, outline:"none", boxSizing:"border-box" as const }}
+                />
+              </div>
+
+              {/* Filtro data até */}
+              <div style={{ flex:"1 1 160px", minWidth:0 }}>
+                <label style={{ display:"block", fontSize:10, fontWeight:400, letterSpacing:2, color:"var(--accent-muted)", marginBottom:6, textTransform:"uppercase" as const }}>Data até</label>
+                <input
+                  type="date"
+                  value={coachingFiltroDataAte}
+                  onChange={e => setCoachingFiltroDataAte(e.target.value)}
+                  style={{ width:"100%", background:"#fff", border:"1px solid var(--border-warm)", borderRadius:6, color:"var(--panel-dark)", padding:"8px 12px", fontSize:13, outline:"none", boxSizing:"border-box" as const }}
+                />
+              </div>
+
+              {/* Limpar filtros */}
+              {(coachingFiltroEstado || coachingFiltroDataDe || coachingFiltroDataAte) && (
+                <div style={{ flex:"0 0 auto", display:"flex", alignItems:"flex-end" }}>
+                  <button
+                    onClick={() => { setCoachingFiltroEstado(""); setCoachingFiltroDataDe(""); setCoachingFiltroDataAte(""); }}
+                    style={{ ...btnBase, background:"transparent", border:"1px solid #c0392b", color:"#c0392b", fontSize:11, padding:"8px 14px" }}
+                  >
+                    ✕ Limpar filtros
+                  </button>
+                </div>
+              )}
+            </div>
+
+            {/* Contador de resultados */}
+            <div style={{ fontSize:12, color:"var(--accent-muted)", marginBottom:14 }}>
+              A mostrar <strong style={{ color:"var(--panel-dark)" }}>{coachingsFiltrados.length}</strong> de {coachings.length} registo{coachings.length !== 1 ? "s" : ""}
+            </div>
+
+            {coachingsFiltrados.length===0 && <Empty>Nenhum registo encontrado para os filtros selecionados.</Empty>}
             <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill, minmax(320px, 1fr))", gap:16 }}>
-              {coachings.map(c => {
-                const jaValidado = c.estadoAulaDto?.estado === "VALIDADO";
+              {coachingsFiltrados.map(c => {
+                const podeValidar = c.estadoAulaDto?.id === "5" || c.estadoAulaDto?.id === "6" || c.estadoAulaDto?.estado?.toUpperCase() === "AULA OCORRIDA" || c.estadoAulaDto?.estado?.toUpperCase() === "PENDENTE DE VALIDAÇÃO";
                 return (
-                  <div key={c.aulaDto.id} style={{ background:"#fff", border:"1px solid var(--border-warm)", borderRadius:12, padding:"20px", display:"flex", flexDirection:"column", justifyContent:"space-between", boxShadow:"0 2px 4px rgba(0,0,0,0.01)" }}>
+                  <div key={c.aulaDto.id}
+                    onClick={() => abrirDetalheCoaching(c)}
+                    style={{ background:"#fff", border:"1px solid var(--border-warm)", borderRadius:12, padding:"20px", display:"flex", flexDirection:"column", justifyContent:"space-between", boxShadow:"0 2px 4px rgba(0,0,0,0.01)", cursor:"pointer", transition:"box-shadow .15s, transform .15s" }}
+                    onMouseEnter={e => { (e.currentTarget as HTMLDivElement).style.boxShadow = "0 6px 18px rgba(0,0,0,0.08)"; (e.currentTarget as HTMLDivElement).style.transform = "translateY(-2px)"; }}
+                    onMouseLeave={e => { (e.currentTarget as HTMLDivElement).style.boxShadow = "0 2px 4px rgba(0,0,0,0.01)"; (e.currentTarget as HTMLDivElement).style.transform = ""; }}
+                  >
                     <div>
                       <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:8 }}>
                         <span style={{ fontSize:15, color:"var(--panel-dark)", fontWeight:600 }}>{c.aulaDto.dataAula}</span>
                         <EstadoBadge estado={c.estadoAulaDto?.estado??"—"} />
                       </div>
                       <div style={{ fontSize:13, color:"var(--panel-dark)", marginBottom:4 }}>
-                        Horário: {trimHora(c.aulaDto.horaInicio)} – {trimHora(c.aulaDto.horaFim)}
+                        <i className="ti ti-clock" style={{ marginRight:5, color:"var(--accent-muted)" }} />
+                        {trimHora(c.aulaDto.horaInicio)} – {trimHora(c.aulaDto.horaFim)}
+                        {c.aulaDto.duracaoMinutos ? <span style={{ marginLeft:8, fontSize:11, color:"var(--accent-muted)" }}>({c.aulaDto.duracaoMinutos} min)</span> : null}
                       </div>
-                      {c.professorDto && <div style={{ fontSize:12, color:"var(--accent-muted)", marginBottom:10 }}>Professor: {c.professorDto.utilizadores?.nome || c.professorDto?.utilizador?.nome || c.professorDto?.nome || "Não atribuído"}</div>}
+                      {c.modalidadeDto?.nome && <div style={{ fontSize:12, color:"var(--accent-muted)", marginBottom:4 }}><i className="ti ti-tag" style={{ marginRight:5 }} />{c.modalidadeDto.nome}</div>}
                     </div>
-                    <div style={{ display:"flex", gap:8, justifyContent:"flex-end", borderTop:"1px solid #FAF8F5", paddingTop:12 }}>
-                      {!jaValidado && <BtnPrimario label="Validar" onClick={()=>validarC(c.aulaDto.id)} small />}
-                      <BtnPerigo   label="Eliminar"  onClick={()=>eliminarC(c.aulaDto.id)} small />
+                    <div style={{ display:"flex", gap:8, justifyContent:"flex-end", borderTop:"1px solid #FAF8F5", paddingTop:12, marginTop:10 }}>
+                      {podeValidar && (
+                        <BtnPrimario label="Validar" onClick={e => { e.stopPropagation(); validarC(c.aulaDto.id); }} small />
+                      )}
+                      <BtnPerigo label="Eliminar" onClick={e => { e.stopPropagation(); eliminarC(c.aulaDto.id); }} small />
                     </div>
                   </div>
                 );
@@ -1110,24 +1610,268 @@ function CoordenacaoView() {
             </div>
           </div>
         )}
+
+        {/* ── HORÁRIOS GERAIS ────────────────────────────────────────────── */}
+        {tab==="grelha" && (() => {
+          // Calcular segunda e domingo da semana visualizada
+          const hoje = new Date();
+          const diaAtual = hoje.getDay() === 0 ? 7 : hoje.getDay();
+          const segundaSemana = new Date(hoje);
+          segundaSemana.setDate(hoje.getDate() - (diaAtual - 1) + grelhaOffset * 7);
+          segundaSemana.setHours(0, 0, 0, 0);
+          const domingoSemana = new Date(segundaSemana);
+          domingoSemana.setDate(segundaSemana.getDate() + 6);
+          domingoSemana.setHours(23, 59, 59, 999);
+          const semStr = (d: Date) => d.toISOString().split("T")[0];
+
+          const turmasAtivas = turmas.filter(t => t.ativo !== false);
+          // Filtra horários válidos para a semana visível: dataInicio <= domingoSemana E dataValidade >= segundaSemana
+          const todasAulas: AulaDto[] = horarios
+            .filter(h => {
+              if (!turmasAtivas.some(t => t.id === h.idturmaId?.id)) return false;
+              const inicio   = h.dataInicio   ? new Date(h.dataInicio   + "T00:00:00") : null;
+              const validade = h.dataValidade ? new Date(h.dataValidade + "T23:59:59") : null;
+              if (inicio   && inicio   > domingoSemana) return false;
+              if (validade && validade < segundaSemana)  return false;
+              return true;
+            })
+            .map(h => ({ ...normalizeAula(h), turma: h.idturmaId }));
+
+          const aulasGrelha = grelhaTurmaFiltro
+            ? todasAulas.filter(a => a.turma?.id === grelhaTurmaFiltro)
+            : todasAulas;
+
+          const turmasFiltro = turmasAtivas.filter(t =>
+            horarios.some(h => h.idturmaId?.id === t.id)
+          );
+          const tituloGrelha = grelhaTurmaFiltro
+            ? (turmasAtivas.find(t => t.id === grelhaTurmaFiltro)?.nome ?? "Turma selecionada")
+            : `${aulasGrelha.length} aula${aulasGrelha.length !== 1 ? "s" : ""} nesta semana`;
+
+          return (
+            <div>
+              <div style={{ marginBottom: 20, display:"flex", justifyContent:"space-between", alignItems:"flex-start", flexWrap:"wrap", gap:12 }}>
+                <h2 style={{ fontFamily: "var(--font-playfair)", fontSize: 22, color: "var(--panel-dark)", margin: 0 }}>
+                  Horários Gerais 
+                </h2>
+                <div style={{ display:"flex", flexDirection:"column", gap:4 }}>
+                  <label style={{ fontSize:10, letterSpacing:2, textTransform:"uppercase" as const, color:"var(--accent-muted)", fontWeight:400 }}>Filtrar por turma</label>
+                  <select
+                    value={grelhaTurmaFiltro}
+                    onChange={e => setGrelhaTurmaFiltro(e.target.value)}
+                    style={{ background:"#fff", border:"1px solid var(--border-warm)", borderRadius:6, color:"var(--panel-dark)", padding:"8px 12px", fontSize:13, outline:"none", cursor:"pointer", minWidth:200 }}
+                  >
+                    <option value="">Todas as turmas</option>
+                    {turmasFiltro.map(t => (
+                      <option key={t.id} value={t.id}>{t.nome}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+              {aulasGrelha.length === 0
+                ? <Empty>Sem horários válidos para esta semana{grelhaTurmaFiltro ? " e turma selecionada" : ""}.</Empty>
+                : <GrelhaHorario
+                    aulas={aulasGrelha}
+                    titulo={tituloGrelha}
+                    semanaOffset={grelhaOffset}
+                    onPrev={() => setGrelhaOffset(o => o - 1)}
+                    onNext={() => setGrelhaOffset(o => o + 1)}
+                  />
+              }
+            </div>
+          );
+        })()}
       </>}
 
-      <Modal open={isModalOpen} onClose={() => setIsModalOpen(false)} title={editId ? "Editar Horário Fixo" : "Novo Horário Fixo"}>
-        {err && <ErrMsg msg={err} />}
+      {/* ── MODALS ──────────────────────────────────────────────────────── */}
+
+      {/* Coaching detalhe */}
+      <Modal open={!!coachingDetalhe} onClose={() => setCoachingDetalhe(null)} title="Detalhe do Coaching">
+        {coachingDetalhe && (() => {
+          const c = coachingDetalhe;
+          const podeValidar = c.estadoAulaDto?.id === "5" || c.estadoAulaDto?.id === "6" || c.estadoAulaDto?.estado?.toUpperCase() === "AULA OCORRIDA" || c.estadoAulaDto?.estado?.toUpperCase() === "PENDENTE DE VALIDAÇÃO";
+          const nomeFallback = c.professorDto?.utilizadores?.nome || c.professorDto?.utilizador?.nome || c.professorDto?.nome || "";
+          return (
+            <div style={{ display:"flex", flexDirection:"column", gap:0 }}>
+              {/* Estado */}
+              <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:20 }}>
+                <span style={{ fontFamily:"var(--font-playfair)", fontSize:18, color:"var(--panel-dark)", fontWeight:600 }}>
+                  {c.modalidadeDto?.nome ?? "Sessão de Coaching"}
+                </span>
+                <EstadoBadge estado={c.estadoAulaDto?.estado ?? "—"} />
+              </div>
+
+              {/* Info rows */}
+              {[
+                { icon:"ti-calendar",     label:"Data",       value: c.aulaDto.dataAula },
+                { icon:"ti-clock",        label:"Horário",    value: `${trimHora(c.aulaDto.horaInicio)} – ${trimHora(c.aulaDto.horaFim)}` },
+                { icon:"ti-hourglass",    label:"Duração",    value: c.aulaDto.duracaoMinutos ? `${c.aulaDto.duracaoMinutos} minutos` : "—" },
+                { icon:"ti-building",     label:"Estúdio",    value: c.aulaDto.estudio?.nome ?? "—" },
+                { icon:"ti-tag",          label:"Modalidade", value: c.modalidadeDto?.nome ?? "—" },
+                { icon:"ti-users",        label:"Máx. alunos",value: String(c.max_alunos ?? "—") },
+                { icon:"ti-hash",         label:"ID da aula", value: c.aulaDto.id },
+              ].map(row => (
+                <div key={row.label} style={{ display:"flex", alignItems:"flex-start", gap:12, padding:"10px 0", borderBottom:"1px solid #FAF8F5" }}>
+                  <i className={`ti ${row.icon}`} style={{ fontSize:15, color:"var(--accent-muted)", marginTop:1, width:18, flexShrink:0 }} />
+                  <div style={{ flex:1 }}>
+                    <div style={{ fontSize:10, letterSpacing:2, textTransform:"uppercase" as const, color:"var(--accent-muted)", marginBottom:2 }}>{row.label}</div>
+                    <div style={{ fontSize:14, color:"var(--panel-dark)", fontWeight:500 }}>{row.value}</div>
+                  </div>
+                </div>
+              ))}
+
+              {/* Professor — via API */}
+              <div style={{ display:"flex", alignItems:"flex-start", gap:12, padding:"10px 0", borderBottom:"1px solid #FAF8F5" }}>
+                <i className="ti ti-user" style={{ fontSize:15, color:"var(--accent-muted)", marginTop:1, width:18, flexShrink:0 }} />
+                <div style={{ flex:1 }}>
+                  <div style={{ fontSize:10, letterSpacing:2, textTransform:"uppercase" as const, color:"var(--accent-muted)", marginBottom:2 }}>Professor</div>
+                  <div style={{ fontSize:14, color:"var(--panel-dark)", fontWeight:500 }}>
+                    {coachingDetalheLoadingProf
+                      ? <span style={{ fontStyle:"italic", color:"var(--accent-muted)" }}>A carregar…</span>
+                      : coachingDetalheProf.length > 0
+                        ? coachingDetalheProf.join(", ")
+                        : (nomeFallback || <span style={{ fontStyle:"italic", color:"var(--accent-muted)" }}>Não atribuído</span>)
+                    }
+                  </div>
+                </div>
+              </div>
+
+              {/* Ações */}
+              <div style={{ display:"flex", gap:10, marginTop:24, justifyContent:"flex-end" }}>
+                <BtnSecundario label="Fechar" onClick={() => setCoachingDetalhe(null)} />
+                {podeValidar && (
+                  <BtnPrimario label="Validar" onClick={() => { validarC(c.aulaDto.id); setCoachingDetalhe(null); }} />
+                )}
+                <BtnPerigo label="Eliminar" onClick={() => { eliminarC(c.aulaDto.id); setCoachingDetalhe(null); }} />
+              </div>
+            </div>
+          );
+        })()}
+      </Modal>
+
+      {/* Horário fixo */}
+      <Modal open={horModalOpen} onClose={() => setHorModalOpen(false)} title={editHorId ? "Editar Horário Fixo" : "Novo Horário Fixo"}>
+        {horErr && <ErrMsg msg={horErr} />}
         <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12 }}>
-          <SelectField label="Turma"        value={form.idturma}    onChange={v=>f("idturma",v)}    options={turmas.map(t=>({value:t.id,label:t.nome}))}    placeholder="Escolher turma..." />
-          <SelectField label="Estúdio"      value={form.estudioId}  onChange={v=>f("estudioId",v)}  options={estudios.map(e=>({value:e.id,label:e.nome}))}   placeholder="Escolher estúdio..." />
-          <SelectField label="Professor"    value={form.idProfessor}onChange={v=>f("idProfessor",v)}options={professores.map(p=>({value:p.id,label:p.nome}))} placeholder="Escolher professor..." />
-          <SelectField label="Dia da semana"value={form.diaSemana?.toString()||""} onChange={v=>f("diaSemana",v)} options={DIAS_OPTIONS.map(d=>({value:d.value.toString(),label:d.label}))} placeholder="Escolher dia..." />
-          <InputField label="Hora início"   type="time" value={form.horaInicio}  onChange={v=>f("horaInicio",v)} />
-          <InputField label="Hora fim"      type="time" value={form.horaFim}     onChange={v=>f("horaFim",v)} />
-          <InputField label="Data início"   type="date" value={form.dataInicio}  onChange={v=>f("dataInicio",v)} />
-          <InputField label="Data validade" type="date" value={form.dataValidade}onChange={v=>f("dataValidade",v)} />
+          <SelectField label="Turma"         value={horForm.idturma}     onChange={v=>setHorForm(p=>({...p,idturma:v}))}      options={turmas.map(t=>({value:t.id,label:t.nome}))}     placeholder="Escolher turma..." />
+          <SelectField label="Estúdio"       value={horForm.estudioId}   onChange={v=>setHorForm(p=>({...p,estudioId:v}))}    options={estudios.map(e=>({value:e.id,label:e.nome}))}   placeholder="Escolher estúdio..." />
+          <SelectField label="Professor"     value={horForm.idProfessor} onChange={v=>setHorForm(p=>({...p,idProfessor:v}))}  options={professores.map(p=>({value:p.id,label:p.nome}))} placeholder="Escolher professor..." />
+          <SelectField label="Dia da semana" value={horForm.diaSemana?.toString()||""} onChange={v=>setHorForm(p=>({...p,diaSemana:v}))} options={DIAS_OPTIONS.map(d=>({value:d.value.toString(),label:d.label}))} placeholder="Escolher dia..." />
+          <InputField  label="Hora início"   type="time" value={horForm.horaInicio}   onChange={v=>setHorForm(p=>({...p,horaInicio:v}))} />
+          <InputField  label="Hora fim"      type="time" value={horForm.horaFim}      onChange={v=>setHorForm(p=>({...p,horaFim:v}))} />
+          <InputField  label="Data início"   type="date" value={horForm.dataInicio}   onChange={v=>setHorForm(p=>({...p,dataInicio:v}))} />
+          <InputField  label="Data validade" type="date" value={horForm.dataValidade} onChange={v=>setHorForm(p=>({...p,dataValidade:v}))} />
         </div>
         <div style={{ display:"flex", gap:10, marginTop:20, justifyContent:"flex-end" }}>
-          <BtnSecundario label="Cancelar" onClick={()=>setIsModalOpen(false)} />
-          <BtnPrimario label={editId?"Atualizar Horário":"Criar Horário"} onClick={submit} />
+          <BtnSecundario label="Cancelar" onClick={()=>setHorModalOpen(false)} />
+          <BtnPrimario label={editHorId?"Atualizar Horário":"Criar Horário"} onClick={submitHor} />
         </div>
+      </Modal>
+
+      {/* Turma */}
+      <Modal open={turmaModalOpen} onClose={() => setTurmaModalOpen(false)} title={editTurmaId ? "Editar Turma" : "Nova Turma"}>
+        {turmaErr && <ErrMsg msg={turmaErr} />}
+        <InputField label="Nome da turma" value={turmaForm.nome} onChange={v=>setTurmaForm(p=>({...p,nome:v}))} />
+        <InputField label="Mensalidade (€)" type="number" min={0} value={turmaForm.mensalidade} onChange={v=>setTurmaForm(p=>({...p,mensalidade:v}))} />
+        <SelectField label="Modalidade *" value={turmaForm.modalidadeId} onChange={v=>setTurmaForm(p=>({...p,modalidadeId:v}))} options={modalidades.map(m=>({value:m.id,label:m.nome}))} placeholder="Escolher modalidade..." />
+        <div style={{ marginBottom:14 }}>
+          <label style={{ display:"block", fontSize:10, fontWeight:400, letterSpacing:2, color:"var(--accent-muted)", marginBottom:8, textTransform:"uppercase" as const }}>Estado</label>
+          <div style={{ display:"flex", gap:8 }}>
+            <button type="button" onClick={()=>setTurmaForm(p=>({...p,ativo:true}))}
+              style={{ ...btnBase, flex:1, padding:"9px 0", fontSize:12, background: turmaForm.ativo ? "#27ae60" : "#fff", border:`1px solid ${turmaForm.ativo ? "#27ae60" : "#ddd"}`, color: turmaForm.ativo ? "#fff" : "#999" }}>
+              ✓ Ativa
+            </button>
+            <button type="button" onClick={()=>setTurmaForm(p=>({...p,ativo:false}))}
+              style={{ ...btnBase, flex:1, padding:"9px 0", fontSize:12, background: !turmaForm.ativo ? "#e74c3c" : "#fff", border:`1px solid ${!turmaForm.ativo ? "#e74c3c" : "#ddd"}`, color: !turmaForm.ativo ? "#fff" : "#999" }}>
+              ✕ Inativa
+            </button>
+          </div>
+        </div>
+        <div style={{ display:"flex", gap:10, marginTop:20, justifyContent:"flex-end" }}>
+          <BtnSecundario label="Cancelar" onClick={()=>setTurmaModalOpen(false)} />
+          <BtnPrimario label={editTurmaId?"Guardar Alterações":"Criar Turma"} onClick={submitTurma} />
+        </div>
+      </Modal>
+
+      {/* Modalidade */}
+      <Modal open={modModalOpen} onClose={() => setModModalOpen(false)} title="Nova Modalidade">
+        {modErr && <ErrMsg msg={modErr} />}
+        <InputField label="Nome da modalidade" value={modNome} onChange={setModNome} />
+        <div style={{ display:"flex", gap:10, marginTop:20, justifyContent:"flex-end" }}>
+          <BtnSecundario label="Cancelar" onClick={()=>setModModalOpen(false)} />
+          <BtnPrimario label="Criar Modalidade" onClick={submitMod} />
+        </div>
+      </Modal>
+
+      {/* Estúdio: criar / editar */}
+      <Modal open={estModalOpen} onClose={() => setEstModalOpen(false)} title={editEstId ? "Editar Estúdio" : "Novo Estúdio"}>
+        {estErr && <ErrMsg msg={estErr} />}
+        <div style={{ display:"flex", flexDirection:"column", gap:14 }}>
+          <InputField label="Nome do estúdio" value={estNome} onChange={setEstNome} />
+          <div>
+            <label style={{ display:"block", fontSize:11, fontWeight:600, textTransform:"uppercase", color:"var(--panel-dark)", marginBottom:4 }}>
+              Capacidade Máxima (Alunos)
+            </label>
+            <input
+              type="number"
+              min="0"
+              placeholder="Ex: 15"
+              value={estCapacidade}
+              onChange={e => setEstCapacidade(e.target.value === "" ? "" : Number(e.target.value))}
+              style={{ width:"100%", padding:"8px 12px", borderRadius:6, border:"1px solid var(--border-warm)", fontSize:14, outline:"none", boxSizing:"border-box" }}
+            />
+          </div>
+        </div>
+        <div style={{ display:"flex", gap:10, marginTop:24, justifyContent:"flex-end" }}>
+          <BtnSecundario label="Cancelar" onClick={()=>setEstModalOpen(false)} />
+          <BtnPrimario label={editEstId ? "Guardar" : "Criar Estúdio"} onClick={submitEst} />
+        </div>
+      </Modal>
+
+      {/* Estúdio: associações de modalidades */}
+      <Modal open={assocModalOpen} onClose={() => { setAssocModalOpen(false); setAssocEstudio(null); }} title={`Associações: ${assocEstudio?.nome ?? ""}`}>
+        {assocErr && <ErrMsg msg={assocErr} />}
+        {loadingAssoc ? <Loader /> : (
+          <div style={{ display:"flex", flexDirection:"column", gap:20 }}>
+            <div>
+              <h5 style={{ fontSize:11, letterSpacing:1, textTransform:"uppercase", color:"var(--panel-dark)", borderBottom:"1px solid var(--border-warm)", paddingBottom:6, marginBottom:10 }}>
+                Modalidades Ativas no Estúdio
+              </h5>
+              {modalidadesAssociadas.length === 0 ? (
+                <p style={{ fontSize:12, color:"var(--accent-muted)", fontStyle:"italic" }}>Sem modalidades associadas.</p>
+              ) : (
+                <div style={{ display:"flex", flexWrap:"wrap", gap:8 }}>
+                  {modalidadesAssociadas.map(m => (
+                    <span key={m.id} style={{ display:"inline-flex", alignItems:"center", gap:6, background:"#fde8e8", color:"#c0392b", border:"1px solid #f5c6cb", padding:"4px 10px", borderRadius:20, fontSize:12 }}>
+                      {m.nome}
+                      <i className="ti ti-x" style={{ cursor:"pointer", fontWeight:"bold" }} onClick={() => handleRemoverModalidade(m.id)} />
+                    </span>
+                  ))}
+                </div>
+              )}
+            </div>
+            <div>
+              <h5 style={{ fontSize:11, letterSpacing:1, textTransform:"uppercase", color:"var(--panel-dark)", borderBottom:"1px solid var(--border-warm)", paddingBottom:6, marginBottom:10 }}>
+                Disponíveis para Adicionar
+              </h5>
+              {modalidadesDisponiveis.length === 0 ? (
+                <p style={{ fontSize:12, color:"var(--accent-muted)", fontStyle:"italic" }}>Todas associadas.</p>
+              ) : (
+                <div style={{ display:"flex", flexWrap:"wrap", gap:8 }}>
+                  {modalidadesDisponiveis.map(m => (
+                    <button key={m.id} onClick={() => handleAdicionarModalidade(m.id)}
+                      style={{ display:"inline-flex", alignItems:"center", gap:4, background:"#fff", color:"var(--panel-dark)", border:"1px solid var(--border-warm)", padding:"5px 12px", borderRadius:20, fontSize:12, cursor:"pointer" }}>
+                      <i className="ti ti-plus" style={{ color:"#27ae60" }} /> {m.nome}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+            <div style={{ display:"flex", justifyContent:"flex-end", marginTop:10 }}>
+              <BtnSecundario label="Fechar" onClick={() => { setAssocModalOpen(false); setAssocEstudio(null); }} />
+            </div>
+          </div>
+        )}
       </Modal>
     </div>
   );
@@ -1181,7 +1925,7 @@ export default function HorariosPage() {
       </div>
 
       {!role ? (
-        <div style={{ textAlign:"center", padding:80 }}>
+        <div style={{ textAlign: "center", padding: 80 }}>
           <p style={{ fontFamily:"var(--font-playfair)", fontSize:20, color:"var(--panel-dark)", marginBottom:8 }}>Sem sessão iniciada</p>
           <p style={{ fontSize:13, color:"var(--accent-muted)" }}>Por favor, faz login para aceder.</p>
         </div>
