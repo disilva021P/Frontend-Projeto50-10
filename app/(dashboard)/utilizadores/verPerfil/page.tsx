@@ -47,15 +47,15 @@ const TIPO_LABELS: Record<string, string> = {
   ROLE_COORDENACAO: "Coordenação",
 };
 
-const TIPO_STYLES: Record<string, { bg: string; text: string; border: string; icon: string }> = {
-  ROLE_ALUNO: { bg: "rgba(78,114,169,0.10)", text: "#2D4E7A", border: "rgba(78,114,169,0.25)", icon: "ti-school" },
-  ALUNO: { bg: "rgba(78,114,169,0.10)", text: "#2D4E7A", border: "rgba(78,114,169,0.25)", icon: "ti-school" },
-  ROLE_PROFESSOR: { bg: "rgba(160,133,96,0.12)", text: "#7A5020", border: "rgba(160,133,96,0.30)", icon: "ti-chalkboard" },
-  PROFESSOR: { bg: "rgba(160,133,96,0.12)", text: "#7A5020", border: "rgba(160,133,96,0.30)", icon: "ti-chalkboard" },
-  ROLE_ENCARREGADO: { bg: "rgba(74,143,89,0.10)", text: "#2D6A3F", border: "rgba(74,143,89,0.25)", icon: "ti-users-group" },
-  ENCARREGADO: { bg: "rgba(74,143,89,0.10)", text: "#2D6A3F", border: "rgba(74,143,89,0.25)", icon: "ti-users-group" },
-  ROLE_COORDENACAO: { bg: "rgba(44,28,10,0.08)", text: "#402F1D", border: "rgba(44,28,10,0.20)", icon: "ti-shield" },
-  COORDENACAO: { bg: "rgba(44,28,10,0.08)", text: "#402F1D", border: "rgba(44,28,10,0.20)", icon: "ti-shield" },
+const TIPO_STYLES: Record<string, { bg: string; text: string; border: string }> = {
+  ROLE_ALUNO: { bg: "rgba(78,114,169,0.10)", text: "#2D4E7A", border: "rgba(78,114,169,0.25)" },
+  ALUNO: { bg: "rgba(78,114,169,0.10)", text: "#2D4E7A", border: "rgba(78,114,169,0.25)" },
+  ROLE_PROFESSOR: { bg: "rgba(160,133,96,0.12)", text: "#7A5020", border: "rgba(160,133,96,0.30)" },
+  PROFESSOR: { bg: "rgba(160,133,96,0.12)", text: "#7A5020", border: "rgba(160,133,96,0.30)" },
+  ROLE_ENCARREGADO: { bg: "rgba(74,143,89,0.10)", text: "#2D6A3F", border: "rgba(74,143,89,0.25)" },
+  ENCARREGADO: { bg: "rgba(74,143,89,0.10)", text: "#2D6A3F", border: "rgba(74,143,89,0.25)" },
+  ROLE_COORDENACAO: { bg: "rgba(44,28,10,0.08)", text: "#402F1D", border: "rgba(44,28,10,0.20)" },
+  COORDENACAO: { bg: "rgba(44,28,10,0.08)", text: "#402F1D", border: "rgba(44,28,10,0.20)" },
 };
 
 function initials(name: string = ""): string {
@@ -229,7 +229,6 @@ export default function PerfilPage() {
 
                 {perfil && (
                   <span style={{ display: "inline-flex", alignItems: "center", gap: 7, background: tipoStyle.bg, border: `1px solid ${tipoStyle.border}`, color: tipoStyle.text, borderRadius: 999, padding: "7px 12px", fontSize: 11, letterSpacing: .7, textTransform: "uppercase" }}>
-                    <i className={`ti ${tipoStyle.icon}`} style={{ fontSize: 15 }} />
                     {TIPO_LABELS[perfil.tipoUtilizador] ?? perfil.tipoUtilizador}
                   </span>
                 )}
@@ -257,16 +256,13 @@ export default function PerfilPage() {
 
                   <div style={{ padding: 24, display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 18 }}>
                     {[
-                      { label: "Telefone", value: perfil.telefone || "—", icon: "ti-phone" },
-                      { label: "NIF", value: perfil.nif || "—", icon: "ti-id-badge" },
-                      { label: "Nascimento", value: formatDate(perfil.dataNascimento), icon: "ti-calendar" },
-                      { label: "Membro desde", value: formatDate(perfil.criadoEm), icon: "ti-clock" },
-                    ].map(({ label, value, icon }) => (
+                      { label: "Telefone", value: perfil.telefone || "—" },
+                      { label: "NIF", value: perfil.nif || "—" },
+                      { label: "Nascimento", value: formatDate(perfil.dataNascimento) },
+                      { label: "Membro desde", value: formatDate(perfil.criadoEm) },
+                    ].map(({ label, value }) => (
                       <div key={label} style={{ background: "#FBF7F2", border: "1px solid var(--border-warm)", borderRadius: 8, padding: 14 }}>
-                        <div style={{ display: "flex", alignItems: "center", gap: 7, ...labelStyle }}>
-                          <i className={`ti ${icon}`} style={{ fontSize: 13 }} />
-                          {label}
-                        </div>
+                        <div style={labelStyle}>{label}</div>
                         <div style={{ fontSize: 14, color: "var(--panel-dark)", fontWeight: 500 }}>{value}</div>
                       </div>
                     ))}
@@ -278,9 +274,6 @@ export default function PerfilPage() {
                   {isAluno(perfil.tipoUtilizador) && (
                     <section style={{ ...cardStyle, padding: 18 }}>
                       <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12 }}>
-                        <div style={{ width: 34, height: 34, borderRadius: 8, background: "rgba(74,143,89,0.10)", color: "#2D6A3F", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                          <i className="ti ti-user-shield" />
-                        </div>
                         <div>
                           <div style={labelStyle}>Encarregado</div>
                           <strong style={{ fontSize: 14, color: "var(--panel-dark)", fontWeight: 500 }}>Educação</strong>
@@ -300,9 +293,6 @@ export default function PerfilPage() {
                     <section style={{ ...cardStyle, padding: 18 }}>
                       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, marginBottom: 14 }}>
                         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                          <div style={{ width: 34, height: 34, borderRadius: 8, background: "rgba(78,114,169,0.10)", color: "#2D4E7A", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                            <i className="ti ti-school" />
-                          </div>
                           <div>
                             <div style={labelStyle}>Educandos</div>
                             <strong style={{ fontSize: 14, color: "var(--panel-dark)", fontWeight: 500 }}>{educandos.length} associados</strong>
@@ -334,9 +324,6 @@ export default function PerfilPage() {
 
                 <section style={{ ...cardStyle, gridColumn: "1 / -1", padding: 18, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16, flexWrap: "wrap" }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                    <div style={{ width: 38, height: 38, borderRadius: 9, background: "rgba(160,133,96,0.12)", color: "#7A5020", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                      <i className="ti ti-lock" />
-                    </div>
                     <div>
                       <div style={labelStyle}>Segurança</div>
                       <strong style={{ fontFamily: "var(--font-playfair)", fontSize: 18, color: "var(--panel-dark)", fontWeight: 400 }}>Palavra-passe</strong>
