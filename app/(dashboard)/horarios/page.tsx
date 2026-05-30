@@ -12,9 +12,10 @@ interface EstudioDto { id: string; nome: string; capacidade?: number; notas?: st
 interface AulaDto    {
   id: string; titulo?: string; dataAula?: string; horaInicio?: string; horaFim?: string;
   turma?: TurmaDto; estudio?: EstudioDto; professor?: ResumoDto; diaSemana?: string | number;
+  maxAlunos?: number; solicitadoPor?: ResumoDto;
 }
 interface CoachingDto {
-  aulaDto: { id: string; dataAula: string; horaInicio: string; horaFim: string; duracaoMinutos: number; estudio?: EstudioDto };
+  aulaDto: { id: string; dataAula: string; horaInicio: string; horaFim: string; duracaoMinutos: number; estudio?: EstudioDto; notas?: string };
   modalidadeDto: { id: string; nome: string };
   estadoAulaDto: { id: string; estado: string };
   max_alunos: number;
@@ -70,6 +71,8 @@ async function apiFetch<T>(url: string, opts: RequestInit = {}): Promise<T> {
   const res = await fetch(fullUrl, { ...opts, headers: { ...authHeaders(), ...(opts.headers ?? {}) } });
   if (!res.ok) throw new Error(await res.text());
   if (res.status === 204) return undefined as T;
+  const contentType = res.headers.get("content-type") ?? "";
+  if (!contentType.includes("application/json")) return undefined as T;
   return res.json();
 }
 
@@ -108,15 +111,17 @@ function normalizeAula(a: any): AulaDto {
     : undefined);
   
   return {
-    id:         a.id,
-    titulo:     a.titulo     ?? h.titulo,
-    dataAula:   a.dataAula   ?? h.dataAula,
-    horaInicio: trimHora(a.horaInicio ?? h.horaInicio),
-    horaFim:    trimHora(a.horaFim    ?? h.horaFim),
-    diaSemana:  diaDerived,
-    turma:      a.turma      ?? h.idturmaId,
-    estudio:    a.estudio    ?? h.estudioId ?? a.estudioId,
-    professor:  a.professor  ?? h.professor ?? (h.idcriadoPor && h.professor ? h.idcriadoPor : undefined),
+    id:            a.id,
+    titulo:        a.titulo        ?? h.titulo,
+    dataAula:      a.dataAula      ?? h.dataAula,
+    horaInicio:    trimHora(a.horaInicio ?? h.horaInicio),
+    horaFim:       trimHora(a.horaFim    ?? h.horaFim),
+    diaSemana:     diaDerived,
+    turma:         a.turma         ?? h.idturmaId,
+    estudio:       a.estudio       ?? h.estudioId ?? a.estudioId,
+    professor:     a.professor     ?? h.professor ?? (h.idcriadoPor && h.professor ? h.idcriadoPor : undefined),
+    maxAlunos:     a.maxAlunos     ?? undefined,
+    solicitadoPor: a.solicitadoPor ?? undefined,
   };
 }
 
@@ -157,6 +162,44 @@ function OkMsg({ msg }: { msg: string }) {
   return <div style={{ color: "#27ae60", padding: "10px 14px", background: "#eafaf1", borderRadius: 6, marginBottom: 12, fontSize: 13, border: "1px solid #a9dfbf" }}>Sucesso: {msg}</div>;
 }
 
+
+// ─── Toast Notifications ──────────────────────────────────────────────────────
+
+type ToastType = "sucesso" | "erro";
+interface Toast { id: number; msg: string; tipo: ToastType }
+
+function ToastContainer({ toasts, onRemove }: { toasts: Toast[]; onRemove: (id: number) => void }) {
+  return (
+    <div style={{ position:"fixed", bottom:24, right:24, zIndex:9999, display:"flex", flexDirection:"column", gap:10, pointerEvents:"none" }}>
+      {toasts.map(t => (
+        <div key={t.id} style={{
+          pointerEvents:"auto", display:"flex", alignItems:"center", gap:10,
+          background: t.tipo === "sucesso" ? "#1a3c2e" : "#3c1a1a",
+          color:"#fff", borderRadius:10, padding:"12px 18px", fontSize:13, fontWeight:500,
+          boxShadow:"0 8px 24px rgba(0,0,0,0.18)", minWidth:260, maxWidth:360,
+          animation:"slideInToast 0.25s ease",
+        }}>
+          <span style={{ fontSize:18 }}>{t.tipo === "sucesso" ? "✓" : "✕"}</span>
+          <span style={{ flex:1 }}>{t.msg}</span>
+          <button onClick={() => onRemove(t.id)} style={{ background:"none", border:"none", color:"rgba(255,255,255,0.6)", cursor:"pointer", fontSize:16, lineHeight:1, padding:0 }}>×</button>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+let _toastId = 0;
+function useToast() {
+  const [toasts, setToasts] = useState<Toast[]>([]);
+  const show = (msg: string, tipo: ToastType = "sucesso", duracao = 3500) => {
+    const id = ++_toastId;
+    setToasts(prev => [...prev, { id, msg, tipo }]);
+    setTimeout(() => setToasts(prev => prev.filter(t => t.id !== id)), duracao);
+  };
+  const remove = (id: number) => setToasts(prev => prev.filter(t => t.id !== id));
+  return { toasts, show, remove };
+}
+
 function EstadoBadge({ estado }: { estado: string }) {
   const cores: Record<string, { bg: string; text: string; label: string }> = {
     CONFIRMADO:   { bg: "#d4edda", text: "#155724", label: "CONFIRMADO" },
@@ -174,7 +217,7 @@ const btnBase: React.CSSProperties = { borderRadius: 6, fontWeight: 700, cursor:
 function BtnPrimario({ label, onClick, small }: { label: string; onClick: (e: React.MouseEvent<HTMLButtonElement>) => void; small?: boolean }) {
   return <button onClick={onClick} style={{ ...btnBase, background: "var(--panel-dark)", border: "none", color: "var(--accent-gold)", fontSize: small ? 11 : 13, padding: small ? "6px 14px" : "10px 22px" }}>{label}</button>;
 }
-function BtnSecundario({ label, onClick, small }: { label: string; onClick: () => void; small?: boolean }) {
+function BtnSecundario({ label, onClick, small }: { label: string; onClick: () => void | Promise<void>; small?: boolean }) {
   return <button onClick={onClick} style={{ ...btnBase, background: "transparent", border: "1px solid var(--panel-dark)", color: "var(--panel-dark)", fontSize: small ? 11 : 13, padding: small ? "5px 13px" : "9px 21px" }}>{label}</button>;
 }
 function BtnPerigo({ label, onClick, small }: { label: string; onClick: (e: React.MouseEvent<HTMLButtonElement>) => void; small?: boolean }) {
@@ -375,7 +418,7 @@ function GrelhaHorario({ aulas, titulo, semanaOffset, onPrev, onNext }: { aulas:
           <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
             <div style={{ fontSize: 14, color: "var(--panel-dark)" }}>
               <span style={{ color: "var(--accent-muted)", fontWeight: 500 }}>Título / Turma:</span>{" "}
-              <strong>{aulaSelecionada.turma?.nome ?? aulaSelecionada.titulo ?? "Aula Regular"}</strong>
+              <strong>{aulaSelecionada.titulo ?? aulaSelecionada.turma?.nome ?? "Aula Regular"}</strong>
             </div>
             {aulaSelecionada.dataAula && (
               <div style={{ fontSize: 14, color: "var(--panel-dark)" }}>
@@ -387,8 +430,7 @@ function GrelhaHorario({ aulas, titulo, semanaOffset, onPrev, onNext }: { aulas:
               <span style={{ color: "var(--accent-muted)", fontWeight: 500 }}>Horário:</span>{" "}
               <strong>{trimHora(aulaSelecionada.horaInicio)} às {trimHora(aulaSelecionada.horaFim)}</strong>
             </div>
-            
-            {/* INCLUSÃO DO PEDIDO DINÂMICO DE PROFESSOR NO MODAL DA GRELHA */}
+
             <div style={{ fontSize: 14, color: "var(--panel-dark)" }}>
               <span style={{ color: "var(--accent-muted)", fontWeight: 500 }}>Professor:</span>{" "}
               <NomeProfessorLazy idAula={aulaSelecionada.id} professorFallback={aulaSelecionada.professor?.nome ?? "Não atribuído"} />
@@ -404,6 +446,18 @@ function GrelhaHorario({ aulas, titulo, semanaOffset, onPrev, onNext }: { aulas:
               <div style={{ fontSize: 14, color: "var(--panel-dark)" }}>
                 <span style={{ color: "var(--accent-muted)", fontWeight: 500 }}>Modalidade:</span>{" "}
                 <span>{aulaSelecionada.turma.modalidade.nome}</span>
+              </div>
+            )}
+            {aulaSelecionada.solicitadoPor && (
+              <div style={{ fontSize: 14, color: "var(--panel-dark)" }}>
+                <span style={{ color: "var(--accent-muted)", fontWeight: 500 }}>Pedido por:</span>{" "}
+                <strong>{aulaSelecionada.solicitadoPor.nome}</strong>
+              </div>
+            )}
+            {aulaSelecionada.maxAlunos != null && (
+              <div style={{ fontSize: 14, color: "var(--panel-dark)" }}>
+                <span style={{ color: "var(--accent-muted)", fontWeight: 500 }}>Máx. alunos:</span>{" "}
+                <strong>{aulaSelecionada.maxAlunos}</strong>
               </div>
             )}
             <div style={{ marginTop: 12, display: "flex", justifyContent: "flex-end" }}>
@@ -962,6 +1016,7 @@ function ProfessorView({ userName }: { userName: string }) {
   
   const [dispForm, setDispForm] = useState({ diaSemana:1, horaInicio:"", horaFim:"", validoDe:"", validoAte:"" });
   const [dispErr, setDispErr]   = useState("");
+  const { toasts, show: showToast, remove: removeToast } = useToast();
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -979,14 +1034,26 @@ function ProfessorView({ userName }: { userName: string }) {
   useEffect(() => { load(); }, [load]);
 
   const confirmar = async (id: string) => {
-    await apiFetch(`${API}/professor/coaching/${id}/confirmar`, { method: "PUT" });
-    setPend(prev => prev.filter(c => c.aulaDto.id !== id));
-    load();
+    try {
+      await apiFetch(`${API}/professor/coaching/${id}/confirmar`, { method: "PUT" });
+      setPend(prev => prev.filter(c => c.aulaDto.id !== id));
+      showToast("Coaching confirmado com sucesso!", "sucesso");
+    } catch (e) {
+      console.error("Erro ao confirmar coaching:", e);
+      showToast("Erro ao confirmar o coaching.", "erro");
+      load();
+    }
   };
   const rejeitar = async (id: string) => {
-    await apiFetch(`${API}/professor/coaching/rejeitar/${id}`, { method: "PUT" });
-    setPend(prev => prev.filter(c => c.aulaDto.id !== id));
-    load();
+    try {
+      await apiFetch(`${API}/professor/coaching/rejeitar/${id}`, { method: "PUT" });
+      setPend(prev => prev.filter(c => c.aulaDto.id !== id));
+      showToast("Pedido de coaching rejeitado.", "erro");
+    } catch (e) {
+      console.error("Erro ao rejeitar coaching:", e);
+      showToast("Erro ao rejeitar o coaching.", "erro");
+      load();
+    }
   };
   
   const openCriar = () => {
@@ -1081,6 +1148,15 @@ function ProfessorView({ userName }: { userName: string }) {
                           <strong>{c.aulaDto.estudio.nome}</strong>
                         </div>
                       )}
+                      {c.aulaDto.notas && (
+                        <div style={{ marginTop:6, padding:"10px 12px", background:"#f8f6f2", borderRadius:8, borderLeft:"3px solid var(--accent-gold)" }}>
+                          <div style={{ display:"flex", alignItems:"center", gap:6, marginBottom:4 }}>
+                            <i className="ti ti-notes" style={{ color:"var(--accent-muted)", fontSize:13 }} />
+                            <span style={{ color:"var(--accent-muted)", fontSize:12, letterSpacing:1, textTransform:"uppercase", fontWeight:500 }}>Notas</span>
+                          </div>
+                          <span style={{ fontSize:13, color:"var(--panel-dark)", lineHeight:1.5 }}>{c.aulaDto.notas}</span>
+                        </div>
+                      )}
                     </div>
                   </div>
                   <div style={{ display:"flex", gap:8, justifyContent:"flex-end", borderTop:"1px solid #FAF8F5", paddingTop:12, marginTop:14 }}>
@@ -1128,6 +1204,7 @@ function ProfessorView({ userName }: { userName: string }) {
         {tab==="grelha" && <GrelhaGeral />}
       </>}
 
+      <ToastContainer toasts={toasts} onRemove={removeToast} />
       <Modal open={isModalOpen} onClose={() => setIsModalOpen(false)} title={editId ? "Editar Disponibilidade" : "Nova Disponibilidade"}>
         {dispErr && <ErrMsg msg={dispErr} />}
         <SelectField label="Dia da semana" value={dispForm.diaSemana.toString()} onChange={v=>setDispForm(f=>({...f,diaSemana:parseInt(v)}))} options={DIAS_OPTIONS.map(d=>({value:d.value.toString(),label:d.label}))} />
@@ -1994,7 +2071,8 @@ export default function HorariosPage() {
 
   return (
     <>
-      <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+      <style>{`@keyframes spin { to { transform: rotate(360deg); } }
+        @keyframes slideInToast { from { opacity:0; transform:translateY(12px); } to { opacity:1; transform:translateY(0); } }`}</style>
 
       <div style={{ marginBottom:28 }}>
         <p style={{ fontSize:10, letterSpacing:3, textTransform:"uppercase", color:"var(--accent-muted)", fontWeight:400, marginBottom:4 }}>
