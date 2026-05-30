@@ -30,7 +30,7 @@ interface DisponibilidadeDto {
   validoDe?: string; validoAte?: string; professor?: ResumoDto;
 }
 
-const BASE = "http://localhost:8080";
+const BASE = "http://localhost:8081";
 const API  = `${BASE}/api/horario`;
 
 const DIAS = ["SEGUNDA", "TERÇA", "QUARTA", "QUINTA", "SEXTA", "SÁBADO", "DOMINGO"];

@@ -77,7 +77,7 @@ function GaleriaImagens({ ids }: { ids: string[] }) {
         style={{ aspectRatio: "4/3" }}
       >
         <img
-          src={`http://localhost:8080/api/marketplace/imagem/${ids[ativa]}`}
+          src={`http://localhost:8081/api/marketplace/imagem/${ids[ativa]}`}
           className="w-full h-full object-cover transition-transform duration-500"
           alt="Imagem do artigo"
         />
@@ -113,7 +113,7 @@ function GaleriaImagens({ ids }: { ids: string[] }) {
           {ids.map((imgId, idx) => (
             <img
               key={imgId}
-              src={`http://localhost:8080/api/marketplace/imagem/${imgId}`}
+              src={`http://localhost:8081/api/marketplace/imagem/${imgId}`}
               onClick={() => setAtiva(idx)}
               className={`w-14 h-14 object-cover rounded border transition-all cursor-pointer ${
                 idx === ativa
@@ -623,7 +623,7 @@ export default function MarketplacePage() {
 
     if (artigo.imagemIds && artigo.imagemIds.length > 0) {
       const urlsExistentes = artigo.imagemIds.map(
-        (id) => `http://localhost:8080/api/marketplace/imagem/${id}`,
+        (id) => `http://localhost:8081/api/marketplace/imagem/${id}`,
       );
       setPreviews(urlsExistentes);
     } else {
@@ -1025,7 +1025,7 @@ export default function MarketplacePage() {
                       <div className="w-full bg-[#FBF7F2] h-48 relative">
                         {artigo.imagemId ? (
                           <img
-                            src={`http://localhost:8080/api/marketplace/imagem/${artigo.imagemId}`}
+                            src={`http://localhost:8081/api/marketplace/imagem/${artigo.imagemId}`}
                             className="w-full h-full object-cover"
                             alt={artigo.nome}
                           />
@@ -1121,7 +1121,7 @@ export default function MarketplacePage() {
                   >
                     {artigo.imagemId ? (
                       <img
-                        src={`http://localhost:8080/api/marketplace/imagem/${artigo.imagemId}`}
+                        src={`http://localhost:8081/api/marketplace/imagem/${artigo.imagemId}`}
                         className="w-full h-full object-cover group-hover:scale-102 transition-transform duration-300"
                         alt={artigo.nome}
                       />

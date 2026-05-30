@@ -22,7 +22,7 @@ interface FaltaResumoDto {
   injustificadas: number;
 }
 
-const BASE_URL = 'http://localhost:8080';
+const BASE_URL = 'http://localhost:8081';
 
 export default function GestaoFaltasPage() {
   const router = useRouter();

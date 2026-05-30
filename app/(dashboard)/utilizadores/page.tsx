@@ -27,7 +27,7 @@ interface PageResponse {
   content: UtilizadorResponseDto[]; totalPages: number; number: number; totalElements: number;
 }
 
-const BASE_URL = "http://localhost:8080";
+const BASE_URL = "http://localhost:8081";
 function getToken() { return typeof window !== "undefined" ? localStorage.getItem("token") ?? "" : ""; }
 function authHeaders() { return { "Content-Type": "application/json", Authorization: `Bearer ${getToken()}` }; }
 function getUserData(): { nome: string; role: Role | null } {

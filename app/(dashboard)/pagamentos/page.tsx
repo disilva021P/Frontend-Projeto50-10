@@ -36,7 +36,7 @@ interface AlunoEstatisticaDto {
   totalPendente?: number;
 }
 
-const BASE_URL = 'http://localhost:8080';
+const BASE_URL = 'http://localhost:8081';
 
 const CATEGORIAS_PADRAO: TipoPagamentoDto[] = [
   { id: "eyJDcmVhdGVkQXQiOjE3MTU4OTIzNDYsImkiOjF9", tipoPagamento: "Mensalidade" },

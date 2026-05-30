@@ -29,7 +29,7 @@ interface AulaTituloDto {
   titulo?: string; 
 }
 
-const BASE_URL = "http://localhost:8080";
+const BASE_URL = "http://localhost:8081";
 const DIAS_ABREV = ["Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
 
 function diaParaIdx(dataStr: string | undefined): number {

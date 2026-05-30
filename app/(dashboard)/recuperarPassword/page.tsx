@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 
-const API_BASE_URL = 'http://localhost:8080/api/utilizadores';
+const API_BASE_URL = 'http://localhost:8081/api/utilizadores';
 
 type Mensagem = { texto: string; tipo: 'success' | 'error' } | null;
 
