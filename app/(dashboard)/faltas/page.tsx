@@ -72,6 +72,8 @@ interface PageAulas {
 const BASE_URL = 'http://localhost:8080';
 const REFRESH_INTERVAL_MS = 5 * 60 * 1000; // 5 minutos
 
+const fmtHora = (h?: string) => h ? h.substring(0, 5) : '—';
+
 const NAV_SECTIONS = [
   {
     title: 'Principal',
@@ -154,7 +156,7 @@ function ModalJustificacao({ faltaId, onClose, onSuccess, token }: ModalJustific
     fontSize: '13px',
     outline: 'none',
     backgroundColor: '#FFF',
-    color: 'var(--panel-dark, #2c1f14)',
+    color: 'var(--panel-dark, #3d4f5c)',
     fontFamily: 'inherit',
     boxSizing: 'border-box' as const,
     boxShadow: 'rgba(0,0,0,0.02) 0px 1px 3px 0px, rgba(27,31,35,0.15) 0px 0px 0px 1px inset',
@@ -163,9 +165,9 @@ function ModalJustificacao({ faltaId, onClose, onSuccess, token }: ModalJustific
   return (
     <div style={{ position: 'fixed', inset: 0, background: 'rgba(24,23,21,0.5)', backdropFilter: 'blur(4px)', zIndex: 200, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
       <div style={{ position: 'relative', background: '#fff', borderRadius: '12px', padding: '30px', width: '460px', maxWidth: '95vw', border: '1px solid var(--border-warm, #e5dec9)', boxShadow: '0 20px 25px -5px rgba(0,0,0,0.1)', overflow: 'hidden' }}>
-        <div style={{ position: 'absolute', top: 0, left: 0, bottom: 0, width: '5px', background: 'var(--panel-dark, #2c1f14)' }} />
+        <div style={{ position: 'absolute', top: 0, left: 0, bottom: 0, width: '5px', background: 'var(--panel-dark, #3d4f5c)' }} />
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '6px' }}>
-          <h2 style={{ fontFamily: 'var(--font-playfair, Georgia, serif)', fontSize: '20px', margin: 0, color: 'var(--panel-dark, #2c1f14)', fontWeight: 400 }}>Submeter Justificação</h2>
+          <h2 style={{ fontFamily: 'var(--font-playfair, Georgia, serif)', fontSize: '20px', margin: 0, color: 'var(--panel-dark, #3d4f5c)', fontWeight: 400 }}>Submeter Justificação</h2>
           <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '18px', color: '#aaa', lineHeight: 1 }}>✕</button>
         </div>
         <p style={{ fontSize: '12px', color: 'var(--accent-muted, #888)', margin: '0 0 24px', letterSpacing: '0.3px' }}>
@@ -188,8 +190,8 @@ function ModalJustificacao({ faltaId, onClose, onSuccess, token }: ModalJustific
           </div>
           {erro && <p style={{ color: '#C62828', fontSize: '12px', margin: 0 }}>⚠ {erro}</p>}
           <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '8px' }}>
-            <button onClick={onClose} style={{ padding: '10px 18px', border: '1px solid var(--border-warm, #e5dec9)', background: 'transparent', borderRadius: '6px', fontSize: '13px', fontWeight: 500, color: 'var(--panel-dark, #2c1f14)', cursor: 'pointer' }}>Cancelar</button>
-            <button onClick={handleSubmit} disabled={loading} style={{ background: 'var(--panel-dark, #2c1f14)', color: 'var(--accent-gold, #D4B288)', border: 'none', padding: '10px 22px', borderRadius: '6px', fontSize: '13px', fontWeight: 500, cursor: 'pointer' }}>
+            <button onClick={onClose} style={{ padding: '10px 18px', border: '1px solid var(--border-warm, #e5dec9)', background: 'transparent', borderRadius: '6px', fontSize: '13px', fontWeight: 500, color: 'var(--panel-dark, #3d4f5c)', cursor: 'pointer' }}>Cancelar</button>
+            <button onClick={handleSubmit} disabled={loading} style={{ background: 'var(--panel-dark, #3d4f5c)', color: '#ffffff', border: 'none', padding: '10px 22px', borderRadius: '6px', fontSize: '13px', fontWeight: 500, cursor: 'pointer' }}>
               {loading ? 'A enviar...' : 'Submeter'}
             </button>
           </div>
@@ -203,7 +205,7 @@ function ModalJustificacao({ faltaId, onClose, onSuccess, token }: ModalJustific
 function ResumoCards({ resumo }: { resumo: FaltaResumoDto | null }) {
   if (!resumo) return null;
   const cards = [
-    { label: 'Total', value: resumo.total, cor: '#2c1f14', bg: '#F5EFE6', borda: '#e5dec9' },
+    { label: 'Total', value: resumo.total, cor: '#3d4f5c', bg: '#F5EFE6', borda: '#e5dec9' },
     { label: 'Justificadas', value: resumo.justificadas, cor: '#2E7D32', bg: '#F1F8F2', borda: '#A5D6A7' },
     { label: 'Pendentes', value: resumo.pendentes, cor: '#B58100', bg: '#FFF8E1', borda: '#FFE082' },
     { label: 'Injustificadas', value: resumo.injustificadas, cor: '#C62828', bg: '#FFF5F5', borda: '#FFCDD2' },
@@ -261,6 +263,7 @@ function ModalDetalheFalta({ falta, onClose, token }: ModalDetalheFaltaProps) {
   };
 
   const dataFmt = (d?: string) => d ? new Date(d).toLocaleString('pt-PT', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '—';
+  const fmtHora = (h?: string) => h ? h.substring(0, 5) : '—';
 
   return (
     <div style={{ position: 'fixed', inset: 0, background: 'rgba(24,23,21,0.5)', backdropFilter: 'blur(4px)', zIndex: 200, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -274,7 +277,7 @@ function ModalDetalheFalta({ falta, onClose, token }: ModalDetalheFaltaProps) {
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '20px' }}>
           <div>
             <p style={{ margin: '0 0 4px', fontSize: '10px', letterSpacing: '2px', color: '#aaa' }}>DETALHE DA FALTA</p>
-            <h2 style={{ fontFamily: 'var(--font-playfair, Georgia, serif)', fontSize: '20px', margin: 0, color: 'var(--panel-dark, #2c1f14)', fontWeight: 400 }}>
+            <h2 style={{ fontFamily: 'var(--font-playfair, Georgia, serif)', fontSize: '20px', margin: 0, color: 'var(--panel-dark, #3d4f5c)', fontWeight: 400 }}>
               {falta.aula?.titulo || 'Aula'}
             </h2>
           </div>
@@ -285,13 +288,13 @@ function ModalDetalheFalta({ falta, onClose, token }: ModalDetalheFaltaProps) {
           {/* Aluno */}
           <div style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 14px', background: '#FAF6F0', borderRadius: '6px' }}>
             <span style={{ fontSize: '11px', fontWeight: 600, textTransform: 'uppercase', color: '#aaa', letterSpacing: '0.5px' }}>Aluno</span>
-            <span style={{ fontSize: '13px', color: 'var(--panel-dark, #2c1f14)', fontWeight: 500 }}>{falta.utilizadorId?.nome || '—'}</span>
+            <span style={{ fontSize: '13px', color: 'var(--panel-dark, #3d4f5c)', fontWeight: 500 }}>{falta.utilizadorId?.nome || '—'}</span>
           </div>
 
           {/* Aula info */}
           <div style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 14px', background: '#FAF6F0', borderRadius: '6px' }}>
             <span style={{ fontSize: '11px', fontWeight: 600, textTransform: 'uppercase', color: '#aaa', letterSpacing: '0.5px' }}>Data</span>
-            <span style={{ fontSize: '13px', color: 'var(--panel-dark, #2c1f14)' }}>{falta.aula?.dataAula || '—'} {falta.aula?.horaInicio && `· ${falta.aula.horaInicio}–${falta.aula.horaFim}`}</span>
+            <span style={{ fontSize: '13px', color: 'var(--panel-dark, #3d4f5c)' }}>{falta.aula?.dataAula || '—'} {falta.aula?.horaInicio && `· ${fmtHora(falta.aula.horaInicio)}–${fmtHora(falta.aula.horaFim)}`}</span>
           </div>
 
           {/* Estado */}
@@ -410,7 +413,7 @@ function TabelaFaltas({ faltas, token, mostrarJustificar, mostrarEliminar, mostr
         </thead>
         <tbody>
           {faltas.map(f => (
-            <tr key={f.id} onClick={() => setFaltaSelecionada(f)} style={{ borderTop: '1px solid #F5EFE6', color: 'var(--panel-dark, #2c1f14)', cursor: 'pointer' }} onMouseEnter={e => (e.currentTarget.style.background = '#FAFAF8')} onMouseLeave={e => (e.currentTarget.style.background = '')}>
+            <tr key={f.id} onClick={() => setFaltaSelecionada(f)} style={{ borderTop: '1px solid #F5EFE6', color: 'var(--panel-dark, #3d4f5c)', cursor: 'pointer' }} onMouseEnter={e => (e.currentTarget.style.background = '#FAFAF8')} onMouseLeave={e => (e.currentTarget.style.background = '')}>
               <td style={{ padding: '12px 14px', fontWeight: 500 }}>{f.utilizadorId?.nome || '—'}</td>
               <td style={{ padding: '12px 14px', color: '#555', fontSize: '12px' }}>{f.aula?.titulo || '—'}</td>
               <td style={{ padding: '12px 14px', color: '#555', maxWidth: '200px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{f.motivo || '—'}</td>
@@ -419,7 +422,7 @@ function TabelaFaltas({ faltas, token, mostrarJustificar, mostrarEliminar, mostr
                 <td style={{ padding: '12px 14px', textAlign: 'right' }}>
                   <div style={{ display: 'flex', gap: '6px', justifyContent: 'flex-end' }}>
                     {mostrarJustificar && f.estado === 'PENDENTE' && (
-                      <button onClick={() => onJustificar?.(f.id)} style={{ padding: '5px 12px', fontSize: '11px', borderRadius: '4px', border: '1px solid var(--border-warm, #e5dec9)', color: 'var(--panel-dark, #2c1f14)', background: 'transparent', cursor: 'pointer', fontWeight: 500 }}>
+                      <button onClick={() => onJustificar?.(f.id)} style={{ padding: '5px 12px', fontSize: '11px', borderRadius: '4px', border: '1px solid var(--border-warm, #e5dec9)', color: 'var(--panel-dark, #3d4f5c)', background: 'transparent', cursor: 'pointer', fontWeight: 500 }}>
                         Justificar
                       </button>
                     )}
@@ -492,7 +495,7 @@ function SecaoAluno({ token, role }: { token: string; role: Role }) {
       <ResumoCards resumo={resumo} />
       <div style={{ background: '#FFF', border: '1px solid var(--border-warm, #e5dec9)', borderRadius: '8px', overflow: 'hidden' }}>
         <div style={{ padding: '16px 20px', borderBottom: '1px solid #F5EFE6', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <h3 style={{ margin: 0, fontSize: '14px', fontWeight: 600, color: 'var(--panel-dark, #2c1f14)' }}>
+          <h3 style={{ margin: 0, fontSize: '14px', fontWeight: 600, color: 'var(--panel-dark, #3d4f5c)' }}>
             {isEncarregado ? 'Faltas dos Educandos' : 'As Minhas Faltas'}
           </h3>
           {ultimaAtualizacao && (
@@ -632,8 +635,8 @@ function SecaoProfessor({ token, professorId }: { token: string; professorId: st
   const tabStyle = (active: boolean): React.CSSProperties => ({
     padding: '8px 20px', borderRadius: '6px', border: 'none', cursor: 'pointer',
     fontSize: '13px', fontWeight: active ? 600 : 400,
-    background: active ? 'var(--panel-dark, #2c1f14)' : 'transparent',
-    color: active ? 'var(--accent-gold, #D4B288)' : '#888',
+    background: active ? 'var(--panel-dark, #3d4f5c)' : 'transparent',
+    color: active ? '#ffffff' : '#888',
     transition: 'all 0.2s',
   });
 
@@ -649,7 +652,7 @@ function SecaoProfessor({ token, professorId }: { token: string; professorId: st
         <div style={{ background: '#FFF', border: '1px solid var(--border-warm, #e5dec9)', borderRadius: '8px', overflow: 'hidden' }}>
           <div style={{ padding: '16px 20px', borderBottom: '1px solid #F5EFE6' }}>
             <p style={{ margin: '0 0 2px', fontSize: '10px', letterSpacing: '2px', color: 'var(--accent-muted, #aaa)' }}>CHAMADA DE ALUNOS</p>
-            <h3 style={{ margin: 0, fontSize: '16px', fontWeight: 400, fontFamily: 'var(--font-playfair, Georgia, serif)', color: 'var(--panel-dark, #2c1f14)' }}>As Minhas Aulas</h3>
+            <h3 style={{ margin: 0, fontSize: '16px', fontWeight: 400, fontFamily: 'var(--font-playfair, Georgia, serif)', color: 'var(--panel-dark, #3d4f5c)' }}>As Minhas Aulas</h3>
           </div>
 
           {successMsg && (
@@ -668,20 +671,20 @@ function SecaoProfessor({ token, professorId }: { token: string; professorId: st
                 {aulas.map(aula => {
                   const expandida = aulaExpandidaId === aula.id;
                   return (
-                    <div key={aula.id} style={{ border: expandida ? '1px solid var(--panel-dark, #2c1f14)' : '1px solid var(--border-warm, #e5dec9)', borderRadius: '8px', overflow: 'hidden', transition: 'border-color 0.2s' }}>
+                    <div key={aula.id} style={{ border: expandida ? '1px solid var(--panel-dark, #3d4f5c)' : '1px solid var(--border-warm, #e5dec9)', borderRadius: '8px', overflow: 'hidden', transition: 'border-color 0.2s' }}>
                       {/* Header */}
                       <div onClick={() => handleToggleAula(aula.id)} style={{ padding: '14px 18px', cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: expandida ? '#FAF6F0' : '#fff', transition: 'background 0.2s' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                          <span style={{ background: 'var(--panel-dark, #2c1f14)', color: 'var(--accent-gold, #D4B288)', padding: '3px 10px', borderRadius: '4px', fontSize: '10px', fontWeight: 600, letterSpacing: '0.5px' }}>
+                          <span style={{ background: 'var(--panel-dark, #3d4f5c)', color: '#ffffff', padding: '3px 10px', borderRadius: '4px', fontSize: '10px', fontWeight: 600, letterSpacing: '0.5px' }}>
                             {aula.estudio?.nome || 'Estúdio'}
                           </span>
-                          <span style={{ fontSize: '14px', fontWeight: 500, color: 'var(--panel-dark, #2c1f14)' }}>
+                          <span style={{ fontSize: '14px', fontWeight: 500, color: 'var(--panel-dark, #3d4f5c)' }}>
                             {aula.titulo || 'Aula'}
                           </span>
                           <span style={{ fontSize: '11px', color: '#bbb' }}>{aula.dataAula || '—'}</span>
                         </div>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                          <span style={{ fontSize: '12px', color: '#666', fontWeight: 500 }}>{aula.horaInicio} – {aula.horaFim}</span>
+                          <span style={{ fontSize: '12px', color: '#666', fontWeight: 500 }}>{fmtHora(aula.horaInicio)} – {fmtHora(aula.horaFim)}</span>
                           <i className={`ti ti-chevron-${expandida ? 'up' : 'down'}`} style={{ color: '#aaa', fontSize: '14px' }} />
                         </div>
                       </div>
@@ -709,7 +712,7 @@ function SecaoProfessor({ token, professorId }: { token: string; professorId: st
                                       style={{
                                         display: 'flex', alignItems: 'center', gap: '10px',
                                         padding: '10px 14px',
-                                        border: jaTemFalta ? '1px solid #FFCDD2' : sel ? '1px solid var(--panel-dark, #2c1f14)' : '1px solid var(--border-warm, #e5dec9)',
+                                        border: jaTemFalta ? '1px solid #FFCDD2' : sel ? '1px solid var(--panel-dark, #3d4f5c)' : '1px solid var(--border-warm, #e5dec9)',
                                         borderRadius: '6px',
                                         background: jaTemFalta ? '#FFF5F5' : sel ? '#FAF6F0' : '#FAFAF8',
                                         cursor: jaTemFalta ? 'default' : 'pointer',
@@ -720,16 +723,16 @@ function SecaoProfessor({ token, professorId }: { token: string; professorId: st
                                     >
                                       <div style={{
                                         width: '20px', height: '20px', borderRadius: '4px', flexShrink: 0,
-                                        border: jaTemFalta ? '2px solid #EF9A9A' : sel ? '2px solid var(--panel-dark, #2c1f14)' : '2px solid #ddd',
-                                        background: jaTemFalta ? '#FFCDD2' : sel ? 'var(--panel-dark, #2c1f14)' : '#fff',
+                                        border: jaTemFalta ? '2px solid #EF9A9A' : sel ? '2px solid var(--panel-dark, #3d4f5c)' : '2px solid #ddd',
+                                        background: jaTemFalta ? '#FFCDD2' : sel ? 'var(--panel-dark, #3d4f5c)' : '#fff',
                                         display: 'flex', alignItems: 'center', justifyContent: 'center',
                                         transition: 'all 0.15s',
                                       }}>
                                         {jaTemFalta && <i className="ti ti-alert-triangle" style={{ color: '#C62828', fontSize: '11px' }} />}
-                                        {!jaTemFalta && sel && <i className="ti ti-check" style={{ color: 'var(--accent-gold, #D4B288)', fontSize: '12px' }} />}
+                                        {!jaTemFalta && sel && <i className="ti ti-check" style={{ color: '#ffffff', fontSize: '12px' }} />}
                                       </div>
                                       <div style={{ display: 'flex', flexDirection: 'column', gap: '1px' }}>
-                                        <span style={{ fontSize: '13px', color: jaTemFalta ? '#C62828' : sel ? 'var(--panel-dark, #2c1f14)' : '#666', fontWeight: sel || jaTemFalta ? 500 : 400 }}>
+                                        <span style={{ fontSize: '13px', color: jaTemFalta ? '#C62828' : sel ? 'var(--panel-dark, #3d4f5c)' : '#666', fontWeight: sel || jaTemFalta ? 500 : 400 }}>
                                           {aluno.nome}
                                         </span>
                                         {jaTemFalta && <span style={{ fontSize: '10px', color: '#EF5350', letterSpacing: '0.3px' }}>Falta já registada</span>}
@@ -762,8 +765,8 @@ function SecaoProfessor({ token, professorId }: { token: string; professorId: st
                                   disabled={submitting || alunosSelecionados.size === 0}
                                   style={{
                                     padding: '9px 22px', borderRadius: '6px', border: 'none',
-                                    background: alunosSelecionados.size === 0 ? '#F5EFE6' : 'var(--panel-dark, #2c1f14)',
-                                    color: alunosSelecionados.size === 0 ? '#bbb' : 'var(--accent-gold, #D4B288)',
+                                    background: alunosSelecionados.size === 0 ? '#F5EFE6' : 'var(--panel-dark, #3d4f5c)',
+                                    color: alunosSelecionados.size === 0 ? '#bbb' : '#ffffff',
                                     cursor: alunosSelecionados.size === 0 ? 'not-allowed' : 'pointer',
                                     fontSize: '13px', fontWeight: 500,
                                   }}
@@ -784,11 +787,11 @@ function SecaoProfessor({ token, professorId }: { token: string; professorId: st
             {/* Paginação */}
             {totalPaginasAulas > 1 && (
               <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px', marginTop: '20px' }}>
-                <button onClick={() => carregarAulas(paginaAulas - 1)} disabled={paginaAulas === 0} style={{ padding: '6px 16px', borderRadius: '4px', border: '1px solid var(--border-warm, #e5dec9)', background: 'transparent', cursor: paginaAulas === 0 ? 'not-allowed' : 'pointer', color: paginaAulas === 0 ? '#ccc' : 'var(--panel-dark, #2c1f14)', fontSize: '13px' }}>
+                <button onClick={() => carregarAulas(paginaAulas - 1)} disabled={paginaAulas === 0} style={{ padding: '6px 16px', borderRadius: '4px', border: '1px solid var(--border-warm, #e5dec9)', background: 'transparent', cursor: paginaAulas === 0 ? 'not-allowed' : 'pointer', color: paginaAulas === 0 ? '#ccc' : 'var(--panel-dark, #3d4f5c)', fontSize: '13px' }}>
                   ← Anterior
                 </button>
                 <span style={{ fontSize: '12px', color: '#aaa' }}>Página {paginaAulas + 1} de {totalPaginasAulas}</span>
-                <button onClick={() => carregarAulas(paginaAulas + 1)} disabled={paginaAulas >= totalPaginasAulas - 1} style={{ padding: '6px 16px', borderRadius: '4px', border: '1px solid var(--border-warm, #e5dec9)', background: 'transparent', cursor: paginaAulas >= totalPaginasAulas - 1 ? 'not-allowed' : 'pointer', color: paginaAulas >= totalPaginasAulas - 1 ? '#ccc' : 'var(--panel-dark, #2c1f14)', fontSize: '13px' }}>
+                <button onClick={() => carregarAulas(paginaAulas + 1)} disabled={paginaAulas >= totalPaginasAulas - 1} style={{ padding: '6px 16px', borderRadius: '4px', border: '1px solid var(--border-warm, #e5dec9)', background: 'transparent', cursor: paginaAulas >= totalPaginasAulas - 1 ? 'not-allowed' : 'pointer', color: paginaAulas >= totalPaginasAulas - 1 ? '#ccc' : 'var(--panel-dark, #3d4f5c)', fontSize: '13px' }}>
                   Seguinte →
                 </button>
               </div>
@@ -803,7 +806,7 @@ function SecaoProfessor({ token, professorId }: { token: string; professorId: st
           <ResumoCards resumo={resumo} />
           <div style={{ background: '#FFF', border: '1px solid var(--border-warm, #e5dec9)', borderRadius: '8px', overflow: 'hidden' }}>
             <div style={{ padding: '16px 20px', borderBottom: '1px solid #F5EFE6', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <h3 style={{ margin: 0, fontSize: '14px', fontWeight: 600, color: 'var(--panel-dark, #2c1f14)' }}>As Minhas Faltas</h3>
+              <h3 style={{ margin: 0, fontSize: '14px', fontWeight: 600, color: 'var(--panel-dark, #3d4f5c)' }}>As Minhas Faltas</h3>
               {ultimaAtualizacao && <span style={{ fontSize: '11px', color: '#bbb' }}>Atualizado às {ultimaAtualizacao.toLocaleTimeString('pt-PT', { hour: '2-digit', minute: '2-digit' })}</span>}
             </div>
             <TabelaFaltas faltas={faltas} token={token} mostrarJustificar onJustificar={id => setFaltaParaJustificar(id)} />
@@ -814,6 +817,210 @@ function SecaoProfessor({ token, professorId }: { token: string; professorId: st
       {faltaParaJustificar && (
         <ModalJustificacao faltaId={faltaParaJustificar} token={token} onClose={() => setFaltaParaJustificar(null)} onSuccess={carregarHistorico} />
       )}
+    </div>
+  );
+}
+
+// ─── MODAL MARCAR FALTA (COORDENAÇÃO) ────────────────────────────────────────
+interface ModalMarcarFaltaCoordenacaoProps {
+  utilizador: { id: string; nome: string };
+  token: string;
+  onClose: () => void;
+  onSuccess: () => void;
+}
+function ModalMarcarFaltaCoordenacao({ utilizador, token, onClose, onSuccess }: ModalMarcarFaltaCoordenacaoProps) {
+  const [dataEscolhida, setDataEscolhida] = useState('');
+  const [aulas, setAulas] = useState<AulaDto[]>([]);
+  const [loadingAulas, setLoadingAulas] = useState(false);
+  const [aulaEscolhida, setAulaEscolhida] = useState<string | null>(null);
+  const [motivo, setMotivo] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+  const [erro, setErro] = useState('');
+  const [sucesso, setSucesso] = useState('');
+
+  const buscarAulasDoDia = async (data: string) => {
+    if (!data) return;
+    setLoadingAulas(true);
+    setAulas([]);
+    setAulaEscolhida(null);
+    setErro('');
+    try {
+      const res = await fetch(`${BASE_URL}/api/horario/aulas/por-data?data=${data}&utilizadorId=${utilizador.id}&size=50`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (res.ok) {
+        const d = await res.json();
+        setAulas(Array.isArray(d) ? d : (d.content ?? []));
+      } else {
+        setErro('Não foi possível carregar as aulas deste dia.');
+      }
+    } catch { setErro('Erro de rede.'); }
+    finally { setLoadingAulas(false); }
+  };
+
+  const handleDataChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setDataEscolhida(e.target.value);
+    buscarAulasDoDia(e.target.value);
+  };
+
+  const handleMarcar = async () => {
+    if (!aulaEscolhida) { setErro('Selecione uma aula.'); return; }
+    setSubmitting(true); setErro('');
+    try {
+      const res = await fetch(`${BASE_URL}/api/faltas/marcar`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ aulaId: aulaEscolhida, utilizadorId: utilizador.id, motivo: motivo || 'Falta marcada pela coordenação.', justificado: false }),
+      });
+      if (res.ok) {
+        setSucesso('Falta marcada com sucesso!');
+        setTimeout(() => { onSuccess(); onClose(); }, 1200);
+      } else {
+        const t = await res.text();
+        setErro(t || 'Erro ao marcar falta.');
+      }
+    } catch { setErro('Erro de rede.'); }
+    finally { setSubmitting(false); }
+  };
+
+  const inputStyle: React.CSSProperties = {
+    width: '100%', padding: '9px 14px', border: '1px solid var(--border-warm, #e5dec9)',
+    borderRadius: '6px', fontSize: '13px', outline: 'none', backgroundColor: '#FFF',
+    color: 'var(--panel-dark, #3d4f5c)', fontFamily: 'inherit', boxSizing: 'border-box',
+    boxShadow: 'rgba(0,0,0,0.02) 0px 1px 3px 0px, rgba(27,31,35,0.15) 0px 0px 0px 1px inset',
+  };
+
+  return (
+    <div style={{ position: 'fixed', inset: 0, background: 'rgba(24,23,21,0.5)', backdropFilter: 'blur(4px)', zIndex: 300, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <div style={{ position: 'relative', background: '#fff', borderRadius: '12px', padding: '30px', width: '500px', maxWidth: '95vw', border: '1px solid var(--border-warm, #e5dec9)', boxShadow: '0 20px 25px -5px rgba(0,0,0,0.1)', overflow: 'hidden' }}>
+        <div style={{ position: 'absolute', top: 0, left: 0, bottom: 0, width: '5px', background: 'var(--panel-dark, #3d4f5c)' }} />
+
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '6px' }}>
+          <div>
+            <p style={{ margin: '0 0 2px', fontSize: '10px', letterSpacing: '2px', color: '#aaa' }}>COORDENAÇÃO</p>
+            <h2 style={{ fontFamily: 'var(--font-playfair, Georgia, serif)', fontSize: '20px', margin: 0, color: 'var(--panel-dark, #3d4f5c)', fontWeight: 400 }}>
+              Marcar Falta
+            </h2>
+          </div>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '18px', color: '#aaa', lineHeight: 1 }}>✕</button>
+        </div>
+
+        {/* Utilizador */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 14px', background: '#FAF6F0', borderRadius: '6px', marginBottom: '20px', marginTop: '16px' }}>
+          <div style={{ width: '32px', height: '32px', borderRadius: '50%', background: 'var(--panel-dark, #3d4f5c)', color: '#ffffff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px', fontWeight: 600, flexShrink: 0 }}>
+            {utilizador.nome.split(' ').map(n => n[0]).slice(0, 2).join('').toUpperCase()}
+          </div>
+          <div>
+            <p style={{ margin: 0, fontSize: '13px', fontWeight: 600, color: 'var(--panel-dark, #3d4f5c)' }}>{utilizador.nome}</p>
+            <p style={{ margin: 0, fontSize: '11px', color: '#aaa' }}>Utilizador selecionado</p>
+          </div>
+        </div>
+
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+          {/* Data */}
+          <div>
+            <label style={{ fontSize: '11px', fontWeight: 600, textTransform: 'uppercase', color: '#888', letterSpacing: '0.5px', display: 'block', marginBottom: '6px' }}>
+              Dia da aula
+            </label>
+            <input type="date" value={dataEscolhida} onChange={handleDataChange} style={inputStyle} />
+          </div>
+
+          {/* Lista de aulas do dia */}
+          {dataEscolhida && (
+            <div>
+              <label style={{ fontSize: '11px', fontWeight: 600, textTransform: 'uppercase', color: '#888', letterSpacing: '0.5px', display: 'block', marginBottom: '8px' }}>
+                Aulas de {new Date(dataEscolhida + 'T12:00:00').toLocaleDateString('pt-PT', { weekday: 'long', day: '2-digit', month: 'long' })}
+              </label>
+              {loadingAulas ? (
+                <p style={{ color: '#aaa', fontSize: '13px', padding: '12px 0' }}>A carregar aulas…</p>
+              ) : aulas.length === 0 ? (
+                <p style={{ color: '#bbb', fontSize: '13px', fontStyle: 'italic', padding: '12px 0' }}>Nenhuma aula encontrada neste dia.</p>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', maxHeight: '220px', overflowY: 'auto', paddingRight: '4px' }}>
+                  {aulas.map(aula => {
+                    const sel = aulaEscolhida === aula.id;
+                    return (
+                      <div
+                        key={aula.id}
+                        onClick={() => setAulaEscolhida(aula.id)}
+                        style={{
+                          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                          padding: '11px 14px', borderRadius: '6px', cursor: 'pointer',
+                          border: sel ? '1px solid var(--panel-dark, #3d4f5c)' : '1px solid var(--border-warm, #e5dec9)',
+                          background: sel ? '#F5F2EE' : '#FAFAF8',
+                          transition: 'all 0.15s',
+                        }}
+                        onMouseEnter={e => { if (!sel) e.currentTarget.style.background = '#F5EFE6'; }}
+                        onMouseLeave={e => { if (!sel) e.currentTarget.style.background = '#FAFAF8'; }}
+                      >
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                          <div style={{
+                            width: '16px', height: '16px', borderRadius: '50%', flexShrink: 0,
+                            border: sel ? '2px solid var(--panel-dark, #3d4f5c)' : '2px solid #ddd',
+                            background: sel ? 'var(--panel-dark, #3d4f5c)' : '#fff',
+                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                          }}>
+                            {sel && <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#ffffff' }} />}
+                          </div>
+                          <div>
+                            <p style={{ margin: 0, fontSize: '13px', fontWeight: sel ? 600 : 400, color: 'var(--panel-dark, #3d4f5c)' }}>
+                              {aula.titulo || 'Aula sem título'}
+                            </p>
+                            <p style={{ margin: 0, fontSize: '11px', color: '#aaa' }}>
+                              {aula.estudio?.nome && `${aula.estudio.nome} · `}{fmtHora(aula.horaInicio)} – {fmtHora(aula.horaFim)}
+                            </p>
+                          </div>
+                        </div>
+                        {sel && <i className="ti ti-circle-check" style={{ color: 'var(--panel-dark, #3d4f5c)', fontSize: '16px' }} />}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Motivo opcional */}
+          <div>
+            <label style={{ fontSize: '11px', fontWeight: 600, textTransform: 'uppercase', color: '#888', letterSpacing: '0.5px', display: 'block', marginBottom: '6px' }}>
+              Observação <span style={{ color: '#bbb', fontWeight: 400, textTransform: 'none', letterSpacing: 0 }}>(opcional)</span>
+            </label>
+            <input
+              type="text"
+              value={motivo}
+              onChange={e => setMotivo(e.target.value)}
+              placeholder="Motivo ou observação…"
+              style={inputStyle}
+            />
+          </div>
+
+          {erro && <p style={{ color: '#C62828', fontSize: '12px', margin: 0 }}>⚠ {erro}</p>}
+          {sucesso && (
+            <div style={{ background: 'rgba(52,168,83,0.08)', border: '1px solid #A5D6A7', color: '#2E7D32', padding: '8px 14px', borderRadius: '5px', fontSize: '12px' }}>
+              <i className="ti ti-circle-check" style={{ marginRight: 6 }} />{sucesso}
+            </div>
+          )}
+
+          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', paddingTop: '4px' }}>
+            <button onClick={onClose} style={{ padding: '10px 18px', border: '1px solid var(--border-warm, #e5dec9)', background: 'transparent', borderRadius: '6px', fontSize: '13px', fontWeight: 500, color: 'var(--panel-dark, #3d4f5c)', cursor: 'pointer' }}>
+              Cancelar
+            </button>
+            <button
+              onClick={handleMarcar}
+              disabled={submitting || !aulaEscolhida}
+              style={{
+                background: !aulaEscolhida ? '#F5EFE6' : 'var(--panel-dark, #3d4f5c)',
+                color: !aulaEscolhida ? '#bbb' : '#ffffff',
+                border: 'none', padding: '10px 22px', borderRadius: '6px',
+                fontSize: '13px', fontWeight: 500,
+                cursor: !aulaEscolhida ? 'not-allowed' : 'pointer',
+              }}
+            >
+              {submitting ? 'A registar…' : 'Marcar Falta'}
+            </button>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
@@ -845,6 +1052,7 @@ function SecaoCoordenacao({ token }: { token: string }) {
   const [sugestoesUtilizador, setSugestoesUtilizador] = useState<{ id: string; nome: string }[]>([]);
   const [utilizadorSelecionado, setUtilizadorSelecionado] = useState<{ id: string; nome: string } | null>(null);
   const sugestoesRef = useRef<HTMLUListElement>(null);
+  const [modalMarcarFalta, setModalMarcarFalta] = useState(false);
 
   const SIZE = 10;
 
@@ -956,15 +1164,15 @@ function SecaoCoordenacao({ token }: { token: string }) {
   const tabStyle = (active: boolean): React.CSSProperties => ({
     padding: '8px 20px', borderRadius: '6px', border: 'none', cursor: 'pointer',
     fontSize: '13px', fontWeight: active ? 600 : 400,
-    background: active ? 'var(--panel-dark, #2c1f14)' : 'transparent',
-    color: active ? 'var(--accent-gold, #D4B288)' : '#888',
+    background: active ? 'var(--panel-dark, #3d4f5c)' : 'transparent',
+    color: active ? '#ffffff' : '#888',
     transition: 'all 0.2s',
   });
 
   const estiloInput: React.CSSProperties = {
     padding: '7px 12px', border: '1px solid var(--border-warm, #e5dec9)',
     borderRadius: '4px', fontSize: '13px', outline: 'none',
-    color: 'var(--panel-dark, #2c1f14)', background: '#fff',
+    color: 'var(--panel-dark, #3d4f5c)', background: '#fff',
     boxShadow: 'rgba(0,0,0,0.02) 0px 1px 3px 0px, rgba(27,31,35,0.15) 0px 0px 0px 1px inset',
   };
 
@@ -985,7 +1193,7 @@ function SecaoCoordenacao({ token }: { token: string }) {
               <p style={{ margin: '0 0 2px', fontSize: '10px', letterSpacing: '2px', color: 'var(--accent-muted, #aaa)' }}>
                 {tab === 'pendentes' ? 'AGUARDAM VALIDAÇÃO' : 'REGISTO COMPLETO'}
               </p>
-              <h3 style={{ margin: 0, fontSize: '16px', fontWeight: 400, fontFamily: 'var(--font-playfair, Georgia, serif)', color: 'var(--panel-dark, #2c1f14)' }}>
+              <h3 style={{ margin: 0, fontSize: '16px', fontWeight: 400, fontFamily: 'var(--font-playfair, Georgia, serif)', color: 'var(--panel-dark, #3d4f5c)' }}>
                 {tab === 'pendentes' ? 'Faltas Pendentes' : 'Todas as Faltas'}
               </h3>
             </div>
@@ -1015,11 +1223,11 @@ function SecaoCoordenacao({ token }: { token: string }) {
           {/* Paginação */}
           {totalPaginas > 1 && (
             <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px', padding: '16px', borderTop: '1px solid #F5EFE6' }}>
-              <button onClick={() => setPagina(p => p - 1)} disabled={pagina === 0} style={{ padding: '5px 16px', borderRadius: '4px', border: '1px solid var(--border-warm, #e5dec9)', background: 'transparent', cursor: pagina === 0 ? 'not-allowed' : 'pointer', color: pagina === 0 ? '#ccc' : 'var(--panel-dark, #2c1f14)', fontSize: '13px' }}>
+              <button onClick={() => setPagina(p => p - 1)} disabled={pagina === 0} style={{ padding: '5px 16px', borderRadius: '4px', border: '1px solid var(--border-warm, #e5dec9)', background: 'transparent', cursor: pagina === 0 ? 'not-allowed' : 'pointer', color: pagina === 0 ? '#ccc' : 'var(--panel-dark, #3d4f5c)', fontSize: '13px' }}>
                 ← Anterior
               </button>
               <span style={{ fontSize: '12px', color: '#aaa' }}>Página {pagina + 1} de {totalPaginas}</span>
-              <button onClick={() => setPagina(p => p + 1)} disabled={pagina >= totalPaginas - 1} style={{ padding: '5px 16px', borderRadius: '4px', border: '1px solid var(--border-warm, #e5dec9)', background: 'transparent', cursor: pagina >= totalPaginas - 1 ? 'not-allowed' : 'pointer', color: pagina >= totalPaginas - 1 ? '#ccc' : 'var(--panel-dark, #2c1f14)', fontSize: '13px' }}>
+              <button onClick={() => setPagina(p => p + 1)} disabled={pagina >= totalPaginas - 1} style={{ padding: '5px 16px', borderRadius: '4px', border: '1px solid var(--border-warm, #e5dec9)', background: 'transparent', cursor: pagina >= totalPaginas - 1 ? 'not-allowed' : 'pointer', color: pagina >= totalPaginas - 1 ? '#ccc' : 'var(--panel-dark, #3d4f5c)', fontSize: '13px' }}>
                 Seguinte →
               </button>
             </div>
@@ -1032,7 +1240,7 @@ function SecaoCoordenacao({ token }: { token: string }) {
         <div style={{ background: '#FFF', border: '1px solid var(--border-warm, #e5dec9)', borderRadius: '8px', overflow: 'visible' }}>
           <div style={{ padding: '16px 20px', borderBottom: '1px solid #F5EFE6' }}>
             <p style={{ margin: '0 0 2px', fontSize: '10px', letterSpacing: '2px', color: 'var(--accent-muted, #aaa)' }}>PESQUISA INDIVIDUAL</p>
-            <h3 style={{ margin: '0 0 16px', fontSize: '16px', fontWeight: 400, fontFamily: 'var(--font-playfair, Georgia, serif)', color: 'var(--panel-dark, #2c1f14)' }}>Consultar por Utilizador</h3>
+            <h3 style={{ margin: '0 0 16px', fontSize: '16px', fontWeight: 400, fontFamily: 'var(--font-playfair, Georgia, serif)', color: 'var(--panel-dark, #3d4f5c)' }}>Consultar por Utilizador</h3>
 
             <div style={{ display: 'flex', gap: '10px', alignItems: 'flex-end', flexWrap: 'wrap' }}>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', flex: 1, minWidth: '220px' }}>
@@ -1060,7 +1268,7 @@ function SecaoCoordenacao({ token }: { token: string }) {
                   {sugestoesUtilizador.length > 0 && (
                     <ul ref={sugestoesRef} style={{ position: 'absolute', top: 'calc(100% + 4px)', left: 0, right: 0, background: '#fff', border: '1px solid var(--border-warm, #e5dec9)', borderRadius: '6px', zIndex: 300, maxHeight: '180px', overflowY: 'auto', margin: 0, padding: '4px 0', listStyle: 'none', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)' }}>
                       {sugestoesUtilizador.map(u => (
-                        <li key={u.id} onMouseDown={() => selecionarUtilizador(u)} style={{ padding: '9px 14px', fontSize: '13px', cursor: 'pointer', color: 'var(--panel-dark, #2c1f14)' }} onMouseEnter={e => (e.currentTarget.style.background = '#FAF6F0')} onMouseLeave={e => (e.currentTarget.style.background = '#fff')}>
+                        <li key={u.id} onMouseDown={() => selecionarUtilizador(u)} style={{ padding: '9px 14px', fontSize: '13px', cursor: 'pointer', color: 'var(--panel-dark, #3d4f5c)' }} onMouseEnter={e => (e.currentTarget.style.background = '#FAF6F0')} onMouseLeave={e => (e.currentTarget.style.background = '#fff')}>
                           {u.nome}
                         </li>
                       ))}
@@ -1073,13 +1281,27 @@ function SecaoCoordenacao({ token }: { token: string }) {
                 disabled={!utilizadorSelecionado || loadingUser}
                 style={{
                   padding: '9px 22px', borderRadius: '6px', border: 'none',
-                  background: !utilizadorSelecionado ? '#F5EFE6' : 'var(--panel-dark, #2c1f14)',
-                  color: !utilizadorSelecionado ? '#bbb' : 'var(--accent-gold, #D4B288)',
+                  background: !utilizadorSelecionado ? '#F5EFE6' : 'var(--panel-dark, #3d4f5c)',
+                  color: !utilizadorSelecionado ? '#bbb' : '#ffffff',
                   cursor: !utilizadorSelecionado ? 'not-allowed' : 'pointer',
                   fontSize: '13px', fontWeight: 500,
                 }}
               >
                 {loadingUser ? 'A pesquisar…' : 'Ver Faltas'}
+              </button>
+              <button
+                onClick={() => setModalMarcarFalta(true)}
+                disabled={!utilizadorSelecionado}
+                style={{
+                  padding: '9px 22px', borderRadius: '6px', border: 'none',
+                  background: !utilizadorSelecionado ? '#F5EFE6' : '#C62828',
+                  color: !utilizadorSelecionado ? '#bbb' : '#fff',
+                  cursor: !utilizadorSelecionado ? 'not-allowed' : 'pointer',
+                  fontSize: '13px', fontWeight: 500, display: 'flex', alignItems: 'center', gap: '6px',
+                }}
+              >
+                <i className="ti ti-user-x" />
+                Marcar Falta
               </button>
             </div>
             {erroUser && <p style={{ color: '#C62828', fontSize: '12px', marginTop: '10px', marginBottom: 0 }}>⚠ {erroUser}</p>}
@@ -1092,6 +1314,15 @@ function SecaoCoordenacao({ token }: { token: string }) {
             <p style={{ padding: '24px 20px', color: '#bbb', fontSize: '13px', fontStyle: 'italic' }}>Nenhuma falta registada para este utilizador.</p>
           )}
         </div>
+      )}
+
+      {modalMarcarFalta && utilizadorSelecionado && (
+        <ModalMarcarFaltaCoordenacao
+          utilizador={utilizadorSelecionado}
+          token={token}
+          onClose={() => setModalMarcarFalta(false)}
+          onSuccess={() => { setModalMarcarFalta(false); handleBuscarUtilizador(); }}
+        />
       )}
     </div>
   );
@@ -1146,7 +1377,7 @@ export default function GestaoFaltasPage() {
         <main style={{ flex: 1, padding: '32px', overflowY: 'auto' }}>
           <div style={{ marginBottom: '28px' }}>
             <p style={{ fontSize: '10px', letterSpacing: '2px', color: 'var(--accent-muted, #aaa)', margin: '0 0 4px' }}>GESTÃO ESCOLAR</p>
-            <h1 style={{ fontFamily: 'var(--font-playfair, Georgia, serif)', fontSize: '28px', color: 'var(--panel-dark, #2c1f14)', margin: '0 0 6px', fontWeight: 400 }}>
+            <h1 style={{ fontFamily: 'var(--font-playfair, Georgia, serif)', fontSize: '28px', color: 'var(--panel-dark, #3d4f5c)', margin: '0 0 6px', fontWeight: 400 }}>
               Gestão de Faltas
             </h1>
             {role && <p style={{ margin: 0, fontSize: '13px', color: 'var(--accent-muted, #aaa)' }}>{descricaoRole[role]}</p>}
