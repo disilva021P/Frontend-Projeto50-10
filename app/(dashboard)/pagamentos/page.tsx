@@ -68,10 +68,15 @@ export default function PagamentosPage() {
   const [pesquisaNome, setPesquisaNome] = useState('');
   const [mesFiltro, setMesFiltro] = useState('');
 
-  // Modal e Formulários
+  // Modais e Formulários
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalModo, setModalModo] = useState<'CRIAR' | 'EDITAR'>('CRIAR');
   const [editId, setEditId] = useState<string>('');
+
+  // Modal do Relatório Mensal
+  const [isModalRelatorioOpen, setIsModalRelatorioOpen] = useState(false);
+  const [formRelatorioMes, setFormRelatorioMes] = useState(new Date().getMonth() + 1);
+  const [formRelatorioAno, setFormRelatorioAno] = useState(new Date().getFullYear());
 
   const [formDescricao, setFormDescricao] = useState('');
   const [formValor, setFormValor] = useState(0);
@@ -446,7 +451,6 @@ export default function PagamentosPage() {
     }
   };
 
-  // Esta função agora serve para o fluxo unificado de execução de pagamentos pendentes no frontend
   const handlePagarFatura = async (idPagamento: string) => {
     if (!confirm("Desejas proceder ao pagamento deste lançamento pendente?")) return;
 
@@ -494,6 +498,120 @@ export default function PagamentosPage() {
     return idade < 18;
   };
 
+  const handleSubmeterRelatorioMensal = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    // 1. Validação local: Verifica se existem pagamentos para o mês e ano selecionados
+    // Formatamos o mês com dois dígitos para bater certo com a string do 'dataPagamento' (ex: "2026-06")
+    const mesFormatado = String(formRelatorioMes).padStart(2, '0');
+    const prefixoDataProcurada = `${formRelatorioAno}-${mesFormatado}`;
+
+    const existemDadosNoMes = todosOsPagamentos.some(p => 
+      p.dataPagamento && p.dataPagamento.startsWith(prefixoDataProcurada)
+    );
+
+    if (!existemDadosNoMes) {
+      alert(`Aviso: Não foram encontrados registos ou lançamentos financeiros para o período de ${mesFormatado}/${formRelatorioAno}.`);
+      return; // Interrompe a submissão e não gera o ficheiro
+    }
+
+    // 2. Fluxo normal de download caso existam dados
+    const token = localStorage.getItem('token');
+    if (!token) {
+      alert("Sessão expirada. Por favor, faça login novamente.");
+      return;
+    }
+
+    try {
+      const response = await fetch(`${BASE_URL}/api/pagamentos/relatorio?mes=${formRelatorioMes}&ano=${formRelatorioAno}`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error('Erro ao gerar o relatório no servidor. Verifica os dados introduzidos.');
+      }
+
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `relatorio_${formRelatorioAno}_${mesFormatado}.csv`);
+      document.body.appendChild(link);
+      link.click();
+      
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+      setIsModalRelatorioOpen(false);
+    } catch (error: any) {
+      alert(error.message || "Ocorreu um erro ao descarregar o relatório.");
+    }
+  };
+
+  const exportarTodosPagamentosCSV = async () => {
+    const token = localStorage.getItem('token');
+    if (!token) {
+      alert("Sessão expirada. Por favor, faça login novamente.");
+      return;
+    }
+
+    try {
+      const response = await fetch(`${BASE_URL}/api/pagamentos`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error('Erro ao obter os dados dos pagamentos do servidor.');
+      }
+
+      const dados = await response.json() as PagamentoDto[];
+
+      if (!dados || dados.length === 0) {
+        alert('Não existem pagamentos disponíveis para exportar.');
+        return;
+      }
+
+      const cabecalho = ['ID', 'Utilizador', 'Descricao', 'Categoria', 'Valor', 'Estado', 'Data de Pagamento'];
+
+      const linhas = dados.map(p => [
+        p.id ?? '',
+        p.utilizadoreResumoDto?.nome ?? 'N/A',
+        `"${(p.descricao || '').replace(/"/g, '""')}"`, 
+        p.tipoPagamentoNome ?? 'N/A',
+        `${p.valorPagamento}€`,
+        p.pago ? 'Pago' : 'Pendente',
+        p.dataPagamento ?? 'N/A'
+      ]);
+
+      const conteudoCSV = [
+        cabecalho.join(';'),
+        ...linhas.map(linha => linha.join(';'))
+      ].join('\n');
+
+      const BOM = '\uFEFF';
+      const blob = new Blob([BOM + conteudoCSV], { type: 'text/csv;charset=utf-8;' });
+      
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `todos_pagamentos_${new Date().toISOString().slice(0, 10)}.csv`);
+      document.body.appendChild(link);
+      link.click();
+      
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+    } catch (error: any) {
+      alert(error.message || 'Ocorreu um erro ao exportar os dados.');
+    }
+  };
+
+
   if (!isMounted) return <p className="p-8 text-sm">A ler configurações do servidor...</p>;
 
   const estiloCampoElegante = {
@@ -526,7 +644,7 @@ export default function PagamentosPage() {
           <h1 style={{ fontFamily: 'var(--font-playfair)', fontSize: '24px', margin: 0, fontWeight: 400 }}>Histórico de Pagamentos</h1>
         </div>
 
-        <div className="flex items-end gap-4"> 
+        <div className="flex items-end gap-3"> 
           {role === 'COORDENACAO' && (
             <div className="flex flex-col">
               <label style={{ fontSize: '10px', color: 'var(--accent-muted)', marginBottom: '4px', fontWeight: 500 }}>PESQUISAR UTILIZADOR / CONTEÚDO</label>
@@ -551,12 +669,34 @@ export default function PagamentosPage() {
           </div>
 
           {role === 'COORDENACAO' && (
-            <button
-              onClick={abrirModalCriar}
-              style={{ background: 'var(--panel-dark)', color: 'var(--accent-gold)', border: 'none', padding: '8px 16px', borderRadius: '4px', cursor: 'pointer', fontSize: '12px', fontWeight: 500 }}
-            >
-              <i className="ti ti-plus" /> Novo Lançamento
-            </button>
+            <>
+              <button
+                onClick={abrirModalCriar}
+                style={{ background: 'var(--panel-dark)', color: 'var(--accent-gold)', border: 'none', padding: '10px 16px', borderRadius: '4px', cursor: 'pointer', fontSize: '12px', fontWeight: 500 }}
+              >
+                <i className="ti ti-plus" /> Novo Lançamento
+              </button>
+
+              <button
+                onClick={() => setIsModalRelatorioOpen(true)}
+                style={{ display: 'flex', alignItems: 'center', gap: '8px', background: 'transparent', color: 'var(--panel-dark)', border: '1px solid var(--border-warm)', padding: '9px 16px', borderRadius: '4px', fontSize: '12px', fontWeight: 500, cursor: 'pointer', transition: 'background 0.2s' }}
+                onMouseEnter={e => e.currentTarget.style.background = '#FAF6F0'}
+                onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+              >
+                <i className="ti ti-file-analytics" style={{ fontSize: '14px' }} />
+                Relatório Mensal
+              </button>
+
+              <button
+                onClick={exportarTodosPagamentosCSV}
+                style={{ display: 'flex', alignItems: 'center', gap: '8px', background: 'transparent', color: 'var(--panel-dark)', border: '1px solid var(--border-warm)', padding: '9px 12px', borderRadius: '4px', fontSize: '12px', fontWeight: 500, cursor: 'pointer', transition: 'background 0.2s' }}
+                title="Exportar todos os pagamentos"
+                onMouseEnter={e => e.currentTarget.style.background = '#FAF6F0'}
+                onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+              >
+                <i className="ti ti-download" style={{ fontSize: '14px' }} />
+              </button>
+            </>
           )}
         </div>
       </div>
@@ -584,6 +724,7 @@ export default function PagamentosPage() {
               </p>
             </div>
           </div>
+          
 
           {/* SELECTOR DE EDUCANDOS NO JSX (Apenas para ENCARREGADO) */}
           {role === 'ENCARREGADO' && educandos.length > 0 && (
@@ -692,8 +833,6 @@ export default function PagamentosPage() {
                               </>
                             )}
 
-                            {/* CORREÇÃO E UNIFICAÇÃO AQUI: 
-                                Exibe o mesmo botão "Pagar" premium para Professor, Encarregado e Alunos maiores de idade quando o pagamento estiver Pendente */}
                             {!p.pago && (role === 'ENCARREGADO' || role === 'PROFESSOR' || (role === 'ALUNO' && !isMenorDeIdade())) && (
                               <button
                                 onClick={() => handlePagarFatura(p.id!)}
@@ -832,6 +971,81 @@ export default function PagamentosPage() {
                   onMouseLeave={e => e.currentTarget.style.opacity = '1'}
                 >
                   {modalModo === 'CRIAR' ? 'Criar Lançamento' : 'Gravar Alterações'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL DO RELATÓRIO MENSAL */}
+      {isModalRelatorioOpen && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(24, 23, 21, 0.5)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100 }}>
+          <div style={{ position: 'relative', background: '#FFFFFF', padding: '30px', borderRadius: '12px', width: '400px', border: '1px solid var(--border-warm)', boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)', overflow: 'hidden' }}>
+            
+            <div style={{ position: 'absolute', top: 0, left: 0, bottom: 0, width: '5px', backgroundColor: 'var(--panel-dark)' }} />
+
+            <h2 style={{ fontFamily: 'var(--font-playfair)', fontSize: '20px', margin: '0 0 6px 0', color: 'var(--panel-dark)', fontWeight: 400 }}>
+              Exportar Relatório Mensal
+            </h2>
+            <p style={{ fontSize: '12px', color: 'var(--accent-muted)', margin: '0 0 24px 0', letterSpacing: '0.3px' }}>
+              Seleciona o mês e o ano pretendidos para descarregar o ficheiro CSV.
+            </p>
+
+            <form onSubmit={handleSubmeterRelatorioMensal} className="flex flex-col gap-4">
+              <div>
+                <label style={{ fontSize: '11px', fontWeight: 600, textTransform: 'uppercase', color: 'var(--accent-muted)', letterSpacing: '0.5px', display: 'block', marginBottom: '6px' }}>Mês</label>
+                <select 
+                  style={estiloCampoElegante} 
+                  value={formRelatorioMes} 
+                  onChange={e => setFormRelatorioMes(Number(e.target.value))} 
+                  required
+                >
+                  <option value="1">Janeiro</option>
+                  <option value="2">Fevereiro</option>
+                  <option value="3">Março</option>
+                  <option value="4">Abril</option>
+                  <option value="5">Maio</option>
+                  <option value="6">Junho</option>
+                  <option value="7">Julho</option>
+                  <option value="8">Agosto</option>
+                  <option value="9">Setembro</option>
+                  <option value="10">Outubro</option>
+                  <option value="11">Novembro</option>
+                  <option value="12">Dezembro</option>
+                </select>
+              </div>
+
+              <div>
+                <label style={{ fontSize: '11px', fontWeight: 600, textTransform: 'uppercase', color: 'var(--accent-muted)', letterSpacing: '0.5px', display: 'block', marginBottom: '6px' }}>Ano</label>
+                <input 
+                  style={estiloCampoElegante} 
+                  type="number" 
+                  min="2000" 
+                  max="2100" 
+                  value={formRelatorioAno} 
+                  onChange={e => setFormRelatorioAno(Number(e.target.value))} 
+                  required 
+                />
+              </div>
+
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '16px' }}>
+                <button 
+                  type="button" 
+                  onClick={() => setIsModalRelatorioOpen(false)} 
+                  style={{ padding: '10px 18px', border: '1px solid var(--border-warm)', background: 'transparent', borderRadius: '6px', fontSize: '13px', fontWeight: 500, color: 'var(--panel-dark)', cursor: 'pointer', transition: 'background 0.2s' }}
+                  onMouseEnter={e => e.currentTarget.style.background = '#F9F6F0'}
+                  onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+                >
+                  Cancelar
+                </button>
+                <button 
+                  type="submit" 
+                  style={{ background: 'var(--panel-dark)', color: 'var(--accent-gold)', border: 'none', padding: '10px 22px', borderRadius: '6px', fontSize: '13px', fontWeight: 500, cursor: 'pointer', transition: 'opacity 0.2s' }}
+                  onMouseEnter={e => e.currentTarget.style.opacity = '0.9'}
+                  onMouseLeave={e => e.currentTarget.style.opacity = '1'}
+                >
+                  Descarregar
                 </button>
               </div>
             </form>

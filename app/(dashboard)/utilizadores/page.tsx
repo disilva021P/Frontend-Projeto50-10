@@ -700,19 +700,21 @@ export default function UtilizadoresPage() {
                     style={{ padding: "10px", borderRadius: 8, background: "rgba(78,114,169,0.08)", border: "1px solid rgba(78,114,169,0.25)", color: "#2D4E7A", fontSize: 12, cursor: "pointer" }}>
                     <i className="ti ti-key" style={{ marginRight: 8 }} />Repor palavra-passe
                   </button>
-                  <button onClick={() => { 
-                    setIsEditing(true); 
-                    // Mapeamento expandido para injetar também o array vazio inicial de idEducandosIniciais
-                    setEditForm({ 
-                      ...detalhe,
-                      idTurmasIniciais: detalhe.turmas ? detalhe.turmas.map(t => t.id) : [],
-                      modalidadesIds: detalhe.modalidades ? detalhe.modalidades.map(m => m.id) : [],
-                     idEducandosIniciais: detalhe.educandos ? detalhe.educandos.map(e => e.id) : []
-                    }); 
-                  }}
-                    style={{ padding: "10px", borderRadius: 8, background: "rgba(230,126,34,0.08)", border: "1px solid rgba(230,126,34,0.25)", color: "#e67e22", fontSize: 12, cursor: "pointer" }}>
-                    <i className="ti ti-edit" style={{ marginRight: 8 }} />Editar dados
-                  </button>
+                    <button onClick={() => { 
+                      setPesquisaAluno(""); // Limpa o input de texto
+                      carregarAlunosMenores(""); // Força o carregamento de todos os menores sem filtros
+                      setIsEditing(true); 
+                      
+                      setEditForm({ 
+                        ...detalhe,
+                        idTurmasIniciais: detalhe.turmas ? detalhe.turmas.map(t => t.id) : [],
+                        modalidadesIds: detalhe.modalidades ? detalhe.modalidades.map(m => m.id) : [],
+                        idEducandosIniciais: detalhe.educandos ? detalhe.educandos.map(e => e.id) : []
+                      }); 
+                    }}
+                      style={{ padding: "10px", borderRadius: 8, background: "rgba(230,126,34,0.08)", border: "1px solid rgba(230,126,34,0.25)", color: "#e67e22", fontSize: 12, cursor: "pointer" }}>
+                      <i className="ti ti-edit" style={{ marginRight: 8 }} />Editar dados
+                    </button>
                   <button onClick={() => toggleAtivo(detalhe)}
                     style={{ padding: "10px", borderRadius: 8, background: "#FFFCF8", border: "1px solid var(--border-warm)", fontSize: 12, cursor: "pointer" }}>
                     <i className={`ti ${detalhe.ativo ? "ti-user-off" : "ti-user-check"}`} style={{ marginRight: 8 }} />
