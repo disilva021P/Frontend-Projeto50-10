@@ -233,7 +233,7 @@ export default function UtilizadoresPage() {
         professorExterno: form.id_tipoUtilizador === hashesDiscobertas.PROFESSOR
           ? form.professorExterno
           : false,
-        idTurmasIniciais: form.id_tipoUtilizador === hashesDiscobertas.ALUNO
+        idTurmasIniciais: (form.id_tipoUtilizador === hashesDiscobertas.ALUNO || form.id_tipoUtilizador === hashesDiscobertas.ENCARREGADO)
           ? form.idTurmasIniciais
           : [],
         modalidadesIds: form.id_tipoUtilizador === hashesDiscobertas.PROFESSOR
@@ -894,6 +894,41 @@ export default function UtilizadoresPage() {
                       </div>
                     ))}
                   </div>
+                </div>
+              )}
+
+              {/* Inscrição Inicial — Turmas (opcional) para Encarregado */}
+              {form.id_tipoUtilizador === hashesDiscobertas.ENCARREGADO && hashesDiscobertas.ENCARREGADO !== "" && (
+                <div style={{ padding: 12, borderRadius: 6, background: "rgba(74,143,89,0.06)", border: "1px solid rgba(74,143,89,0.2)", display: "flex", flexDirection: "column", gap: 10 }}>
+                  <div>
+                    <label style={{ display: "block", fontSize: 10, letterSpacing: 2, textTransform: "uppercase", color: "#2D6A3F", marginBottom: 2, fontWeight: "bold" }}>
+                      Inscrição Inicial — Turmas
+                    </label>
+                    <span style={{ fontSize: 11, color: "var(--accent-muted)", fontStyle: "italic" }}>
+                      Opcional. Só selecionar se encarregado quer fazer parte de alguma modalidade.
+                    </span>
+                  </div>
+                  <div style={{ maxHeight: 140, overflowY: "auto", border: "1px solid rgba(74,143,89,0.25)", borderRadius: 6, background: "#FFFCF8", padding: "8px 12px", display: "flex", flexDirection: "column", gap: 8 }}>
+                    {loadingHashes ? (
+                      <span style={{ fontSize: 12, color: "var(--accent-muted)", fontStyle: "italic" }}>A carregar turmas...</span>
+                    ) : turmas.length === 0 ? (
+                      <span style={{ fontSize: 12, color: "var(--accent-muted)", fontStyle: "italic" }}>Nenhuma turma disponível.</span>
+                    ) : turmas.map(t => (
+                      <div key={t.id} style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer" }}
+                        onClick={() => handleTurmaCheckboxChange(t.id)}>
+                        <input type="checkbox" checked={form.idTurmasIniciais.includes(t.id)} onChange={() => {}} style={{ cursor: "pointer", width: 15, height: 15, accentColor: "#2D6A3F" }} />
+                        <label style={{ fontSize: 13, color: "var(--panel-dark)", cursor: "pointer", userSelect: "none" }}>
+                          {t.nome} {t.modalidadeNome ? `(${t.modalidadeNome})` : ""}
+                        </label>
+                      </div>
+                    ))}
+                  </div>
+                  {form.idTurmasIniciais.length > 0 && (
+                    <div style={{ fontSize: 11, color: "#2D6A3F", background: "rgba(74,143,89,0.08)", borderRadius: 4, padding: "4px 8px", display: "flex", alignItems: "center", gap: 6 }}>
+                      <i className="ti ti-check" />
+                      {form.idTurmasIniciais.length} turma{form.idTurmasIniciais.length > 1 ? "s" : ""} selecionada{form.idTurmasIniciais.length > 1 ? "s" : ""} — será gerado pagamento de inscrição e seguro.
+                    </div>
+                  )}
                 </div>
               )}
 
