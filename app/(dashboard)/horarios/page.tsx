@@ -1018,15 +1018,21 @@ function ProfessorView({ userName }: { userName: string }) {
   const [dispErr, setDispErr]   = useState("");
   const { toasts, show: showToast, remove: removeToast } = useToast();
 
+  const [agendados, setAgendados] = useState<CoachingDto[]>([]);
+
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const [h,p,d] = await Promise.all([
+      const [h, p, d, ag] = await Promise.all([
         apiFetch<AulaDto[]>(`${API}/professor/horario?offset=${offset}`),
         apiFetch<{ content: CoachingDto[] }>(`${API}/professor/coaching/pendentes`),
         apiFetch<DisponibilidadeDto[]>(`/disponibilidade/minhasdisponibilidades`),
+        apiFetch<{ content: CoachingDto[] }>(`${API}/professor/coaching/agendados`),
       ]);
-      setHorario((h??[]).map(normalizeAula)); setPend(p?.content??[]); setDisps(d??[]);
+      setHorario((h ?? []).map(normalizeAula));
+      setPend(p?.content ?? []);
+      setDisps(d ?? []);
+      setAgendados(ag?.content ?? []);
     } catch(e) { console.error(e); }
     setLoading(false);
   }, [offset]);
@@ -1101,12 +1107,48 @@ function ProfessorView({ userName }: { userName: string }) {
 
         {tab==="coaching" && (
           <div>
-            <div style={{ marginBottom: 20 }}>
-              <h2 style={{ fontFamily: "var(--font-playfair)", fontSize: 24, color: "var(--panel-dark)", margin: 0 }}>Pedidos de coaching pendentes</h2>
+            {/* Cabeçalho com Título e Botão para abrir a Modal à Direita */}
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
+              <h2 style={{ fontFamily: "var(--font-playfair)", fontSize: 24, color: "var(--panel-dark)", margin: 0 }}>
+                Pedidos de coaching pendentes
+              </h2>
+              <button
+                onClick={() => {
+                  const modal = document.getElementById("modal-coaching-agendados");
+                  if (modal) modal.style.display = "flex";
+                }}
+                style={{
+                  padding: "8px 16px",
+                  fontSize: 13,
+                  fontWeight: 500,
+                  backgroundColor: "var(--panel-dark)",
+                  color: "#fff",
+                  border: "none",
+                  borderRadius: 8,
+                  cursor: "pointer",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 6
+                }}
+              >
+                <i className="ti ti-calendar-check" style={{ fontSize: 16 }} />
+                Ver Agendados (Realizar)
+              </button>
             </div>
-            {pendentes.length===0 && <Empty>Sem solicitações pendentes de aprovação.</Empty>}
+
+            {/* Alerta caso realmente não haja nenhum pedido pendente */}
+            {pendentes.filter(c => {
+              const est = c.estadoAulaDto?.estado?.toLowerCase() || "";
+              return est.includes("pedido") || est.includes("pendente");
+            }).length === 0 && <Empty>Sem solicitações pendentes de aprovação.</Empty>}
+            
+            {/* LISTA PRINCIPAL: Apenas os que estão Pendentes/Pedidos */}
             <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill, minmax(320px, 1fr))", gap:16 }}>
-              {pendentes.map(c => {
+              {pendentes.filter(c => {
+                const est = c.estadoAulaDto?.estado?.toLowerCase() || "";
+                // Mostra na lista principal tudo o que for "Pedido" ou "Pendente"
+                return est.includes("pedido") || est.includes("pendente");
+              }).map(c => {
                 const diaSemana = c.aulaDto.dataAula
                   ? (() => { const d = new Date(c.aulaDto.dataAula + "T00:00:00"); return DIAS[d.getDay() === 0 ? 6 : d.getDay() - 1]; })()
                   : "—";
@@ -1167,6 +1209,124 @@ function ProfessorView({ userName }: { userName: string }) {
                 );
               })}
             </div>
+
+            {/* ─── ESTRUTURA DA MODAL DE COACHINGS AGENDADOS ─── */}
+            <div
+              id="modal-coaching-agendados"
+              style={{
+                position: "fixed",
+                top: 0,
+                left: 0,
+                width: "100vw",
+                height: "100vh",
+                backgroundColor: "rgba(0, 0, 0, 0.4)",
+                display: "none", 
+                justifyContent: "center",
+                alignItems: "center",
+                zIndex: 9999,
+                backdropFilter: "blur(4px)"
+              }}
+            >
+              <div
+                style={{
+                  background: "#fff",
+                  width: "90%",
+                  maxWidth: "600px",
+                  borderRadius: 16,
+                  padding: "24px",
+                  boxShadow: "0 10px 25px rgba(0,0,0,0.1)",
+                  maxHeight: "80vh",
+                  display: "flex",
+                  flexDirection: "column"
+                }}
+              >
+                {/* Topo da Modal */}
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: "1px solid #f0ede8", paddingBottom: 14, marginBottom: 16 }}>
+                  <h3 style={{ fontFamily: "var(--font-playfair)", fontSize: 20, color: "var(--panel-dark)", margin: 0 }}>
+                    Sessões de Coaching Agendadas
+                  </h3>
+                  <button
+                    onClick={() => {
+                      const modal = document.getElementById("modal-coaching-agendados");
+                      if (modal) modal.style.display = "none";
+                    }}
+                    style={{ background: "none", border: "none", fontSize: 20, cursor: "pointer", color: "var(--accent-muted)" }}
+                  >
+                    &times;
+                  </button>
+                </div>
+
+                {/* Conteúdo da Modal com Scroll */}
+                <div style={{ overflowY: "auto", flex: 1, display: "flex", flexDirection: "column", gap: 12, paddingRight: 4 }}>
+                  {agendados.length === 0 ? (
+                    <div style={{ textAlign: "center", padding: "20px 0" }}>
+                      <p style={{ color: "var(--accent-muted)", fontSize: 14, margin: 0 }}>
+                        Nenhuma sessão de coaching agendada encontrada.
+                      </p>
+                    </div>
+                  ) : (
+                    agendados.map(c => (
+                      <div
+                        key={c.aulaDto.id}
+                        style={{
+                          border: "1px solid var(--border-warm)",
+                          borderRadius: 10,
+                          padding: "14px",
+                          display: "flex",
+                          justifyContent: "space-between",
+                          alignItems: "center",
+                          backgroundColor: "#fcfbfa"
+                        }}
+                      >
+                        <div>
+                          <p style={{ margin: "0 0 4px 0", fontWeight: 600, color: "var(--panel-dark)", fontSize: 14 }}>
+                            {c.modalidadeDto?.nome}
+                          </p>
+                          <p style={{ margin: 0, fontSize: 12, color: "var(--accent-muted)" }}>
+                            {c.aulaDto.dataAula} | {trimHora(c.aulaDto.horaInicio)} - {trimHora(c.aulaDto.horaFim)}
+                          </p>
+                          <p style={{ margin: "4px 0 0 0", fontSize: 11, color: "var(--panel-dark)" }}>
+                            Estado: <span style={{ color: "#2563eb", fontWeight: 600 }}>{c.estadoAulaDto?.estado}</span>
+                          </p>
+                        </div>
+
+                        <button
+                          onClick={async () => {
+                            if (!confirm("Confirmas a realização desta sessão? Isto irá gerar os pagamentos para os alunos.")) return;
+                            try {
+                              const res = await fetch(`${BASE}/api/horario/professor/coaching/${c.aulaDto.id}/validar`, {
+                                method: "PUT",
+                                headers: authHeaders(),
+                              });
+                              if (!res.ok) throw new Error("Erro no servidor ao processar a realização.");
+                              showToast("Aula realizada com sucesso! Faturas geradas.", "sucesso");
+                              const modal = document.getElementById("modal-coaching-agendados");
+                              if (modal) modal.style.display = "none";
+                              load();
+                            } catch (err: any) {
+                              showToast(err.message || "Erro na operação.", "erro");
+                            }
+                          }}
+                          style={{
+                            padding: "6px 12px",
+                            fontSize: 12,
+                            fontWeight: 600,
+                            backgroundColor: "#16a34a",
+                            color: "#fff",
+                            border: "none",
+                            borderRadius: 6,
+                            cursor: "pointer"
+                          }}
+                        >
+                          Realizar Aula
+                        </button>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+            </div>
+
           </div>
         )}
 
